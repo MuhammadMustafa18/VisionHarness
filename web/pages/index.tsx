@@ -185,6 +185,7 @@ And so much more...`,
   };
 
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
 
   const handleRunInference = async (spec: any) => {
     setIsRunning(true);
@@ -480,8 +481,8 @@ And so much more...`,
                         </div>
                       </div>
 
-                        {/* Execution Action Row */}
-                        <div className="flex flex-col gap-2 pt-2">
+                        {/* Execution Action Row & Video Preview */}
+                        <div className="flex flex-col gap-3 pt-2">
                           <div className="flex items-center gap-3">
                             <button
                               onClick={() => handleRunInference(msg.spec)}
@@ -503,13 +504,59 @@ And so much more...`,
                             </button>
                           </div>
 
-                          {/* Upload Progress Bar */}
-                          {uploadProgress !== null && (
-                            <div className="w-full bg-[#20222a] rounded-full h-2 overflow-hidden border border-[#2b2e38] mt-1">
-                              <div 
-                                className="bg-gradient-to-r from-cyan-500 to-blue-500 h-full transition-all duration-150 rounded-full"
-                                style={{ width: `${uploadProgress}%` }}
+                          {/* Video Thumbnail with Circular Progress Bar when uploading */}
+                          {videoPreviewUrl && (
+                            <div className="relative w-64 h-36 rounded-xl overflow-hidden border border-[#2b2e38] bg-black shadow-md mt-1 group">
+                              <video
+                                src={videoPreviewUrl}
+                                className={`w-full h-full object-cover transition-all duration-300 ${
+                                  uploadProgress !== null ? "blur-md scale-105 opacity-60" : "blur-0 opacity-100"
+                                }`}
                               />
+
+                              {/* Circular Progress Overlay while uploading */}
+                              {uploadProgress !== null && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm">
+                                  <div className="relative w-14 h-14 flex items-center justify-center">
+                                    <svg className="w-14 h-14 transform -rotate-90">
+                                      <circle
+                                        cx="28"
+                                        cy="28"
+                                        r="22"
+                                        stroke="#2a2d38"
+                                        strokeWidth="4"
+                                        fill="transparent"
+                                      />
+                                      <circle
+                                        cx="28"
+                                        cy="28"
+                                        r="22"
+                                        stroke="#06b6d4"
+                                        strokeWidth="4"
+                                        fill="transparent"
+                                        strokeDasharray={2 * Math.PI * 22}
+                                        strokeDashoffset={
+                                          2 * Math.PI * 22 * (1 - (uploadProgress || 0) / 100)
+                                        }
+                                        strokeLinecap="round"
+                                        className="transition-all duration-150"
+                                      />
+                                    </svg>
+                                    <span className="absolute text-xs font-bold text-white">
+                                      {uploadProgress}%
+                                    </span>
+                                  </div>
+                                  <span className="text-[10px] text-cyan-300 font-medium mt-1">Uploading...</span>
+                                </div>
+                              )}
+
+                              {/* Done Preview Badge when finished uploading */}
+                              {uploadProgress === null && !isRunning && (
+                                <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/60 backdrop-blur-sm text-[10px] text-gray-200 font-medium flex items-center gap-1 border border-white/10">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                  <span>{videoFile?.name.slice(0, 16)}</span>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -568,7 +615,13 @@ And so much more...`,
               ref={fileInputRef}
               accept="video/*"
               className="hidden"
-              onChange={e => e.target.files && setVideoFile(e.target.files[0])}
+              onChange={e => {
+                if (e.target.files && e.target.files[0]) {
+                  const file = e.target.files[0];
+                  setVideoFile(file);
+                  setVideoPreviewUrl(URL.createObjectURL(file));
+                }
+              }}
             />
 
             <textarea
