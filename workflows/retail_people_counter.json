@@ -1,0 +1,38 @@
+{
+  "id": "wf_store_people_counter",
+  "name": "Retail Store Front Door People Counter",
+  "description": "Bi-directional in/out line crossing counter with YOLOv8 and ByteTrack",
+  "detector": {
+    "model": "yolov8n",
+    "classes": ["person"],
+    "confidence": 0.35
+  },
+  "tracker": {
+    "tracker_type": "bytetrack",
+    "track_thresh": 0.25,
+    "track_buffer": 30,
+    "match_thresh": 0.8
+  },
+  "lines": [
+    {
+      "name": "entrance_exit_line",
+      "start": {"x": 0.1, "y": 0.5},
+      "end": {"x": 0.9, "y": 0.5},
+      "trigger_in": true,
+      "trigger_out": true
+    }
+  ],
+  "zones": [],
+  "output": {
+    "draw_bounding_boxes": true,
+    "draw_tracking_ids": true,
+    "draw_trails": true,
+    "draw_counters": true,
+    "save_annotated_video": true,
+    "emit_events_jsonl": true
+  },
+  "metadata": {
+    "target_domain": "retail_analytics",
+    "version": "1.0"
+  }
+}
