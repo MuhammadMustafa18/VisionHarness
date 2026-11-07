@@ -276,9 +276,6 @@ Capabilities:
           {/* Top Brand & Sidebar Switcher */}
           <div className="px-5 pt-5 pb-4 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-black text-xs font-black shadow-md">
-                👁️
-              </div>
               <span className="font-semibold text-base tracking-tight text-white">VisionHarness</span>
             </div>
             <PanelLeftClose className="w-4 h-4 text-neutral-500 hover:text-white cursor-pointer transition-colors" />
@@ -299,7 +296,7 @@ Capabilities:
           </div>
 
           {/* Navigation Section */}
-          <div className="px-5 pt-4 pb-2 text-[11px] font-medium tracking-wider uppercase text-neutral-500">
+          <div className="px-5 pt-6 pb-2 text-[11px] font-medium tracking-normal text-neutral-500">
             Navigation
           </div>
 
@@ -350,8 +347,8 @@ Capabilities:
           </div>
 
           {/* Model Engines / Tiers Section */}
-          <div className="px-5 pt-6 pb-2 text-[11px] font-medium tracking-wider uppercase text-neutral-500">
-            Vision Engines
+          <div className="px-5 pt-6 pb-2 text-[11px] font-medium tracking-normal text-neutral-500">
+            Vision engines
           </div>
 
           <div className="px-3 space-y-1">
@@ -425,7 +422,7 @@ Capabilities:
             >
               {/* User Bubble */}
               {msg.sender === "user" ? (
-                <div className="max-w-xl bg-[#1c1d22] text-[#f4f4f5] px-5 py-3 rounded-2xl text-sm leading-relaxed border border-[#262830] shadow-sm">
+                <div className="max-w-xl bg-[#18191f] text-[#f4f4f5] px-5 py-3 rounded-2xl text-sm leading-relaxed border border-[#22242c]">
                   {msg.text}
                 </div>
               ) : (
