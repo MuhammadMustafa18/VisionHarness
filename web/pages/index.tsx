@@ -89,6 +89,7 @@ Capabilities:
   ]);
 
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadDone, setUploadDone] = useState(false);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -192,6 +193,7 @@ Capabilities:
   const handleRunInference = async (spec: any) => {
     setIsRunning(true);
     setUploadProgress(null);
+    setUploadDone(false);
     const formData = new FormData();
     formData.append("workflow_id", spec.id || "wf_store_people_counter");
     if (videoFile) {
@@ -209,11 +211,15 @@ Capabilities:
           if (event.lengthComputable) {
             const percentComplete = Math.round((event.loaded / event.total) * 100);
             setUploadProgress(percentComplete);
+            if (percentComplete >= 100) {
+              setUploadDone(true);
+            }
           }
         };
 
         xhr.onload = () => {
           setUploadProgress(null);
+          setUploadDone(true);
           if (xhr.status >= 200 && xhr.status < 300) {
             try {
               resolve(JSON.parse(xhr.responseText));
@@ -227,6 +233,7 @@ Capabilities:
 
         xhr.onerror = () => {
           setUploadProgress(null);
+          setUploadDone(false);
           reject(new Error("Network Error"));
         };
 
@@ -575,18 +582,19 @@ Capabilities:
                           </button>
                         </div>
 
-                        {/* Video Thumbnail with Circular Progress Bar when uploading */}
+                        {/* Video Thumbnail with Circular Progress Bar when uploading & Done Overlay */}
                         {videoPreviewUrl && (
-                          <div className="relative w-64 h-36 rounded-xl overflow-hidden border border-[#242630] bg-black shadow-md mt-1 group">
+                          <div className="relative w-64 h-36 rounded-xl overflow-hidden bg-black shadow-lg mt-1 group border-0">
                             <video
                               src={videoPreviewUrl}
                               className={`w-full h-full object-cover transition-all duration-300 ${
-                                uploadProgress !== null ? "blur-md scale-105 opacity-60" : "blur-0 opacity-100"
+                                uploadProgress !== null || uploadDone ? "blur-sm scale-105 opacity-70" : "blur-0 opacity-100"
                               }`}
                             />
 
+                            {/* Upload Progress Overlay */}
                             {uploadProgress !== null && (
-                              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm">
+                              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm">
                                 <div className="relative w-14 h-14 flex items-center justify-center">
                                   <svg className="w-14 h-14 transform -rotate-90">
                                     <circle
@@ -620,7 +628,17 @@ Capabilities:
                               </div>
                             )}
 
-                            {uploadProgress === null && !isRunning && (
+                            {/* Upload Done Overlay */}
+                            {uploadDone && uploadProgress === null && (
+                              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/45 backdrop-blur-[2px] transition-all">
+                                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 shadow-md">
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                  <span className="text-xs font-semibold tracking-wide font-mono uppercase">Done</span>
+                                </div>
+                              </div>
+                            )}
+
+                            {!uploadDone && uploadProgress === null && !isRunning && (
                               <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 backdrop-blur-sm text-[10px] text-neutral-300 font-medium flex items-center gap-1 border border-white/10 font-mono">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                                 <span>{videoFile?.name.slice(0, 16)}</span>
@@ -689,6 +707,7 @@ Capabilities:
                   const file = e.target.files[0];
                   setVideoFile(file);
                   setVideoPreviewUrl(URL.createObjectURL(file));
+                  setUploadDone(false);
                 }
               }}
             />
