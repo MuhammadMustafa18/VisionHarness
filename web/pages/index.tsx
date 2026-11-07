@@ -477,23 +477,61 @@ Capabilities:
                         </div>
                       </div>
 
-                      {/* Component Chips */}
+                      {/* Component Metric Cards */}
                       <div className="grid grid-cols-3 gap-3 text-xs">
-                        <div className="bg-[#111216] p-3 rounded-xl border border-[#20222a]">
-                          <span className="text-neutral-500 block mb-1 text-[11px] font-normal">Detector</span>
-                          <span className="font-semibold text-white">
-                            {msg.spec.detector?.model || "yolo11n"}
-                          </span>
+                        {/* Detector Card */}
+                        <div className="relative overflow-hidden bg-[#121318] hover:bg-[#15161c] p-4 rounded-2xl border border-[#22242e] flex flex-col justify-between h-28 transition-all group">
+                          <div className="flex items-center justify-between">
+                            <span className="text-neutral-400 text-xs font-medium">Detector</span>
+                            <span className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center text-neutral-400 group-hover:text-white transition-colors">
+                              <Eye className="w-3 h-3" />
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-2xl font-bold tracking-tight text-white block">
+                              {msg.spec.detector?.model || "yolov8n.pt"}
+                            </span>
+                          </div>
+                          {/* Bottom-right subtle pattern / bottom-left icon accent */}
+                          <div className="absolute -bottom-2 -right-2 opacity-15 pointer-events-none text-neutral-400">
+                            <Cpu className="w-12 h-12" />
+                          </div>
                         </div>
-                        <div className="bg-[#111216] p-3 rounded-xl border border-[#20222a]">
-                          <span className="text-neutral-500 block mb-1 text-[11px] font-normal">Tracker</span>
-                          <span className="font-semibold text-white">
-                            {msg.spec.tracker?.tracker_type || "bytetrack"}
-                          </span>
+
+                        {/* Tracker Card */}
+                        <div className="relative overflow-hidden bg-[#121318] hover:bg-[#15161c] p-4 rounded-2xl border border-[#22242e] flex flex-col justify-between h-28 transition-all group">
+                          <div className="flex items-center justify-between">
+                            <span className="text-neutral-400 text-xs font-medium">Tracker</span>
+                            <span className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center text-neutral-400 group-hover:text-white transition-colors">
+                              <Activity className="w-3 h-3" />
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-2xl font-bold tracking-tight text-white block">
+                              {msg.spec.tracker?.tracker_type || "bytetrack"}
+                            </span>
+                          </div>
+                          <div className="absolute -bottom-2 -right-2 opacity-15 pointer-events-none text-neutral-400">
+                            <Layers className="w-12 h-12" />
+                          </div>
                         </div>
-                        <div className="bg-[#111216] p-3 rounded-xl border border-[#20222a]">
-                          <span className="text-neutral-500 block mb-1 text-[11px] font-normal">Spatial logic</span>
-                          <span className="font-semibold text-white">Line Crossing Trigger</span>
+
+                        {/* Spatial Logic Card */}
+                        <div className="relative overflow-hidden bg-[#121318] hover:bg-[#15161c] p-4 rounded-2xl border border-[#22242e] flex flex-col justify-between h-28 transition-all group">
+                          <div className="flex items-center justify-between">
+                            <span className="text-neutral-400 text-xs font-medium">Spatial logic</span>
+                            <span className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center text-neutral-400 group-hover:text-white transition-colors">
+                              <Play className="w-2.5 h-2.5 fill-current" />
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-lg font-bold tracking-tight text-white block truncate" title="Line Crossing Trigger">
+                              Line Crossing Trigger
+                            </span>
+                          </div>
+                          <div className="absolute -bottom-2 -right-2 opacity-15 pointer-events-none text-neutral-400">
+                            <SlidersHorizontal className="w-12 h-12" />
+                          </div>
                         </div>
                       </div>
 
