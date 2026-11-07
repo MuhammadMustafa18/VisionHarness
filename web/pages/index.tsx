@@ -487,15 +487,18 @@ Capabilities:
                           style={{ backgroundColor: "#272932" }} 
                           className="relative overflow-hidden p-4 rounded-2xl flex flex-col justify-between min-h-[7.5rem] transition-all group shadow-none border-0 hover:brightness-110"
                         >
-                          <div>
+                          <div className="relative z-10">
                             <span className="text-zinc-400 text-xs font-medium block mb-1.5">Detector</span>
                             <span className="text-xl font-bold tracking-tight text-white block break-words leading-tight">
                               {msg.spec.detector?.model || "yolov8n.pt"}
                             </span>
                           </div>
-                          {/* Bottom Right Icon - Bigger, No Bg, Reduced Opacity */}
+                          {/* Bottom Right Icon - Larger with perspective tilt */}
                           <div className="self-end flex items-center justify-center pt-2">
-                            <Eye className="w-7 h-7 text-white opacity-25 group-hover:opacity-40 transition-opacity" />
+                            <Eye 
+                              style={{ transform: "perspective(600px) rotateX(16deg) rotateY(-18deg) rotateZ(-8deg)" }}
+                              className="w-10 h-10 text-white opacity-20 group-hover:opacity-35 transition-all duration-300" 
+                            />
                           </div>
                         </div>
 
@@ -504,15 +507,18 @@ Capabilities:
                           style={{ backgroundColor: "#272932" }} 
                           className="relative overflow-hidden p-4 rounded-2xl flex flex-col justify-between min-h-[7.5rem] transition-all group shadow-none border-0 hover:brightness-110"
                         >
-                          <div>
+                          <div className="relative z-10">
                             <span className="text-zinc-400 text-xs font-medium block mb-1.5">Tracker</span>
                             <span className="text-xl font-bold tracking-tight text-white block break-words leading-tight">
                               {msg.spec.tracker?.tracker_type || "bytetrack"}
                             </span>
                           </div>
-                          {/* Bottom Right Icon - Bigger, No Bg, Reduced Opacity */}
+                          {/* Bottom Right Icon - Larger with perspective tilt */}
                           <div className="self-end flex items-center justify-center pt-2">
-                            <Activity className="w-7 h-7 text-white opacity-25 group-hover:opacity-40 transition-opacity" />
+                            <Activity 
+                              style={{ transform: "perspective(600px) rotateX(16deg) rotateY(-18deg) rotateZ(-8deg)" }}
+                              className="w-10 h-10 text-white opacity-20 group-hover:opacity-35 transition-all duration-300" 
+                            />
                           </div>
                         </div>
 
@@ -521,15 +527,18 @@ Capabilities:
                           style={{ backgroundColor: "#272932" }} 
                           className="relative overflow-hidden p-4 rounded-2xl flex flex-col justify-between min-h-[7.5rem] transition-all group shadow-none border-0 hover:brightness-110"
                         >
-                          <div>
+                          <div className="relative z-10">
                             <span className="text-zinc-400 text-xs font-medium block mb-1.5">Spatial logic</span>
                             <span className="text-base font-bold tracking-tight text-white block break-words leading-tight">
                               Line Crossing Trigger
                             </span>
                           </div>
-                          {/* Bottom Right Icon - Bigger, No Bg, Reduced Opacity */}
+                          {/* Bottom Right Icon - Larger with perspective tilt */}
                           <div className="self-end flex items-center justify-center pt-2">
-                            <SlidersHorizontal className="w-7 h-7 text-white opacity-25 group-hover:opacity-40 transition-opacity" />
+                            <SlidersHorizontal 
+                              style={{ transform: "perspective(600px) rotateX(16deg) rotateY(-18deg) rotateZ(-8deg)" }}
+                              className="w-10 h-10 text-white opacity-20 group-hover:opacity-35 transition-all duration-300" 
+                            />
                           </div>
                         </div>
                       </div>
