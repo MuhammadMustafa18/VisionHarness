@@ -218,6 +218,7 @@ Capabilities:
     setUploadDone(false);
     const formData = new FormData();
     formData.append("workflow_id", spec.id || "wf_store_people_counter");
+    formData.append("spec_json", JSON.stringify(spec));
     if (videoFile) {
       formData.append("video", videoFile);
     } else {
@@ -609,6 +610,9 @@ Capabilities:
                           <div className="relative w-64 h-36 rounded-xl overflow-hidden bg-black shadow-lg mt-1 group border-0">
                             <video
                               src={videoPreviewUrl}
+                              controls={uploadProgress === null}
+                              playsInline
+                              preload="metadata"
                               className={`w-full h-full object-cover transition-all duration-300 ${
                                 uploadProgress !== null ? "blur-md scale-105 opacity-60" : "blur-0 opacity-100"
                               }`}

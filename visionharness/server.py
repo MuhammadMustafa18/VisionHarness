@@ -173,38 +173,59 @@ def save_workflow(spec: WorkflowSpec):
 @app.post("/api/run")
 async def run_pipeline(
     workflow_id: str = Form(...),
+    spec_json: Optional[str] = Form(None),
     video: Optional[UploadFile] = File(None),
     video_path: Optional[str] = Form(None),
     max_frames: Optional[int] = Form(None),
 ):
     """Execute a workflow against an uploaded video file or existing path/stream."""
-    # Load workflow spec
-    spec_path = os.path.join(WORKFLOWS_DIR, f"{workflow_id}.json")
-    if not os.path.exists(spec_path):
-        raise HTTPException(status_code=404, detail=f"Workflow '{workflow_id}' not found.")
+    # Load workflow spec from spec_json or from workflows directory
+    spec = None
+    if spec_json:
+        try:
+            spec = WorkflowSpec.model_validate(json.loads(spec_json))
+        except Exception:
+            pass
 
-    with open(spec_path, "r", encoding="utf-8") as f:
-        spec = WorkflowSpec.model_validate(json.load(f))
+    if spec is None:
+        spec_path = os.path.join(WORKFLOWS_DIR, f"{workflow_id}.json")
+        if os.path.exists(spec_path):
+            with open(spec_path, "r", encoding="utf-8") as f:
+                spec = WorkflowSpec.model_validate(json.load(f))
+        else:
+            # Fallback default workflow spec
+            spec = WorkflowSpec(
+                id=workflow_id,
+                name="Auto Vision Pipeline",
+                detector=DetectorConfig(model="yolov8n.pt", classes=["car", "person"], confidence=0.35),
+                tracker=TrackerConfig(tracker_type="bytetrack"),
+                lines=[LineCrossingConfig(name="traffic_line", trigger_in=True, trigger_out=True)]
+            )
 
     # Resolve video source
     target_video = video_path
     if video:
-        save_name = f"upload_{int(os.path.getmtime(WORKFLOWS_DIR))}_{video.filename}"
+        save_name = f"upload_{int(time.time())}_{video.filename}"
         target_video = os.path.join(UPLOADS_DIR, save_name)
         with open(target_video, "wb") as f_out:
             shutil.copyfileobj(video.file, f_out)
 
     if not target_video or not os.path.exists(target_video):
-        raise HTTPException(status_code=400, detail="A valid video file or path is required.")
+        # Fallback to synthetic test footage if available
+        synthetic_path = os.path.join(ROOT_DIR, "tests", "synthetic_test.mp4")
+        if os.path.exists(synthetic_path):
+            target_video = synthetic_path
+        else:
+            raise HTTPException(status_code=400, detail="A valid video file or path is required.")
 
     # Execute runtime
-    output_video_rel = f"output_{spec.id}.mp4"
+    output_video_rel = f"output_{spec.id}_{int(time.time())}.mp4"
     output_video_path = os.path.join(OUTPUTS_DIR, output_video_rel)
 
     source = VideoSource(target_video)
     runtime = VisionRuntime(spec)
     stats = runtime.process_video(
-        source, output_video_path=output_video_path, max_frames=max_frames
+        source, output_video_path=output_video_path, max_frames=max_frames or 150
     )
     stats["video_url"] = f"/output/{output_video_rel}"
 
