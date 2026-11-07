@@ -468,14 +468,14 @@ Capabilities:
                     </div>
                   )}
 
-                  {/* Generated Pipeline Spec Box - Distinct Zinc Card */}
+                  {/* Generated Pipeline Spec Box - Pure Zinc Elevation */}
                   {msg.spec && (
                     <div 
-                      style={{ backgroundColor: "#27272a" }} 
+                      style={{ backgroundColor: "#52525b" }} 
                       className="mt-4 rounded-2xl p-5 space-y-4 shadow-2xl border-0"
                     >
                       <div className="flex items-center justify-between pb-1">
-                        <div className="text-xs font-semibold text-zinc-300">
+                        <div className="text-xs font-semibold text-zinc-100">
                           <span>{msg.spec.name || "Generated Vision Pipeline"}</span>
                         </div>
                       </div>
@@ -484,11 +484,11 @@ Capabilities:
                       <div className="grid grid-cols-3 gap-3 text-xs">
                         {/* Detector Card */}
                         <div 
-                          style={{ backgroundColor: "#3f3f46" }} 
-                          className="relative overflow-hidden p-4 rounded-2xl flex flex-col justify-between min-h-[7.5rem] transition-all group shadow-none border-0 hover:brightness-110"
+                          style={{ backgroundColor: "#71717a" }} 
+                          className="relative overflow-hidden p-4 rounded-2xl flex flex-col justify-between min-h-[7.5rem] transition-all group shadow-none border-0 hover:brightness-105"
                         >
                           <div>
-                            <span className="text-zinc-300 text-xs font-medium block mb-1.5">Detector</span>
+                            <span className="text-zinc-200 text-xs font-medium block mb-1.5">Detector</span>
                             <span className="text-xl font-bold tracking-tight text-white block break-words leading-tight">
                               {msg.spec.detector?.model || "yolov8n.pt"}
                             </span>
@@ -503,11 +503,11 @@ Capabilities:
 
                         {/* Tracker Card */}
                         <div 
-                          style={{ backgroundColor: "#3f3f46" }} 
-                          className="relative overflow-hidden p-4 rounded-2xl flex flex-col justify-between min-h-[7.5rem] transition-all group shadow-none border-0 hover:brightness-110"
+                          style={{ backgroundColor: "#71717a" }} 
+                          className="relative overflow-hidden p-4 rounded-2xl flex flex-col justify-between min-h-[7.5rem] transition-all group shadow-none border-0 hover:brightness-105"
                         >
                           <div>
-                            <span className="text-zinc-300 text-xs font-medium block mb-1.5">Tracker</span>
+                            <span className="text-zinc-200 text-xs font-medium block mb-1.5">Tracker</span>
                             <span className="text-xl font-bold tracking-tight text-white block break-words leading-tight">
                               {msg.spec.tracker?.tracker_type || "bytetrack"}
                             </span>
@@ -522,11 +522,11 @@ Capabilities:
 
                         {/* Spatial Logic Card */}
                         <div 
-                          style={{ backgroundColor: "#3f3f46" }} 
-                          className="relative overflow-hidden p-4 rounded-2xl flex flex-col justify-between min-h-[7.5rem] transition-all group shadow-none border-0 hover:brightness-110"
+                          style={{ backgroundColor: "#71717a" }} 
+                          className="relative overflow-hidden p-4 rounded-2xl flex flex-col justify-between min-h-[7.5rem] transition-all group shadow-none border-0 hover:brightness-105"
                         >
                           <div>
-                            <span className="text-zinc-300 text-xs font-medium block mb-1.5">Spatial logic</span>
+                            <span className="text-zinc-200 text-xs font-medium block mb-1.5">Spatial logic</span>
                             <span className="text-base font-bold tracking-tight text-white block break-words leading-tight">
                               Line Crossing Trigger
                             </span>
@@ -554,7 +554,7 @@ Capabilities:
                           <button
                             onClick={() => handleRunInference(msg.spec)}
                             disabled={isRunning}
-                            className="px-4 py-2.5 rounded-xl bg-white hover:bg-neutral-200 text-black font-semibold text-xs flex items-center gap-2 transition-all disabled:opacity-50 shadow-md"
+                            className="px-4 py-2.5 rounded-xl bg-white hover:bg-neutral-100 text-black font-semibold text-xs flex items-center gap-2 transition-all disabled:opacity-50 shadow-md"
                           >
                             <Play className="w-3.5 h-3.5 fill-current" />
                             {isRunning 
@@ -564,7 +564,7 @@ Capabilities:
 
                           <button
                             onClick={() => fileInputRef.current?.click()}
-                            style={{ backgroundColor: "#3f3f46" }}
+                            style={{ backgroundColor: "#71717a" }}
                             className="px-3.5 py-2.5 rounded-xl hover:brightness-110 text-white font-medium text-xs flex items-center gap-1.5 transition-colors border-0"
                           >
                             <Upload className="w-3.5 h-3.5" />
