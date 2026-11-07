@@ -470,9 +470,9 @@ Capabilities:
 
                   {/* Generated Pipeline Spec Box */}
                   {msg.spec && (
-                    <div className="mt-4 bg-[#18191f] border border-[#242630] rounded-2xl p-5 space-y-4 shadow-md">
+                    <div className="mt-4 bg-[#14151a] rounded-2xl p-5 space-y-4 shadow-none">
                       <div className="flex items-center justify-between pb-1">
-                        <div className="text-xs font-medium text-neutral-300">
+                        <div className="text-xs font-medium text-neutral-400">
                           <span>{msg.spec.name || "Generated Vision Pipeline"}</span>
                         </div>
                       </div>
@@ -480,7 +480,7 @@ Capabilities:
                       {/* Component Metric Cards */}
                       <div className="grid grid-cols-3 gap-3 text-xs">
                         {/* Detector Card */}
-                        <div className="relative overflow-hidden bg-[#121318] hover:bg-[#15161c] p-4 rounded-2xl border border-[#22242e] flex flex-col justify-between h-28 transition-all group">
+                        <div className="relative overflow-hidden bg-[#181920] hover:bg-[#1b1c24] p-4 rounded-2xl flex flex-col justify-between h-28 transition-all group shadow-none border-0">
                           <div>
                             <span className="text-neutral-400 text-xs font-medium block mb-1.5">Detector</span>
                             <span className="text-2xl font-bold tracking-tight text-white block">
@@ -496,7 +496,7 @@ Capabilities:
                         </div>
 
                         {/* Tracker Card */}
-                        <div className="relative overflow-hidden bg-[#121318] hover:bg-[#15161c] p-4 rounded-2xl border border-[#22242e] flex flex-col justify-between h-28 transition-all group">
+                        <div className="relative overflow-hidden bg-[#181920] hover:bg-[#1b1c24] p-4 rounded-2xl flex flex-col justify-between h-28 transition-all group shadow-none border-0">
                           <div>
                             <span className="text-neutral-400 text-xs font-medium block mb-1.5">Tracker</span>
                             <span className="text-2xl font-bold tracking-tight text-white block">
@@ -512,7 +512,7 @@ Capabilities:
                         </div>
 
                         {/* Spatial Logic Card */}
-                        <div className="relative overflow-hidden bg-[#121318] hover:bg-[#15161c] p-4 rounded-2xl border border-[#22242e] flex flex-col justify-between h-28 transition-all group">
+                        <div className="relative overflow-hidden bg-[#181920] hover:bg-[#1b1c24] p-4 rounded-2xl flex flex-col justify-between h-28 transition-all group shadow-none border-0">
                           <div>
                             <span className="text-neutral-400 text-xs font-medium block mb-1.5">Spatial logic</span>
                             <span className="text-base font-bold tracking-tight text-white block truncate" title="Line Crossing Trigger">
@@ -531,7 +531,7 @@ Capabilities:
                       {/* Editorial Pipeline Diagram (cathrynlavery/diagram-design) */}
                       {msg.diagramSvg && (
                         <div 
-                          className="w-full overflow-hidden rounded-xl border border-[#202228] mt-2 select-none"
+                          className="w-full overflow-hidden rounded-xl border border-[#1e2028] mt-2 select-none"
                           dangerouslySetInnerHTML={{ __html: msg.diagramSvg }}
                         />
                       )}
