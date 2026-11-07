@@ -471,13 +471,10 @@ Capabilities:
                   {/* Generated Pipeline Spec Box */}
                   {msg.spec && (
                     <div className="mt-4 bg-[#18191f] border border-[#242630] rounded-2xl p-5 space-y-4 shadow-md">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between pb-1">
                         <div className="text-xs font-medium text-neutral-300">
                           <span>{msg.spec.name || "Generated Vision Pipeline"}</span>
                         </div>
-                        <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-900 border border-neutral-800 text-neutral-400 font-normal font-mono">
-                          Pipeline Verified
-                        </span>
                       </div>
 
                       {/* Component Chips */}
