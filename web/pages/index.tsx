@@ -137,6 +137,46 @@ Capabilities:
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const handleNewChat = () => {
+    const newId = `wf_${Date.now()}`;
+    const newSession: WorkflowSession = {
+      id: newId,
+      name: "New Vision Workflow",
+      domain: "general_vision",
+      folder: "Navigation"
+    };
+
+    setSessions(prev => [newSession, ...prev]);
+    setActiveSessionId(newId);
+    setVideoFile(null);
+    setVideoPreviewUrl(null);
+    setUploadDone(false);
+    setUploadProgress(null);
+
+    const initialBotMsg: Message = {
+      id: (Date.now() + 1).toString(),
+      sender: "bot",
+      text: "Started new vision workflow workspace. Describe what objects, cameras, or crossing lines you want to track.",
+      thoughts: "Initialized fresh session context. Ready for new CV prompt and footage.",
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setMessages([initialBotMsg]);
+
+    // Save to disk session store
+    fetch("http://localhost:8000/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newSession)
+    }).catch(() => {});
+
+    fetch(`http://localhost:8000/api/sessions/${newId}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(initialBotMsg)
+    }).catch(() => {});
+  };
+
   const handleFileUpload = (file: File) => {
     setVideoFile(file);
     setVideoPreviewUrl(URL.createObjectURL(file));
@@ -371,7 +411,24 @@ Capabilities:
             <div className="flex items-center gap-2.5">
               <span className="font-semibold text-base tracking-tight text-white">VisionHarness</span>
             </div>
-            <PanelLeftClose className="w-4 h-4 text-neutral-500 hover:text-white cursor-pointer transition-colors" />
+            <button
+              onClick={handleNewChat}
+              title="New Vision Chat (⌘N)"
+              className="p-1.5 rounded-lg bg-[#14151a] hover:bg-[#1f2026] text-neutral-400 hover:text-white border border-[#242630] transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* New Chat Quick Button */}
+          <div className="px-4 pb-2">
+            <button
+              onClick={handleNewChat}
+              className="w-full py-2.5 px-3.5 rounded-xl bg-white hover:bg-neutral-200 text-black text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98]"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>New Workspace</span>
+            </button>
           </div>
 
           {/* Search Box with Pill Shortcut */}
