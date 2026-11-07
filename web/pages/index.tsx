@@ -123,6 +123,28 @@ Capabilities:
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const handleFileUpload = (file: File) => {
+    setVideoFile(file);
+    setVideoPreviewUrl(URL.createObjectURL(file));
+    setUploadDone(false);
+    setUploadProgress(0);
+
+    let current = 0;
+    const interval = setInterval(() => {
+      current += 10;
+      if (current >= 100) {
+        setUploadProgress(100);
+        clearInterval(interval);
+        setTimeout(() => {
+          setUploadProgress(null);
+          setUploadDone(true);
+        }, 400);
+      } else {
+        setUploadProgress(current);
+      }
+    }, 120);
+  };
+
   const handleSendPrompt = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!prompt.trim() || isPlanning) return;
@@ -588,20 +610,20 @@ Capabilities:
                             <video
                               src={videoPreviewUrl}
                               className={`w-full h-full object-cover transition-all duration-300 ${
-                                uploadProgress !== null || uploadDone ? "blur-sm scale-105 opacity-70" : "blur-0 opacity-100"
+                                uploadProgress !== null ? "blur-md scale-105 opacity-60" : "blur-0 opacity-100"
                               }`}
                             />
 
-                            {/* Upload Progress Overlay */}
+                            {/* Upload Progress Overlay (Blurred Background + Circular Progress Ring) */}
                             {uploadProgress !== null && (
-                              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm">
+                              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md">
                                 <div className="relative w-14 h-14 flex items-center justify-center">
                                   <svg className="w-14 h-14 transform -rotate-90">
                                     <circle
                                       cx="28"
                                       cy="28"
                                       r="22"
-                                      stroke="#2a2d38"
+                                      stroke="rgba(255,255,255,0.12)"
                                       strokeWidth="4"
                                       fill="transparent"
                                     />
@@ -624,7 +646,7 @@ Capabilities:
                                     {uploadProgress}%
                                   </span>
                                 </div>
-                                <span className="text-[10px] text-emerald-400 font-medium mt-1 font-mono">Uploading...</span>
+                                <span className="text-[10px] text-emerald-400 font-medium mt-1 font-mono tracking-wide">Uploading...</span>
                               </div>
                             )}
 
@@ -704,10 +726,7 @@ Capabilities:
               className="hidden"
               onChange={e => {
                 if (e.target.files && e.target.files[0]) {
-                  const file = e.target.files[0];
-                  setVideoFile(file);
-                  setVideoPreviewUrl(URL.createObjectURL(file));
-                  setUploadDone(false);
+                  handleFileUpload(e.target.files[0]);
                 }
               }}
             />
