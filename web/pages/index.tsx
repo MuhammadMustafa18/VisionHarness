@@ -417,9 +417,20 @@ And so much more...`,
                   {msg.text}
                 </div>
               ) : (
-                /* Assistant Workspace Response */
-                <div className="max-w-3xl w-full space-y-3">
+                /* Assistant Glassy Response Card with Cute Mascot */
+                <div className="max-w-3xl w-full bg-[#181a20]/70 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
                   
+                  {/* Glowing Cute Orb / Mascot Badge */}
+                  <div className="flex items-center gap-3 pb-1 border-b border-white/5">
+                    <div className="relative w-8 h-8 rounded-full bg-gradient-to-tr from-pink-400 via-rose-300 to-amber-200 flex items-center justify-center shadow-lg shadow-pink-500/20 ring-2 ring-white/20">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-1 h-1.5 rounded-full bg-[#1c1c1e] inline-block" />
+                        <span className="w-1 h-1.5 rounded-full bg-[#1c1c1e] inline-block" />
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold tracking-wide text-white/90">VisionHarness</span>
+                  </div>
+
                   {/* Reasoning & Explanation Header */}
                   {msg.thoughts && (
                     <div 
@@ -450,7 +461,7 @@ And so much more...`,
 
                   {/* Generated Pipeline Spec Box */}
                   {msg.spec && (
-                    <div className="mt-4 bg-[#181a20] border border-[#2b2e38] rounded-xl p-5 space-y-4">
+                    <div className="mt-4 bg-[#1f222b]/80 backdrop-blur-md border border-white/10 rounded-2xl p-5 space-y-4 shadow-lg">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-sm font-semibold text-white">
                           <Layers className="w-4 h-4 text-cyan-400" />
@@ -565,7 +576,7 @@ And so much more...`,
 
                   {/* Video Inference Results & Visualizer */}
                   {msg.stats && (
-                    <div className="mt-4 bg-[#181a20] border border-[#2b2e38] rounded-xl p-5 space-y-4">
+                    <div className="mt-4 bg-[#1f222b]/80 backdrop-blur-md border border-white/10 rounded-2xl p-5 space-y-4 shadow-lg">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-sm font-semibold text-emerald-400">
                           <CheckCircle2 className="w-4 h-4" />
