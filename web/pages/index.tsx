@@ -41,6 +41,7 @@ interface Message {
   text: string;
   thoughts?: string;
   spec?: any;
+  diagramSvg?: string;
   stats?: any;
   videoUrl?: string;
   timestamp: string;
@@ -471,8 +472,7 @@ Capabilities:
                   {msg.spec && (
                     <div className="mt-4 bg-[#18191f] border border-[#242630] rounded-2xl p-5 space-y-4 shadow-md">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-xs font-medium text-neutral-300">
-                          <Layers className="w-3.5 h-3.5 text-neutral-400" />
+                        <div className="text-xs font-medium text-neutral-300">
                           <span>{msg.spec.name || "Generated Vision Pipeline"}</span>
                         </div>
                         <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-900 border border-neutral-800 text-neutral-400 font-normal font-mono">
@@ -499,6 +499,14 @@ Capabilities:
                           <span className="font-semibold text-white">Line Crossing Trigger</span>
                         </div>
                       </div>
+
+                      {/* Editorial Pipeline Diagram (cathrynlavery/diagram-design) */}
+                      {msg.diagramSvg && (
+                        <div 
+                          className="w-full overflow-hidden rounded-xl border border-[#202228] mt-2 select-none"
+                          dangerouslySetInnerHTML={{ __html: msg.diagramSvg }}
+                        />
+                      )}
 
                       {/* Execution Action Row & Video Preview */}
                       <div className="flex flex-col gap-3 pt-2">

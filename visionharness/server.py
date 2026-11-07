@@ -25,6 +25,7 @@ from visionharness.registry.components import search_components, get_component, 
 from visionharness.core.spec import WorkflowSpec
 from visionharness.runtime.engine import VisionRuntime, VideoSource
 from visionharness.core.session_store import SessionStore, ChatMessage, SessionMetadata
+from visionharness.core.diagram import generate_pipeline_svg
 
 app = FastAPI(title="VisionHarness API", version="0.1.0")
 
@@ -122,7 +123,9 @@ async def plan_pipeline(req: PlanRequest):
                 clean_res = clean_res.split("```json")[1].split("```")[0].strip()
             elif "```" in clean_res:
                 clean_res = clean_res.split("```")[1].split("```")[0].strip()
-            return {"plan_text": raw_res, "spec": json.loads(clean_res)}
+            spec_obj = json.loads(clean_res)
+            diagram_svg = generate_pipeline_svg(spec_obj)
+            return {"plan_text": raw_res, "spec": spec_obj, "diagram_svg": diagram_svg}
         except Exception as e:
             # Fallback to direct plan_workflow if bridge failed
             pass
@@ -135,7 +138,9 @@ async def plan_pipeline(req: PlanRequest):
             clean_res = clean_res.split("```json")[1].split("```")[0].strip()
         elif "```" in clean_res:
             clean_res = clean_res.split("```")[1].split("```")[0].strip()
-        return {"plan_text": raw_res, "spec": json.loads(clean_res)}
+        spec_obj = json.loads(clean_res)
+        diagram_svg = generate_pipeline_svg(spec_obj)
+        return {"plan_text": raw_res, "spec": spec_obj, "diagram_svg": diagram_svg}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
