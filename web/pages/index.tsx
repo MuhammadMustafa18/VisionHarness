@@ -493,10 +493,10 @@ Capabilities:
                               {msg.spec.detector?.model || "yolov8n.pt"}
                             </span>
                           </div>
-                          {/* Bottom Right Icon - Larger with perspective tilt */}
+                          {/* Bottom Right Icon - Larger with perspective tilt in other direction */}
                           <div className="self-end flex items-center justify-center pt-2">
                             <Eye 
-                              style={{ transform: "perspective(600px) rotateX(16deg) rotateY(-18deg) rotateZ(-8deg)" }}
+                              style={{ transform: "perspective(600px) rotateX(16deg) rotateY(18deg) rotateZ(8deg)" }}
                               className="w-10 h-10 text-white opacity-20 group-hover:opacity-35 transition-all duration-300" 
                             />
                           </div>
@@ -513,10 +513,10 @@ Capabilities:
                               {msg.spec.tracker?.tracker_type || "bytetrack"}
                             </span>
                           </div>
-                          {/* Bottom Right Icon - Larger with perspective tilt */}
+                          {/* Bottom Right Icon - Larger with perspective tilt in other direction */}
                           <div className="self-end flex items-center justify-center pt-2">
                             <Activity 
-                              style={{ transform: "perspective(600px) rotateX(16deg) rotateY(-18deg) rotateZ(-8deg)" }}
+                              style={{ transform: "perspective(600px) rotateX(16deg) rotateY(18deg) rotateZ(8deg)" }}
                               className="w-10 h-10 text-white opacity-20 group-hover:opacity-35 transition-all duration-300" 
                             />
                           </div>
@@ -533,10 +533,10 @@ Capabilities:
                               Line Crossing Trigger
                             </span>
                           </div>
-                          {/* Bottom Right Icon - Larger with perspective tilt */}
+                          {/* Bottom Right Icon - Larger with perspective tilt in other direction */}
                           <div className="self-end flex items-center justify-center pt-2">
                             <SlidersHorizontal 
-                              style={{ transform: "perspective(600px) rotateX(16deg) rotateY(-18deg) rotateZ(-8deg)" }}
+                              style={{ transform: "perspective(600px) rotateX(16deg) rotateY(18deg) rotateZ(8deg)" }}
                               className="w-10 h-10 text-white opacity-20 group-hover:opacity-35 transition-all duration-300" 
                             />
                           </div>
