@@ -481,56 +481,49 @@ Capabilities:
                       <div className="grid grid-cols-3 gap-3 text-xs">
                         {/* Detector Card */}
                         <div className="relative overflow-hidden bg-[#121318] hover:bg-[#15161c] p-4 rounded-2xl border border-[#22242e] flex flex-col justify-between h-28 transition-all group">
-                          <div className="flex items-center justify-between">
-                            <span className="text-neutral-400 text-xs font-medium">Detector</span>
-                            <span className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center text-neutral-400 group-hover:text-white transition-colors">
-                              <Eye className="w-3 h-3" />
-                            </span>
-                          </div>
                           <div>
+                            <span className="text-neutral-400 text-xs font-medium block mb-1.5">Detector</span>
                             <span className="text-2xl font-bold tracking-tight text-white block">
                               {msg.spec.detector?.model || "yolov8n.pt"}
                             </span>
                           </div>
-                          {/* Bottom-right subtle pattern / bottom-left icon accent */}
-                          <div className="absolute -bottom-2 -right-2 opacity-15 pointer-events-none text-neutral-400">
-                            <Cpu className="w-12 h-12" />
+                          {/* Bottom Right Icon */}
+                          <div className="self-end flex items-center justify-center">
+                            <span className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center text-neutral-400 group-hover:text-white transition-colors">
+                              <Eye className="w-3.5 h-3.5" />
+                            </span>
                           </div>
                         </div>
 
                         {/* Tracker Card */}
                         <div className="relative overflow-hidden bg-[#121318] hover:bg-[#15161c] p-4 rounded-2xl border border-[#22242e] flex flex-col justify-between h-28 transition-all group">
-                          <div className="flex items-center justify-between">
-                            <span className="text-neutral-400 text-xs font-medium">Tracker</span>
-                            <span className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center text-neutral-400 group-hover:text-white transition-colors">
-                              <Activity className="w-3 h-3" />
-                            </span>
-                          </div>
                           <div>
+                            <span className="text-neutral-400 text-xs font-medium block mb-1.5">Tracker</span>
                             <span className="text-2xl font-bold tracking-tight text-white block">
                               {msg.spec.tracker?.tracker_type || "bytetrack"}
                             </span>
                           </div>
-                          <div className="absolute -bottom-2 -right-2 opacity-15 pointer-events-none text-neutral-400">
-                            <Layers className="w-12 h-12" />
+                          {/* Bottom Right Icon */}
+                          <div className="self-end flex items-center justify-center">
+                            <span className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center text-neutral-400 group-hover:text-white transition-colors">
+                              <Activity className="w-3.5 h-3.5" />
+                            </span>
                           </div>
                         </div>
 
                         {/* Spatial Logic Card */}
                         <div className="relative overflow-hidden bg-[#121318] hover:bg-[#15161c] p-4 rounded-2xl border border-[#22242e] flex flex-col justify-between h-28 transition-all group">
-                          <div className="flex items-center justify-between">
-                            <span className="text-neutral-400 text-xs font-medium">Spatial logic</span>
-                            <span className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center text-neutral-400 group-hover:text-white transition-colors">
-                              <Play className="w-2.5 h-2.5 fill-current" />
-                            </span>
-                          </div>
                           <div>
-                            <span className="text-lg font-bold tracking-tight text-white block truncate" title="Line Crossing Trigger">
+                            <span className="text-neutral-400 text-xs font-medium block mb-1.5">Spatial logic</span>
+                            <span className="text-base font-bold tracking-tight text-white block truncate" title="Line Crossing Trigger">
                               Line Crossing Trigger
                             </span>
                           </div>
-                          <div className="absolute -bottom-2 -right-2 opacity-15 pointer-events-none text-neutral-400">
-                            <SlidersHorizontal className="w-12 h-12" />
+                          {/* Bottom Right Icon */}
+                          <div className="self-end flex items-center justify-center">
+                            <span className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center text-neutral-400 group-hover:text-white transition-colors">
+                              <SlidersHorizontal className="w-3.5 h-3.5" />
+                            </span>
                           </div>
                         </div>
                       </div>
