@@ -389,17 +389,33 @@ And so much more...`,
                 /* Assistant Workspace Response */
                 <div className="max-w-3xl w-full space-y-3">
                   
-                  {/* Expandable Thinking Process (Matching "Thought for a while >" in Reference) */}
+                  {/* Reasoning & Explanation Header */}
                   {msg.thoughts && (
-                    <div className="text-xs text-gray-400 flex items-center gap-1.5 cursor-pointer hover:text-gray-300">
-                      <span>Thought for a while</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
+                    <div 
+                      onClick={() => setShowThoughts(!showThoughts)}
+                      className="text-xs text-gray-400 flex items-center gap-1.5 cursor-pointer hover:text-gray-200 select-none transition-colors"
+                    >
+                      <span className="font-medium">Thought for a while</span>
+                      <ChevronRight className={`w-3.5 h-3.5 transition-transform duration-200 ${showThoughts ? "rotate-90" : ""}`} />
                     </div>
                   )}
 
-                  <div className="text-sm text-gray-200 leading-relaxed whitespace-pre-line">
-                    {msg.text}
-                  </div>
+                  {msg.thoughts && showThoughts && (
+                    <div className="bg-[#181a20] border-l-2 border-cyan-500/70 pl-3 py-1.5 text-xs text-gray-400 italic rounded-r">
+                      {msg.thoughts}
+                    </div>
+                  )}
+
+                  {/* Clean text explanation (suppress raw JSON dump if structured spec card is displayed) */}
+                  {(!msg.spec || !msg.text.includes('"id":')) ? (
+                    <div className="text-sm text-gray-200 leading-relaxed whitespace-pre-line">
+                      {msg.text}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-300 leading-relaxed">
+                      I have analyzed your request and architected the <strong>{msg.spec.name}</strong> pipeline. It detects <em>{msg.spec.detector?.classes?.join(", ") || "vehicles"}</em> using <strong>{msg.spec.detector?.model || "YOLO"}</strong>, maintains persistent tracking via <strong>{msg.spec.tracker?.tracker_type || "ByteTrack"}</strong>, and sets up directional boundary crossing triggers.
+                    </div>
+                  )}
 
                   {/* Generated Pipeline Spec Box */}
                   {msg.spec && (
