@@ -232,14 +232,14 @@ And so much more...`,
   };
 
   return (
-    <div className="h-screen w-screen bg-[#111216] text-[#e1e2e6] flex overflow-hidden font-sans select-none antialiased">
+    <div className="h-screen w-screen bg-[#111216] text-[#e1e2e6] flex overflow-hidden font-sans antialiased">
       <Head>
         <title>VisionHarness Desktop</title>
         <meta name="description" content="Agentic Computer Vision Builder" />
       </Head>
 
       {/* Left Sidebar (Dark Charcoal Aesthetic from Reference Image) */}
-      <aside className="w-64 bg-[#1e2027] border-r border-[#2a2d36] flex flex-col justify-between">
+      <aside className="w-64 bg-[#1e2027] border-r border-[#2a2d36] flex flex-col justify-between select-none">
         <div className="flex flex-col">
           
           {/* Top Window Header & Brand */}
@@ -374,7 +374,7 @@ And so much more...`,
         </header>
 
         {/* Chat / Reasoning Canvas */}
-        <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
+        <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6 select-text">
           {messages.map(msg => (
             <div
               key={msg.id}
