@@ -207,25 +207,18 @@ And so much more...`,
       <aside className="w-64 bg-[#1e2027] border-r border-[#2a2d36] flex flex-col justify-between">
         <div className="flex flex-col">
           
-          {/* Top macOS Traffic Light Window Dots & Logo */}
+          {/* Top Window Header & Brand */}
           <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-[#2a2d36]/50">
             <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-[#ff5f56] inline-block shadow-sm" />
-              <span className="w-3 h-3 rounded-full bg-[#ffbd2e] inline-block shadow-sm" />
-              <span className="w-3 h-3 rounded-full bg-[#27c93f] inline-block shadow-sm" />
+              <div className="w-6 h-6 rounded bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white text-xs font-bold">
+                👁️
+              </div>
+              <span className="font-semibold text-sm tracking-wide text-white">visionharness</span>
+              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-[#2b2f3a] text-gray-300 ml-1">
+                HARNESS
+              </span>
             </div>
             <PanelLeftClose className="w-4 h-4 text-gray-400 hover:text-white cursor-pointer" />
-          </div>
-
-          {/* VisionHarness Brand Badge */}
-          <div className="px-5 pt-4 pb-3 flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white text-xs font-bold">
-              👁️
-            </div>
-            <span className="font-semibold text-sm tracking-wide text-white">visionharness</span>
-            <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-[#2b2f3a] text-gray-300 ml-1">
-              HARNESS
-            </span>
           </div>
 
           {/* New Session Button */}
