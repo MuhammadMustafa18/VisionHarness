@@ -470,9 +470,9 @@ Capabilities:
 
                   {/* Generated Pipeline Spec Box - Distinct Zinc Card */}
                   {msg.spec && (
-                    <div className="mt-4 bg-zinc-900/90 border border-zinc-800/80 rounded-2xl p-5 space-y-4 shadow-xl">
+                    <div className="mt-4 bg-zinc-800/90 rounded-2xl p-5 space-y-4 shadow-xl border-0">
                       <div className="flex items-center justify-between pb-1">
-                        <div className="text-xs font-medium text-zinc-400">
+                        <div className="text-xs font-medium text-zinc-300">
                           <span>{msg.spec.name || "Generated Vision Pipeline"}</span>
                         </div>
                       </div>
@@ -480,48 +480,48 @@ Capabilities:
                       {/* Component Metric Cards */}
                       <div className="grid grid-cols-3 gap-3 text-xs">
                         {/* Detector Card */}
-                        <div className="relative overflow-hidden bg-zinc-800/80 hover:bg-zinc-800 p-4 rounded-2xl flex flex-col justify-between min-h-[7.5rem] transition-all group shadow-none border border-zinc-700/40">
+                        <div className="relative overflow-hidden bg-zinc-700/80 hover:bg-zinc-700 p-4 rounded-2xl flex flex-col justify-between min-h-[7.5rem] transition-all group shadow-none border-0">
                           <div>
-                            <span className="text-zinc-400 text-xs font-medium block mb-1.5">Detector</span>
+                            <span className="text-zinc-300 text-xs font-medium block mb-1.5">Detector</span>
                             <span className="text-xl font-bold tracking-tight text-white block break-words leading-tight">
                               {msg.spec.detector?.model || "yolov8n.pt"}
                             </span>
                           </div>
                           {/* Bottom Right Icon - Bigger & Lighter */}
                           <div className="self-end flex items-center justify-center pt-2">
-                            <span className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/90 group-hover:text-white group-hover:bg-white/15 transition-all">
+                            <span className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center text-white group-hover:bg-white/20 transition-all">
                               <Eye className="w-4 h-4" />
                             </span>
                           </div>
                         </div>
 
                         {/* Tracker Card */}
-                        <div className="relative overflow-hidden bg-zinc-800/80 hover:bg-zinc-800 p-4 rounded-2xl flex flex-col justify-between min-h-[7.5rem] transition-all group shadow-none border border-zinc-700/40">
+                        <div className="relative overflow-hidden bg-zinc-700/80 hover:bg-zinc-700 p-4 rounded-2xl flex flex-col justify-between min-h-[7.5rem] transition-all group shadow-none border-0">
                           <div>
-                            <span className="text-zinc-400 text-xs font-medium block mb-1.5">Tracker</span>
+                            <span className="text-zinc-300 text-xs font-medium block mb-1.5">Tracker</span>
                             <span className="text-xl font-bold tracking-tight text-white block break-words leading-tight">
                               {msg.spec.tracker?.tracker_type || "bytetrack"}
                             </span>
                           </div>
                           {/* Bottom Right Icon - Bigger & Lighter */}
                           <div className="self-end flex items-center justify-center pt-2">
-                            <span className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/90 group-hover:text-white group-hover:bg-white/15 transition-all">
+                            <span className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center text-white group-hover:bg-white/20 transition-all">
                               <Activity className="w-4 h-4" />
                             </span>
                           </div>
                         </div>
 
                         {/* Spatial Logic Card */}
-                        <div className="relative overflow-hidden bg-zinc-800/80 hover:bg-zinc-800 p-4 rounded-2xl flex flex-col justify-between min-h-[7.5rem] transition-all group shadow-none border border-zinc-700/40">
+                        <div className="relative overflow-hidden bg-zinc-700/80 hover:bg-zinc-700 p-4 rounded-2xl flex flex-col justify-between min-h-[7.5rem] transition-all group shadow-none border-0">
                           <div>
-                            <span className="text-zinc-400 text-xs font-medium block mb-1.5">Spatial logic</span>
+                            <span className="text-zinc-300 text-xs font-medium block mb-1.5">Spatial logic</span>
                             <span className="text-base font-bold tracking-tight text-white block break-words leading-tight">
                               Line Crossing Trigger
                             </span>
                           </div>
                           {/* Bottom Right Icon - Bigger & Lighter */}
                           <div className="self-end flex items-center justify-center pt-2">
-                            <span className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/90 group-hover:text-white group-hover:bg-white/15 transition-all">
+                            <span className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center text-white group-hover:bg-white/20 transition-all">
                               <SlidersHorizontal className="w-4 h-4" />
                             </span>
                           </div>
@@ -531,7 +531,7 @@ Capabilities:
                       {/* Editorial Pipeline Diagram (cathrynlavery/diagram-design) */}
                       {msg.diagramSvg && (
                         <div 
-                          className="w-full overflow-hidden rounded-xl border border-zinc-800 mt-2 select-none"
+                          className="w-full overflow-hidden rounded-xl mt-2 select-none"
                           dangerouslySetInnerHTML={{ __html: msg.diagramSvg }}
                         />
                       )}
@@ -552,7 +552,7 @@ Capabilities:
 
                           <button
                             onClick={() => fileInputRef.current?.click()}
-                            className="px-3.5 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700/80 text-zinc-200 font-medium text-xs flex items-center gap-1.5 transition-colors border border-zinc-700/50"
+                            className="px-3.5 py-2.5 rounded-xl bg-zinc-700/80 hover:bg-zinc-700 text-zinc-100 font-medium text-xs flex items-center gap-1.5 transition-colors border-0"
                           >
                             <Upload className="w-3.5 h-3.5" />
                             {videoFile ? videoFile.name.slice(0, 18) : "Upload Video / RTSP"}
