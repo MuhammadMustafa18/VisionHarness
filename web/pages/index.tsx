@@ -191,14 +191,14 @@ export default function VisionHarnessApp() {
   };
 
   return (
-    <div className="min-h-screen bg-[#ff2a85] flex items-center justify-center p-4 sm:p-8 font-sans selection:bg-pink-300">
+    <div className="h-screen w-screen bg-[#fafafa] flex overflow-hidden font-sans selection:bg-pink-300">
       <Head>
         <title>VisionHarness Desktop</title>
         <meta name="description" content="Agentic Computer Vision Builder" />
       </Head>
 
-      {/* Main Desktop Window Frame */}
-      <div className="w-full max-w-6xl h-[88vh] bg-white rounded-[2.5rem] shadow-2xl flex overflow-hidden border border-white/40">
+      {/* Full-Screen Desktop App Frame */}
+      <div className="w-full h-full bg-white flex overflow-hidden">
         
         {/* Left Rail / Dock (Matching uploaded mockup) */}
         <aside className="w-20 bg-[#fafafa] border-r border-gray-100 flex flex-col items-center py-6 justify-between select-none">

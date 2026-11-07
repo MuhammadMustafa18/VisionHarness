@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.visionharness.desktop",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "",
     "devUrl": "http://localhost:3000",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../out"
@@ -13,12 +13,13 @@
     "windows": [
       {
         "title": "VisionHarness",
-        "width": 1200,
-        "height": 840,
+        "width": 1400,
+        "height": 900,
         "minWidth": 900,
         "minHeight": 650,
         "resizable": true,
         "fullscreen": false,
+        "maximized": true,
         "decorations": true,
         "transparent": false
       }
