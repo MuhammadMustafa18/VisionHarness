@@ -429,11 +429,11 @@ Capabilities:
                   {msg.text}
                 </div>
               ) : (
-                /* Assistant Glassy Response Card */
-                <div className="max-w-3xl w-full bg-[#131418]/80 backdrop-blur-xl rounded-3xl p-6 shadow-xl border border-[#20222a] space-y-4">
+                /* Assistant Seamless Response (No Outer Card) */
+                <div className="max-w-3xl w-full space-y-4">
                   
-                  {/* Pink Mascot Avatar */}
-                  <div className="flex items-center gap-2.5 pb-1">
+                  {/* Pink Mascot Avatar & Brand */}
+                  <div className="flex items-center gap-2.5">
                     <img
                       src="/mascot.png"
                       alt="VisionHarness Mascot"
