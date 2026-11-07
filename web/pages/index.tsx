@@ -401,7 +401,7 @@ And so much more...`,
                   )}
 
                   {msg.thoughts && showThoughts && (
-                    <div className="bg-[#181a20] border-l-2 border-cyan-500/70 px-4 py-3 text-xs text-gray-400 italic rounded-r-lg leading-relaxed shadow-inner my-1.5">
+                    <div className="border-l-2 border-[#3b4252] pl-4 py-1 text-xs text-gray-400 italic leading-relaxed my-2">
                       {msg.thoughts}
                     </div>
                   )}
