@@ -470,9 +470,9 @@ Capabilities:
 
                   {/* Generated Pipeline Spec Box */}
                   {msg.spec && (
-                    <div className="mt-4 bg-[#14151a] rounded-2xl p-5 space-y-4 shadow-none">
+                    <div className="mt-4 bg-[#1e2029] rounded-2xl p-5 space-y-4 shadow-none">
                       <div className="flex items-center justify-between pb-1">
-                        <div className="text-xs font-medium text-neutral-400">
+                        <div className="text-xs font-medium text-neutral-300">
                           <span>{msg.spec.name || "Generated Vision Pipeline"}</span>
                         </div>
                       </div>
@@ -480,49 +480,49 @@ Capabilities:
                       {/* Component Metric Cards */}
                       <div className="grid grid-cols-3 gap-3 text-xs">
                         {/* Detector Card */}
-                        <div className="relative overflow-hidden bg-[#181920] hover:bg-[#1b1c24] p-4 rounded-2xl flex flex-col justify-between h-28 transition-all group shadow-none border-0">
+                        <div className="relative overflow-hidden bg-[#262835] hover:bg-[#2c2f3e] p-4 rounded-2xl flex flex-col justify-between h-28 transition-all group shadow-none border-0">
                           <div>
-                            <span className="text-neutral-400 text-xs font-medium block mb-1.5">Detector</span>
+                            <span className="text-neutral-300 text-xs font-medium block mb-1.5">Detector</span>
                             <span className="text-2xl font-bold tracking-tight text-white block">
                               {msg.spec.detector?.model || "yolov8n.pt"}
                             </span>
                           </div>
-                          {/* Bottom Left Icon */}
-                          <div className="self-start flex items-center justify-start">
-                            <span className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center text-neutral-400 group-hover:text-white transition-colors">
-                              <Eye className="w-3.5 h-3.5" />
+                          {/* Bottom Right Icon - Bigger & Lighter */}
+                          <div className="self-end flex items-center justify-center">
+                            <span className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/80 group-hover:text-white group-hover:bg-white/15 transition-all">
+                              <Eye className="w-4 h-4" />
                             </span>
                           </div>
                         </div>
 
                         {/* Tracker Card */}
-                        <div className="relative overflow-hidden bg-[#181920] hover:bg-[#1b1c24] p-4 rounded-2xl flex flex-col justify-between h-28 transition-all group shadow-none border-0">
+                        <div className="relative overflow-hidden bg-[#262835] hover:bg-[#2c2f3e] p-4 rounded-2xl flex flex-col justify-between h-28 transition-all group shadow-none border-0">
                           <div>
-                            <span className="text-neutral-400 text-xs font-medium block mb-1.5">Tracker</span>
+                            <span className="text-neutral-300 text-xs font-medium block mb-1.5">Tracker</span>
                             <span className="text-2xl font-bold tracking-tight text-white block">
                               {msg.spec.tracker?.tracker_type || "bytetrack"}
                             </span>
                           </div>
-                          {/* Bottom Left Icon */}
-                          <div className="self-start flex items-center justify-start">
-                            <span className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center text-neutral-400 group-hover:text-white transition-colors">
-                              <Activity className="w-3.5 h-3.5" />
+                          {/* Bottom Right Icon - Bigger & Lighter */}
+                          <div className="self-end flex items-center justify-center">
+                            <span className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/80 group-hover:text-white group-hover:bg-white/15 transition-all">
+                              <Activity className="w-4 h-4" />
                             </span>
                           </div>
                         </div>
 
                         {/* Spatial Logic Card */}
-                        <div className="relative overflow-hidden bg-[#181920] hover:bg-[#1b1c24] p-4 rounded-2xl flex flex-col justify-between h-28 transition-all group shadow-none border-0">
+                        <div className="relative overflow-hidden bg-[#262835] hover:bg-[#2c2f3e] p-4 rounded-2xl flex flex-col justify-between h-28 transition-all group shadow-none border-0">
                           <div>
-                            <span className="text-neutral-400 text-xs font-medium block mb-1.5">Spatial logic</span>
+                            <span className="text-neutral-300 text-xs font-medium block mb-1.5">Spatial logic</span>
                             <span className="text-base font-bold tracking-tight text-white block truncate" title="Line Crossing Trigger">
                               Line Crossing Trigger
                             </span>
                           </div>
-                          {/* Bottom Left Icon */}
-                          <div className="self-start flex items-center justify-start">
-                            <span className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center text-neutral-400 group-hover:text-white transition-colors">
-                              <SlidersHorizontal className="w-3.5 h-3.5" />
+                          {/* Bottom Right Icon - Bigger & Lighter */}
+                          <div className="self-end flex items-center justify-center">
+                            <span className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/80 group-hover:text-white group-hover:bg-white/15 transition-all">
+                              <SlidersHorizontal className="w-4 h-4" />
                             </span>
                           </div>
                         </div>
