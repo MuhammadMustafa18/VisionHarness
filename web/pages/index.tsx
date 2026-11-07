@@ -184,8 +184,11 @@ And so much more...`,
     }
   };
 
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+
   const handleRunInference = async (spec: any) => {
     setIsRunning(true);
+    setUploadProgress(null);
     const formData = new FormData();
     formData.append("workflow_id", spec.id || "wf_store_people_counter");
     if (videoFile) {
@@ -195,11 +198,38 @@ And so much more...`,
     }
 
     try {
-      const res = await fetch("http://localhost:8000/api/run", {
-        method: "POST",
-        body: formData
+      // Use XMLHttpRequest to track upload percentage
+      const stats = await new Promise<any>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "http://localhost:8000/api/run");
+
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percentComplete = Math.round((event.loaded / event.total) * 100);
+            setUploadProgress(percentComplete);
+          }
+        };
+
+        xhr.onload = () => {
+          setUploadProgress(null);
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              resolve(JSON.parse(xhr.responseText));
+            } catch (e) {
+              reject(e);
+            }
+          } else {
+            reject(new Error(xhr.statusText || "Request failed"));
+          }
+        };
+
+        xhr.onerror = () => {
+          setUploadProgress(null);
+          reject(new Error("Network Error"));
+        };
+
+        xhr.send(formData);
       });
-      const stats = await res.json();
       
       setMessages(prev => [
         ...prev,
@@ -450,25 +480,39 @@ And so much more...`,
                         </div>
                       </div>
 
-                      {/* Execution Action Row */}
-                      <div className="flex items-center gap-3 pt-2">
-                        <button
-                          onClick={() => handleRunInference(msg.spec)}
-                          disabled={isRunning}
-                          className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium text-xs flex items-center gap-2 transition-colors disabled:opacity-50"
-                        >
-                          <Play className="w-3.5 h-3.5 fill-current" />
-                          {isRunning ? "Running Pipeline..." : "Run Reference Footage"}
-                        </button>
+                        {/* Execution Action Row */}
+                        <div className="flex flex-col gap-2 pt-2">
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => handleRunInference(msg.spec)}
+                              disabled={isRunning}
+                              className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium text-xs flex items-center gap-2 transition-colors disabled:opacity-50 shadow"
+                            >
+                              <Play className="w-3.5 h-3.5 fill-current" />
+                              {isRunning 
+                                ? (uploadProgress !== null ? `Uploading ${uploadProgress}%...` : "Running CV Pipeline...") 
+                                : "Run Reference Footage"}
+                            </button>
 
-                        <button
-                          onClick={() => fileInputRef.current?.click()}
-                          className="px-3.5 py-2 rounded-lg bg-[#272a34] hover:bg-[#313542] text-gray-300 font-medium text-xs flex items-center gap-1.5 transition-colors border border-[#353947]"
-                        >
-                          <Upload className="w-3.5 h-3.5" />
-                          {videoFile ? videoFile.name.slice(0, 18) : "Upload Video / RTSP"}
-                        </button>
-                      </div>
+                            <button
+                              onClick={() => fileInputRef.current?.click()}
+                              className="px-3.5 py-2 rounded-lg bg-[#272a34] hover:bg-[#313542] text-gray-300 font-medium text-xs flex items-center gap-1.5 transition-colors border border-[#353947]"
+                            >
+                              <Upload className="w-3.5 h-3.5" />
+                              {videoFile ? videoFile.name.slice(0, 18) : "Upload Video / RTSP"}
+                            </button>
+                          </div>
+
+                          {/* Upload Progress Bar */}
+                          {uploadProgress !== null && (
+                            <div className="w-full bg-[#20222a] rounded-full h-2 overflow-hidden border border-[#2b2e38] mt-1">
+                              <div 
+                                className="bg-gradient-to-r from-cyan-500 to-blue-500 h-full transition-all duration-150 rounded-full"
+                                style={{ width: `${uploadProgress}%` }}
+                              />
+                            </div>
+                          )}
+                        </div>
                     </div>
                   )}
 
