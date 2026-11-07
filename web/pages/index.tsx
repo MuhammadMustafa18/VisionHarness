@@ -137,18 +137,29 @@ Capabilities:
 
     let current = 0;
     const interval = setInterval(() => {
-      current += 10;
+      current += 20;
       if (current >= 100) {
         setUploadProgress(100);
         clearInterval(interval);
         setTimeout(() => {
           setUploadProgress(null);
           setUploadDone(true);
-        }, 400);
+
+          // Find latest bot message with a spec and auto-trigger execution
+          setMessages(currentMsgs => {
+            const lastBotSpecMsg = [...currentMsgs].reverse().find(m => m.spec);
+            if (lastBotSpecMsg && lastBotSpecMsg.spec) {
+              setTimeout(() => {
+                handleRunInference(lastBotSpecMsg.spec, file);
+              }, 300);
+            }
+            return currentMsgs;
+          });
+        }, 300);
       } else {
         setUploadProgress(current);
       }
-    }, 120);
+    }, 80);
   };
 
   const handleSendPrompt = async (e?: React.FormEvent) => {
@@ -218,15 +229,16 @@ Capabilities:
     }
   };
 
-  const handleRunInference = async (spec: any) => {
+  const handleRunInference = async (spec: any, fileOverride?: File) => {
     setIsRunning(true);
     setUploadProgress(null);
     setUploadDone(false);
     const formData = new FormData();
     formData.append("workflow_id", spec.id || "wf_store_people_counter");
     formData.append("spec_json", JSON.stringify(spec));
-    if (videoFile) {
-      formData.append("video", videoFile);
+    const activeFile = fileOverride || videoFile;
+    if (activeFile) {
+      formData.append("video", activeFile);
     } else {
       formData.append("video_path", "tests/synthetic_test.mp4");
     }
