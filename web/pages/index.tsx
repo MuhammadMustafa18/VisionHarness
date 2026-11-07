@@ -607,7 +607,7 @@ Capabilities:
                             <Play className="w-3.5 h-3.5 fill-current" />
                             {isRunning 
                               ? (uploadProgress !== null ? `Uploading ${uploadProgress}%...` : "Running CV Pipeline...") 
-                              : "Run Reference Footage"}
+                              : (videoFile ? `Run on ${videoFile.name.slice(0, 16)}` : "Run Reference Footage")}
                           </button>
 
                           <button
