@@ -1,0 +1,76 @@
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Weights & Models (Do not commit heavy weights)
+*.pt
+*.pth
+*.onnx
+*.engine
+*.tflite
+models_cache/
+weights/
+
+# Vision outputs, sample footage, and recordings
+data/
+datasets/
+runs/
+output/
+outputs/
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.jpg
+*.jpeg
+*.png
+!assets/*.png
+!assets/*.jpg
+
+# Testing & Logs
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+logs/
