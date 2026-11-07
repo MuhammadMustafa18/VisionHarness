@@ -21,6 +21,8 @@ class ChatMessage(BaseModel):
     spec: Optional[Dict[str, Any]] = None
     stats: Optional[Dict[str, Any]] = None
     video_url: Optional[str] = None
+    videoUrl: Optional[str] = None
+    diagramSvg: Optional[str] = None
     timestamp: str = Field(default_factory=lambda: time.strftime("%I:%M %p"))
 
 

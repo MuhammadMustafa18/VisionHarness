@@ -113,7 +113,13 @@ Capabilities:
       .then(res => res.json())
       .then(msgs => {
         if (msgs && msgs.length > 0) {
-          setMessages(msgs);
+          // Map backend video_url and diagram_svg to frontend keys
+          const normalized = msgs.map((m: any) => ({
+            ...m,
+            videoUrl: m.videoUrl || m.video_url,
+            diagramSvg: m.diagramSvg || m.diagram_svg
+          }));
+          setMessages(normalized);
         }
       })
       .catch(() => {});
@@ -263,31 +269,40 @@ Capabilities:
         xhr.send(formData);
       });
       
-      setMessages(prev => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          sender: "bot",
-          text: `Inference pipeline completed. Processed ${stats.processed_frames} frames at ${stats.processed_fps} FPS.`,
-          thoughts: `Pipeline execution finished. Processed frames through YOLO11 model, verified ByteTrack track associations, and tallied line crossing triggers.`,
-          stats: stats,
-          videoUrl: `http://localhost:8000${stats.video_url}`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }
-      ]);
+      const resultMsg = {
+        id: Date.now().toString(),
+        sender: "bot" as const,
+        text: `Inference pipeline completed. Processed ${stats.processed_frames} frames at ${stats.processed_fps} FPS.`,
+        thoughts: `Pipeline execution finished. Processed frames through YOLO model, verified ByteTrack track associations, and tallied line crossing triggers.`,
+        stats: stats,
+        videoUrl: `http://localhost:8000${stats.video_url}`,
+        video_url: `http://localhost:8000${stats.video_url}`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      setMessages(prev => [...prev, resultMsg]);
+      fetch(`http://localhost:8000/api/sessions/${activeSessionId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(resultMsg)
+      }).catch(() => {});
     } catch (err) {
-      setMessages(prev => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          sender: "bot",
-          text: "Executed pipeline on synthetic test footage. Bounding boxes and tracking IDs rendered.",
-          thoughts: "Local execution fallback completed.",
-          stats: { processed_frames: 30, processed_fps: 3.1, in_count: 2, out_count: 1 },
-          videoUrl: "http://localhost:8000/output/test_run.mp4",
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }
-      ]);
+      const fallbackMsg = {
+        id: Date.now().toString(),
+        sender: "bot" as const,
+        text: "Executed pipeline on synthetic test footage. Bounding boxes and tracking IDs rendered.",
+        thoughts: "Local execution fallback completed.",
+        stats: { processed_frames: 30, processed_fps: 3.1, in_count: 2, out_count: 1 },
+        videoUrl: "http://localhost:8000/output/test_run.mp4",
+        video_url: "http://localhost:8000/output/test_run.mp4",
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      setMessages(prev => [...prev, fallbackMsg]);
+      fetch(`http://localhost:8000/api/sessions/${activeSessionId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(fallbackMsg)
+      }).catch(() => {});
     } finally {
       setIsRunning(false);
     }
