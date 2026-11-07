@@ -487,8 +487,8 @@ Capabilities:
                               {msg.spec.detector?.model || "yolov8n.pt"}
                             </span>
                           </div>
-                          {/* Bottom Right Icon */}
-                          <div className="self-end flex items-center justify-center">
+                          {/* Bottom Left Icon */}
+                          <div className="self-start flex items-center justify-start">
                             <span className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center text-neutral-400 group-hover:text-white transition-colors">
                               <Eye className="w-3.5 h-3.5" />
                             </span>
@@ -503,8 +503,8 @@ Capabilities:
                               {msg.spec.tracker?.tracker_type || "bytetrack"}
                             </span>
                           </div>
-                          {/* Bottom Right Icon */}
-                          <div className="self-end flex items-center justify-center">
+                          {/* Bottom Left Icon */}
+                          <div className="self-start flex items-center justify-start">
                             <span className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center text-neutral-400 group-hover:text-white transition-colors">
                               <Activity className="w-3.5 h-3.5" />
                             </span>
@@ -519,8 +519,8 @@ Capabilities:
                               Line Crossing Trigger
                             </span>
                           </div>
-                          {/* Bottom Right Icon */}
-                          <div className="self-end flex items-center justify-center">
+                          {/* Bottom Left Icon */}
+                          <div className="self-start flex items-center justify-start">
                             <span className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center text-neutral-400 group-hover:text-white transition-colors">
                               <SlidersHorizontal className="w-3.5 h-3.5" />
                             </span>
