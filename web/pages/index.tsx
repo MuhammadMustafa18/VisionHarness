@@ -90,8 +90,30 @@ And so much more...`,
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    // 1. Fetch persistent sessions from backend
+    fetch("http://localhost:8000/api/sessions")
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.length > 0) {
+          setSessions(data);
+          setActiveSessionId(data[0].id);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    // 2. Fetch persistent chat messages when active session changes
+    if (!activeSessionId) return;
+    fetch(`http://localhost:8000/api/sessions/${activeSessionId}/messages`)
+      .then(res => res.json())
+      .then(msgs => {
+        if (msgs && msgs.length > 0) {
+          setMessages(msgs);
+        }
+      })
+      .catch(() => {});
+  }, [activeSessionId]);
 
   const handleSendPrompt = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -105,6 +127,13 @@ And so much more...`,
     };
 
     setMessages(prev => [...prev, userMsg]);
+    // Persist user message to disk
+    fetch(`http://localhost:8000/api/sessions/${activeSessionId}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(userMsg)
+    }).catch(() => {});
+
     const currentPrompt = prompt;
     setPrompt("");
     setIsPlanning(true);
@@ -113,7 +142,7 @@ And so much more...`,
       const res = await fetch("http://localhost:8000/api/plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: currentPrompt, auth_mode: "auto" })
+        body: JSON.stringify({ prompt: currentPrompt, session_id: activeSessionId, auth_mode: "auto" })
       });
       const data = await res.json();
       
@@ -126,6 +155,12 @@ And so much more...`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, botMsg]);
+      // Persist bot message to disk
+      fetch(`http://localhost:8000/api/sessions/${activeSessionId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(botMsg)
+      }).catch(() => {});
     } catch (err) {
       setMessages(prev => [
         ...prev,

@@ -24,6 +24,7 @@ from visionharness.agent.planner import plan_workflow
 from visionharness.registry.components import search_components, get_component, REGISTRY
 from visionharness.core.spec import WorkflowSpec
 from visionharness.runtime.engine import VisionRuntime, VideoSource
+from visionharness.core.session_store import SessionStore, ChatMessage, SessionMetadata
 
 app = FastAPI(title="VisionHarness API", version="0.1.0")
 
@@ -50,7 +51,32 @@ app.mount("/output", StaticFiles(directory=OUTPUTS_DIR), name="output")
 
 class PlanRequest(BaseModel):
     prompt: str
+    session_id: Optional[str] = "wf_store_people_counter"
     auth_mode: Optional[str] = "auto"  # 'google_account', 'api_key', 'auto'
+
+
+@app.get("/api/sessions")
+def list_sessions():
+    """List all saved chat sessions."""
+    return SessionStore.list_sessions()
+
+
+@app.get("/api/sessions/{session_id}/messages")
+def get_session_messages(session_id: str):
+    """Retrieve all chat messages for a session."""
+    return SessionStore.get_messages(session_id)
+
+
+@app.post("/api/sessions")
+def create_session(meta: SessionMetadata):
+    """Create a new chat session."""
+    return SessionStore.get_or_create_session(meta.id, meta.name, meta.folder)
+
+
+@app.post("/api/sessions/{session_id}/messages")
+def append_message(session_id: str, message: ChatMessage):
+    """Append a message to a session."""
+    return SessionStore.append_message(session_id, message)
 
 
 @app.get("/api/status")
