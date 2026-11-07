@@ -11,6 +11,7 @@ Provides endpoints for:
 
 import os
 import json
+import time
 import shutil
 from typing import Dict, Any, Optional
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks
@@ -22,7 +23,14 @@ from pydantic import BaseModel
 from visionharness.agent.auth import get_auth_status, GoogleAccountBridge
 from visionharness.agent.planner import plan_workflow
 from visionharness.registry.components import search_components, get_component, REGISTRY
-from visionharness.core.spec import WorkflowSpec
+from visionharness.core.spec import (
+    WorkflowSpec,
+    DetectorConfig,
+    TrackerConfig,
+    LineCrossingConfig,
+    ZoneConfig,
+    WorkflowOutputConfig,
+)
 from visionharness.runtime.engine import VisionRuntime, VideoSource
 from visionharness.core.session_store import SessionStore, ChatMessage, SessionMetadata
 from visionharness.core.diagram import generate_pipeline_svg

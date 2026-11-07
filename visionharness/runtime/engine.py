@@ -182,6 +182,26 @@ class VisionRuntime:
                 writer.release()
             source.close()
 
+        # Re-encode to H.264 via ffmpeg for universal web browser playback
+        if output_video_path and os.path.exists(output_video_path):
+            temp_raw = f"{output_video_path}.raw.mp4"
+            try:
+                os.rename(output_video_path, temp_raw)
+                import subprocess
+                cmd = [
+                    "ffmpeg", "-y", "-i", temp_raw,
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                    "-preset", "ultrafast", "-crf", "23",
+                    output_video_path
+                ]
+                subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                if os.path.exists(temp_raw):
+                    os.remove(temp_raw)
+            except Exception:
+                # If ffmpeg conversion fails for any reason, restore raw video
+                if os.path.exists(temp_raw) and not os.path.exists(output_video_path):
+                    os.rename(temp_raw, output_video_path)
+
         elapsed = time.time() - start_time
         processed_fps = round(frame_count / elapsed, 2) if elapsed > 0 else 0
 
