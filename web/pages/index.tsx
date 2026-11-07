@@ -422,7 +422,7 @@ Capabilities:
             >
               {/* User Bubble */}
               {msg.sender === "user" ? (
-                <div className="max-w-xl bg-[#18191f] text-[#f4f4f5] px-5 py-3 rounded-2xl text-sm leading-relaxed border border-[#22242c]">
+                <div className="max-w-xl bg-[#18191f] text-[#f4f4f5] px-5 py-3 rounded-2xl text-sm leading-relaxed">
                   {msg.text}
                 </div>
               ) : (
