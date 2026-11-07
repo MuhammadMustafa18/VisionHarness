@@ -483,19 +483,19 @@ Capabilities:
                       {/* Component Chips */}
                       <div className="grid grid-cols-3 gap-3 text-xs">
                         <div className="bg-[#111216] p-3 rounded-xl border border-[#20222a]">
-                          <span className="text-neutral-500 block mb-1 font-mono text-[10px]">DETECTOR</span>
+                          <span className="text-neutral-500 block mb-1 text-[11px] font-normal">Detector</span>
                           <span className="font-semibold text-white">
                             {msg.spec.detector?.model || "yolo11n"}
                           </span>
                         </div>
                         <div className="bg-[#111216] p-3 rounded-xl border border-[#20222a]">
-                          <span className="text-neutral-500 block mb-1 font-mono text-[10px]">TRACKER</span>
+                          <span className="text-neutral-500 block mb-1 text-[11px] font-normal">Tracker</span>
                           <span className="font-semibold text-white">
                             {msg.spec.tracker?.tracker_type || "bytetrack"}
                           </span>
                         </div>
                         <div className="bg-[#111216] p-3 rounded-xl border border-[#20222a]">
-                          <span className="text-neutral-500 block mb-1 font-mono text-[10px]">SPATIAL LOGIC</span>
+                          <span className="text-neutral-500 block mb-1 text-[11px] font-normal">Spatial logic</span>
                           <span className="font-semibold text-white">Line Crossing Trigger</span>
                         </div>
                       </div>
