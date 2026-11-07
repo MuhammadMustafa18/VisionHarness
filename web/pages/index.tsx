@@ -20,7 +20,11 @@ import {
   Cpu,
   Eye,
   PanelLeftClose,
-  PanelRightClose
+  PanelRightClose,
+  BarChart3,
+  Inbox,
+  LayoutGrid,
+  Command
 } from "lucide-react";
 
 interface WorkflowSession {
@@ -28,6 +32,7 @@ interface WorkflowSession {
   name: string;
   domain: string;
   folder: string;
+  count?: number;
 }
 
 interface Message {
@@ -43,10 +48,10 @@ interface Message {
 
 export default function VisionHarnessApp() {
   const [sessions, setSessions] = useState<WorkflowSession[]>([
-    { id: "wf_store_people_counter", name: "Retail Store Counter", domain: "retail_analytics", folder: "Default workspace" },
-    { id: "wf_traffic_flow", name: "Intersection Monitor", domain: "traffic_monitoring", folder: "Default workspace" },
-    { id: "wf_vault_security", name: "Vault Perimeter Guard", domain: "perimeter_security", folder: "Security Ops" },
-    { id: "wf_vehicle_dwell", name: "Parking Dwell Timer", domain: "traffic_monitoring", folder: "Security Ops" },
+    { id: "wf_store_people_counter", name: "Store Counter", domain: "retail_analytics", folder: "Navigation", count: 12 },
+    { id: "wf_traffic_flow", name: "Traffic Flow", domain: "traffic_monitoring", folder: "Navigation" },
+    { id: "wf_vault_security", name: "Vault Perimeter", domain: "perimeter_security", folder: "Projects" },
+    { id: "wf_vehicle_dwell", name: "Parking Dwell", domain: "traffic_monitoring", folder: "Projects" },
   ]);
 
   const [activeSessionId, setActiveSessionId] = useState("wf_store_people_counter");
@@ -70,27 +75,25 @@ export default function VisionHarnessApp() {
     {
       id: "m-2",
       sender: "bot",
-      text: `I'm VisionHarness, an open-source vision agent built on Google Antigravity SDK and Cordis-style modular architecture. Run me as a desktop app or execute workflows across video streams.
+      text: `I'm VisionHarness, an open-source computer vision architect. I build and execute autonomous vision workflows across video streams and edge devices.
 
-I can help with:
-1. Object Detection — Search and configure YOLO11, RT-DETR, and custom checkpoints.
-2. Persistent Tracking — ByteTrack & BoT-SORT multi-object identity persistence.
-3. Spatial Event Logic — Line crossing counters, polygon intrusion zones, and dwell timers.
-4. Video Execution — Ingest uploaded videos (MP4/AVI), webcams, or live CCTV RTSP feeds.
-5. On-the-Fly Tools — Synthesize custom CV logic plugins through chat.
-
-And so much more...`,
-      thoughts: "Identified VisionHarness agent introduction request. Loaded system capabilities, verified YOLO11 and ByteTrack primitives in registry.",
+Capabilities:
+• Object Detection — YOLO11, RT-DETR, and custom checkpoints.
+• Persistent Tracking — ByteTrack and BoT-SORT multi-object associations.
+• Spatial Logic — Directional line crossings, polygon zones, and dwell timers.
+• Stream Runtime — Local MP4 files, USB webcams, and CCTV RTSP streams.`,
+      thoughts: "Identified introduction request. Ready with YOLO11 and ByteTrack primitives.",
       timestamp: "10:30 AM"
     }
   ]);
 
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // 1. Fetch persistent sessions from backend
     fetch("http://localhost:8000/api/sessions")
       .then(res => res.json())
       .then(data => {
@@ -103,7 +106,6 @@ And so much more...`,
   }, []);
 
   useEffect(() => {
-    // 2. Fetch persistent chat messages when active session changes
     if (!activeSessionId) return;
     fetch(`http://localhost:8000/api/sessions/${activeSessionId}/messages`)
       .then(res => res.json())
@@ -114,6 +116,10 @@ And so much more...`,
       })
       .catch(() => {});
   }, [activeSessionId]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const handleSendPrompt = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -127,7 +133,6 @@ And so much more...`,
     };
 
     setMessages(prev => [...prev, userMsg]);
-    // Persist user message to disk
     fetch(`http://localhost:8000/api/sessions/${activeSessionId}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -155,7 +160,6 @@ And so much more...`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, botMsg]);
-      // Persist bot message to disk
       fetch(`http://localhost:8000/api/sessions/${activeSessionId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -184,9 +188,6 @@ And so much more...`,
     }
   };
 
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
-
   const handleRunInference = async (spec: any) => {
     setIsRunning(true);
     setUploadProgress(null);
@@ -199,7 +200,6 @@ And so much more...`,
     }
 
     try {
-      // Use XMLHttpRequest to track upload percentage
       const stats = await new Promise<any>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open("POST", "http://localhost:8000/api/run");
@@ -263,145 +263,157 @@ And so much more...`,
   };
 
   return (
-    <div className="h-screen w-screen bg-[#111216] text-[#e1e2e6] flex overflow-hidden font-sans antialiased">
+    <div className="h-screen w-screen bg-[#0d0e11] text-[#ededef] flex overflow-hidden font-sans antialiased selection:bg-neutral-800">
       <Head>
-        <title>VisionHarness Desktop</title>
+        <title>VisionHarness</title>
         <meta name="description" content="Agentic Computer Vision Builder" />
       </Head>
 
-      {/* Left Sidebar (Dark Charcoal Aesthetic from Reference Image) */}
-      <aside className="w-64 bg-[#1e2027] border-r border-[#2a2d36] flex flex-col justify-between select-none">
+      {/* Deep Obsidian Sidebar (Matching Ember Design System) */}
+      <aside className="w-64 bg-[#0a0b0d] border-r border-[#191a1f] flex flex-col justify-between select-none">
         <div className="flex flex-col">
           
-          {/* Top Window Header & Brand */}
-          <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-[#2a2d36]/50">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white text-xs font-bold">
+          {/* Top Brand & Sidebar Switcher */}
+          <div className="px-5 pt-5 pb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-black text-xs font-black shadow-md">
                 👁️
               </div>
-              <span className="font-semibold text-sm tracking-wide text-white">visionharness</span>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-[#2b2f3a] text-gray-300 ml-1">
-                HARNESS
-              </span>
+              <span className="font-semibold text-base tracking-tight text-white">VisionHarness</span>
             </div>
-            <PanelLeftClose className="w-4 h-4 text-gray-400 hover:text-white cursor-pointer" />
+            <PanelLeftClose className="w-4 h-4 text-neutral-500 hover:text-white cursor-pointer transition-colors" />
           </div>
 
-          {/* New Session Button */}
+          {/* Search Box with Pill Shortcut */}
           <div className="px-4 py-2">
+            <div className="w-full py-2 px-3 rounded-xl bg-[#131418] border border-[#202228] flex items-center justify-between text-neutral-400 text-xs">
+              <div className="flex items-center gap-2">
+                <Search className="w-3.5 h-3.5 text-neutral-500" />
+                <span>Search</span>
+              </div>
+              <div className="flex items-center gap-1 text-[10px] font-mono bg-[#1c1e24] px-1.5 py-0.5 rounded text-neutral-400 border border-[#262830]">
+                <span>⌘</span>
+                <span>K</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Navigation Section */}
+          <div className="px-5 pt-4 pb-2 text-[11px] font-medium tracking-wider uppercase text-neutral-500">
+            Navigation
+          </div>
+
+          <div className="px-3 space-y-1">
             <button
-              onClick={() => {
-                const name = typeof window !== "undefined" ? window.prompt("New Vision Session name:", "Traffic Analysis") : "New Session";
-                if (name) {
-                  const newSess: WorkflowSession = {
-                    id: `wf_${Date.now()}`,
-                    name,
-                    domain: "general_vision",
-                    folder: "Default workspace"
-                  };
-                  setSessions(prev => [newSess, ...prev]);
-                  setActiveSessionId(newSess.id);
-                }
-              }}
-              className="w-full py-2 px-3 rounded-lg bg-[#2a2d38] hover:bg-[#343846] text-sm text-gray-200 font-medium flex items-center justify-center gap-2 border border-[#3b3f4e]/60 transition-colors"
+              onClick={() => setActiveSessionId("wf_store_people_counter")}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${
+                activeSessionId === "wf_store_people_counter"
+                  ? "bg-[#1c1d22] text-white shadow-inner font-semibold border border-[#2a2c34]"
+                  : "text-neutral-400 hover:text-white hover:bg-[#131418]"
+              }`}
             >
-              <Plus className="w-4 h-4 text-gray-300" />
-              <span>New Session</span>
+              <div className="flex items-center gap-2.5">
+                <LayoutGrid className="w-4 h-4 text-neutral-400" />
+                <span>Overview</span>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setActiveSessionId("wf_traffic_flow")}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${
+                activeSessionId === "wf_traffic_flow"
+                  ? "bg-[#1c1d22] text-white shadow-inner font-semibold border border-[#2a2c34]"
+                  : "text-neutral-400 hover:text-white hover:bg-[#131418]"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Inbox className="w-4 h-4 text-neutral-400" />
+                <span>Traffic Feeds</span>
+              </div>
+              <span className="text-[11px] text-neutral-500 font-mono">12</span>
+            </button>
+
+            <button className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium text-neutral-400 hover:text-white hover:bg-[#131418] transition-all">
+              <div className="flex items-center gap-2.5">
+                <Layers className="w-4 h-4 text-neutral-400" />
+                <span>CV Projects</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 text-neutral-600 rotate-90" />
+            </button>
+
+            <button className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium text-neutral-400 hover:text-white hover:bg-[#131418] transition-all">
+              <div className="flex items-center gap-2.5">
+                <BarChart3 className="w-4 h-4 text-neutral-400" />
+                <span>Analytics / Reports</span>
+              </div>
             </button>
           </div>
 
-          {/* Navigation Links */}
-          <div className="px-3 py-2 space-y-1 text-xs font-medium text-gray-300">
-            <div className="flex items-center gap-2.5 px-3 py-2 rounded-md hover:bg-[#282b35] cursor-pointer text-gray-300 hover:text-white transition-colors">
-              <Layers className="w-4 h-4 text-gray-400" />
-              <span>CV Components</span>
-            </div>
-            <div className="flex items-center gap-2.5 px-3 py-2 rounded-md hover:bg-[#282b35] cursor-pointer text-gray-300 hover:text-white transition-colors">
-              <Cpu className="w-4 h-4 text-gray-400" />
-              <span>Automation / Streams</span>
-            </div>
+          {/* Model Engines / Tiers Section */}
+          <div className="px-5 pt-6 pb-2 text-[11px] font-medium tracking-wider uppercase text-neutral-500">
+            Vision Engines
           </div>
 
-          {/* Workspace Folders Header */}
-          <div className="px-5 pt-4 pb-2 flex items-center justify-between text-xs text-gray-400">
-            <span className="font-medium tracking-wide">Workspace</span>
-            <div className="flex items-center gap-2 text-gray-400">
-              <Search className="w-3.5 h-3.5 hover:text-white cursor-pointer" />
-              <SlidersHorizontal className="w-3.5 h-3.5 hover:text-white cursor-pointer" />
-              <FolderPlus className="w-3.5 h-3.5 hover:text-white cursor-pointer" />
-            </div>
-          </div>
-
-          {/* Folder & Session Tree */}
-          <div className="px-2 space-y-1 overflow-y-auto max-h-[46vh]">
-            <div className="text-xs text-gray-400 flex items-center gap-1.5 px-3 py-1.5 font-medium">
-              <Folder className="w-3.5 h-3.5 text-blue-400" />
-              <span>Default workspace</span>
+          <div className="px-3 space-y-1">
+            <div className="flex items-center justify-between px-3 py-2 rounded-lg text-xs text-neutral-400">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2 h-2 rounded-full bg-[#f59e0b] shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
+                <span>YOLO11 Ultra</span>
+              </div>
+              <span className="text-neutral-500 font-mono text-[11px]">18</span>
             </div>
 
-            {sessions.filter(s => s.folder === "Default workspace").map(sess => (
-              <button
-                key={sess.id}
-                onClick={() => setActiveSessionId(sess.id)}
-                className={`w-full text-left text-xs px-6 py-2 rounded-md transition-colors truncate block ${
-                  activeSessionId === sess.id
-                    ? "bg-[#2f3340] text-white font-medium"
-                    : "text-gray-400 hover:text-gray-200 hover:bg-[#252832]"
-                }`}
-              >
-                {sess.name}
-              </button>
-            ))}
-
-            <div className="text-xs text-gray-400 flex items-center gap-1.5 px-3 py-1.5 font-medium pt-2">
-              <Folder className="w-3.5 h-3.5 text-blue-400" />
-              <span>Security Ops</span>
+            <div className="flex items-center justify-between px-3 py-2 rounded-lg text-xs text-neutral-400">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2 h-2 rounded-full bg-[#10b981] shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                <span>ByteTrack Pro</span>
+              </div>
+              <span className="text-neutral-500 font-mono text-[11px]">64</span>
             </div>
 
-            {sessions.filter(s => s.folder === "Security Ops").map(sess => (
-              <button
-                key={sess.id}
-                onClick={() => setActiveSessionId(sess.id)}
-                className={`w-full text-left text-xs px-6 py-2 rounded-md transition-colors truncate block ${
-                  activeSessionId === sess.id
-                    ? "bg-[#2f3340] text-white font-medium"
-                    : "text-gray-400 hover:text-gray-200 hover:bg-[#252832]"
-                }`}
-              >
-                {sess.name}
-              </button>
-            ))}
+            <div className="flex items-center justify-between px-3 py-2 rounded-lg text-xs text-neutral-400">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2 h-2 rounded-full bg-[#3b82f6] shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                <span>Google Pro CLI</span>
+              </div>
+              <span className="text-neutral-500 font-mono text-[11px]">210</span>
+            </div>
           </div>
 
         </div>
 
         {/* User Footer Profile */}
-        <div className="p-4 border-t border-[#2a2d36] flex items-center justify-between text-xs text-gray-300">
+        <div className="p-4 border-t border-[#191a1f] flex items-center justify-between text-xs text-neutral-400">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-cyan-600 to-blue-600 flex items-center justify-center text-white font-semibold text-xs">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-neutral-700 to-neutral-900 border border-neutral-700 flex items-center justify-center text-white font-semibold text-xs shadow">
               M
             </div>
             <div className="flex flex-col">
-              <span className="font-medium text-white truncate max-w-[110px]">Mustafa</span>
-              <span className="text-[10px] text-emerald-400 flex items-center gap-1">
+              <span className="font-semibold text-white truncate max-w-[110px]">Mustafa</span>
+              <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-mono">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Google Pro
+                Pro Connected
               </span>
             </div>
           </div>
-          <Settings className="w-4 h-4 text-gray-400 hover:text-white cursor-pointer" />
+          <Settings className="w-4 h-4 text-neutral-500 hover:text-white cursor-pointer transition-colors" />
         </div>
       </aside>
 
-      {/* Main Center Stage */}
-      <main className="flex-1 flex flex-col bg-[#111216] overflow-hidden">
+      {/* Main Center Canvas (Minimalist Charcoal Black) */}
+      <main className="flex-1 flex flex-col bg-[#0d0e11] overflow-hidden">
         
-        {/* Top Minimal Navigation Bar */}
-        <header className="h-14 border-b border-[#22242c] flex items-center justify-between px-6">
-          <div className="text-sm font-medium text-gray-200 flex items-center gap-2">
-            <span>{activeSession.name}</span>
+        {/* Top Minimal Header */}
+        <header className="h-16 border-b border-[#17181e] flex items-center justify-between px-8">
+          <div className="flex items-center gap-3">
+            <LayoutGrid className="w-4 h-4 text-neutral-400" />
+            <h1 className="text-xl font-semibold tracking-tight text-white">
+              {activeSession.name}
+            </h1>
           </div>
-          <PanelRightClose className="w-4 h-4 text-gray-400 hover:text-white cursor-pointer" />
+          <div className="flex items-center gap-2 text-neutral-400 text-xs">
+            <span className="font-mono text-neutral-500">Vision Workspace</span>
+          </div>
         </header>
 
         {/* Chat / Reasoning Canvas */}
@@ -413,28 +425,28 @@ And so much more...`,
             >
               {/* User Bubble */}
               {msg.sender === "user" ? (
-                <div className="max-w-xl bg-[#2a2d36] text-white px-5 py-3 rounded-2xl text-sm leading-relaxed shadow-sm">
+                <div className="max-w-xl bg-[#1c1d22] text-[#f4f4f5] px-5 py-3 rounded-2xl text-sm leading-relaxed border border-[#262830] shadow-sm">
                   {msg.text}
                 </div>
               ) : (
-                /* Assistant Translucent Blurry Glass Card with Exact Pink Mascot */
-                <div className="max-w-3xl w-full bg-[#1c1f26]/60 backdrop-blur-2xl rounded-3xl p-6 shadow-2xl space-y-4">
+                /* Assistant Glassy Response Card */
+                <div className="max-w-3xl w-full bg-[#131418]/80 backdrop-blur-xl rounded-3xl p-6 shadow-xl border border-[#20222a] space-y-4">
                   
-                  {/* Real Mascot from images folder */}
+                  {/* Pink Mascot Avatar */}
                   <div className="flex items-center gap-2.5 pb-1">
                     <img
                       src="/mascot.png"
                       alt="VisionHarness Mascot"
                       className="w-5 h-5 object-contain"
                     />
-                    <span className="text-xs font-semibold tracking-wide text-white/90">VisionHarness</span>
+                    <span className="text-xs font-semibold tracking-wide text-neutral-300">VisionHarness</span>
                   </div>
 
-                  {/* Reasoning & Explanation Header */}
+                  {/* Thoughts Accordion */}
                   {msg.thoughts && (
                     <div 
                       onClick={() => setShowThoughts(!showThoughts)}
-                      className="text-xs text-gray-400 flex items-center gap-1.5 cursor-pointer hover:text-gray-200 select-none transition-colors"
+                      className="text-xs text-neutral-400 flex items-center gap-1.5 cursor-pointer hover:text-neutral-200 select-none transition-colors"
                     >
                       <span className="font-medium">Thought for a while</span>
                       <ChevronRight className={`w-3.5 h-3.5 transition-transform duration-200 ${showThoughts ? "rotate-90" : ""}`} />
@@ -442,153 +454,151 @@ And so much more...`,
                   )}
 
                   {msg.thoughts && showThoughts && (
-                    <div className="border-l-2 border-[#3b4252] pl-4 py-1 text-xs text-gray-400 italic leading-relaxed my-2">
+                    <div className="border-l-2 border-[#2b2e38] pl-4 py-1 text-xs text-neutral-400 italic leading-relaxed my-2">
                       {msg.thoughts}
                     </div>
                   )}
 
-                  {/* Clean text explanation (suppress raw JSON dump if structured spec card is displayed) */}
+                  {/* Clean text explanation */}
                   {(!msg.spec || !msg.text.includes('"id":')) ? (
-                    <div className="text-sm text-gray-200 leading-relaxed whitespace-pre-line">
+                    <div className="text-sm text-neutral-200 leading-relaxed whitespace-pre-line font-normal">
                       {msg.text}
                     </div>
                   ) : (
-                    <div className="text-sm text-gray-300 leading-relaxed">
+                    <div className="text-sm text-neutral-300 leading-relaxed">
                       I have analyzed your request and architected the <strong>{msg.spec.name}</strong> pipeline. It detects <em>{msg.spec.detector?.classes?.join(", ") || "vehicles"}</em> using <strong>{msg.spec.detector?.model || "YOLO"}</strong>, maintains persistent tracking via <strong>{msg.spec.tracker?.tracker_type || "ByteTrack"}</strong>, and sets up directional boundary crossing triggers.
                     </div>
                   )}
 
                   {/* Generated Pipeline Spec Box */}
                   {msg.spec && (
-                    <div className="mt-4 bg-[#232732]/50 backdrop-blur-xl rounded-2xl p-5 space-y-4 shadow-lg">
+                    <div className="mt-4 bg-[#18191f] border border-[#242630] rounded-2xl p-5 space-y-4 shadow-md">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                          <Layers className="w-4 h-4 text-cyan-400" />
+                          <Layers className="w-4 h-4 text-neutral-300" />
                           <span>{msg.spec.name || "Generated Vision Pipeline"}</span>
                         </div>
-                        <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-cyan-950/60 border border-cyan-800 text-cyan-400 font-medium">
-                          Workflow Spec Ready
+                        <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-950/40 border border-emerald-800 text-emerald-400 font-medium font-mono">
+                          Pipeline Verified
                         </span>
                       </div>
 
                       {/* Component Chips */}
                       <div className="grid grid-cols-3 gap-3 text-xs">
-                        <div className="bg-[#20222a] p-3 rounded-lg border border-[#2b2e38]">
-                          <span className="text-gray-500 block mb-1">DETECTOR</span>
-                          <span className="font-medium text-gray-200">
+                        <div className="bg-[#111216] p-3 rounded-xl border border-[#20222a]">
+                          <span className="text-neutral-500 block mb-1 font-mono text-[10px]">DETECTOR</span>
+                          <span className="font-semibold text-white">
                             {msg.spec.detector?.model || "yolo11n"}
                           </span>
                         </div>
-                        <div className="bg-[#20222a] p-3 rounded-lg border border-[#2b2e38]">
-                          <span className="text-gray-500 block mb-1">TRACKER</span>
-                          <span className="font-medium text-gray-200">
+                        <div className="bg-[#111216] p-3 rounded-xl border border-[#20222a]">
+                          <span className="text-neutral-500 block mb-1 font-mono text-[10px]">TRACKER</span>
+                          <span className="font-semibold text-white">
                             {msg.spec.tracker?.tracker_type || "bytetrack"}
                           </span>
                         </div>
-                        <div className="bg-[#20222a] p-3 rounded-lg border border-[#2b2e38]">
-                          <span className="text-gray-500 block mb-1">SPATIAL LOGIC</span>
-                          <span className="font-medium text-gray-200">Line Crossing Trigger</span>
+                        <div className="bg-[#111216] p-3 rounded-xl border border-[#20222a]">
+                          <span className="text-neutral-500 block mb-1 font-mono text-[10px]">SPATIAL LOGIC</span>
+                          <span className="font-semibold text-white">Line Crossing Trigger</span>
                         </div>
                       </div>
 
-                        {/* Execution Action Row & Video Preview */}
-                        <div className="flex flex-col gap-3 pt-2">
-                          <div className="flex items-center gap-3">
-                            <button
-                              onClick={() => handleRunInference(msg.spec)}
-                              disabled={isRunning}
-                              className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium text-xs flex items-center gap-2 transition-colors disabled:opacity-50 shadow"
-                            >
-                              <Play className="w-3.5 h-3.5 fill-current" />
-                              {isRunning 
-                                ? (uploadProgress !== null ? `Uploading ${uploadProgress}%...` : "Running CV Pipeline...") 
-                                : "Run Reference Footage"}
-                            </button>
+                      {/* Execution Action Row & Video Preview */}
+                      <div className="flex flex-col gap-3 pt-2">
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => handleRunInference(msg.spec)}
+                            disabled={isRunning}
+                            className="px-4 py-2.5 rounded-xl bg-white hover:bg-neutral-200 text-black font-semibold text-xs flex items-center gap-2 transition-all disabled:opacity-50 shadow-md"
+                          >
+                            <Play className="w-3.5 h-3.5 fill-current" />
+                            {isRunning 
+                              ? (uploadProgress !== null ? `Uploading ${uploadProgress}%...` : "Running CV Pipeline...") 
+                              : "Run Reference Footage"}
+                          </button>
 
-                            <button
-                              onClick={() => fileInputRef.current?.click()}
-                              className="px-3.5 py-2 rounded-lg bg-[#272a34] hover:bg-[#313542] text-gray-300 font-medium text-xs flex items-center gap-1.5 transition-colors border border-[#353947]"
-                            >
-                              <Upload className="w-3.5 h-3.5" />
-                              {videoFile ? videoFile.name.slice(0, 18) : "Upload Video / RTSP"}
-                            </button>
-                          </div>
-
-                          {/* Video Thumbnail with Circular Progress Bar when uploading */}
-                          {videoPreviewUrl && (
-                            <div className="relative w-64 h-36 rounded-xl overflow-hidden border border-[#2b2e38] bg-black shadow-md mt-1 group">
-                              <video
-                                src={videoPreviewUrl}
-                                className={`w-full h-full object-cover transition-all duration-300 ${
-                                  uploadProgress !== null ? "blur-md scale-105 opacity-60" : "blur-0 opacity-100"
-                                }`}
-                              />
-
-                              {/* Circular Progress Overlay while uploading */}
-                              {uploadProgress !== null && (
-                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm">
-                                  <div className="relative w-14 h-14 flex items-center justify-center">
-                                    <svg className="w-14 h-14 transform -rotate-90">
-                                      <circle
-                                        cx="28"
-                                        cy="28"
-                                        r="22"
-                                        stroke="#2a2d38"
-                                        strokeWidth="4"
-                                        fill="transparent"
-                                      />
-                                      <circle
-                                        cx="28"
-                                        cy="28"
-                                        r="22"
-                                        stroke="#06b6d4"
-                                        strokeWidth="4"
-                                        fill="transparent"
-                                        strokeDasharray={2 * Math.PI * 22}
-                                        strokeDashoffset={
-                                          2 * Math.PI * 22 * (1 - (uploadProgress || 0) / 100)
-                                        }
-                                        strokeLinecap="round"
-                                        className="transition-all duration-150"
-                                      />
-                                    </svg>
-                                    <span className="absolute text-xs font-bold text-white">
-                                      {uploadProgress}%
-                                    </span>
-                                  </div>
-                                  <span className="text-[10px] text-cyan-300 font-medium mt-1">Uploading...</span>
-                                </div>
-                              )}
-
-                              {/* Done Preview Badge when finished uploading */}
-                              {uploadProgress === null && !isRunning && (
-                                <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/60 backdrop-blur-sm text-[10px] text-gray-200 font-medium flex items-center gap-1 border border-white/10">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                                  <span>{videoFile?.name.slice(0, 16)}</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
+                          <button
+                            onClick={() => fileInputRef.current?.click()}
+                            className="px-3.5 py-2.5 rounded-xl bg-[#1c1d22] hover:bg-[#25272e] text-neutral-300 font-medium text-xs flex items-center gap-1.5 transition-colors border border-[#2b2e38]"
+                          >
+                            <Upload className="w-3.5 h-3.5" />
+                            {videoFile ? videoFile.name.slice(0, 18) : "Upload Video / RTSP"}
+                          </button>
                         </div>
+
+                        {/* Video Thumbnail with Circular Progress Bar when uploading */}
+                        {videoPreviewUrl && (
+                          <div className="relative w-64 h-36 rounded-xl overflow-hidden border border-[#242630] bg-black shadow-md mt-1 group">
+                            <video
+                              src={videoPreviewUrl}
+                              className={`w-full h-full object-cover transition-all duration-300 ${
+                                uploadProgress !== null ? "blur-md scale-105 opacity-60" : "blur-0 opacity-100"
+                              }`}
+                            />
+
+                            {uploadProgress !== null && (
+                              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm">
+                                <div className="relative w-14 h-14 flex items-center justify-center">
+                                  <svg className="w-14 h-14 transform -rotate-90">
+                                    <circle
+                                      cx="28"
+                                      cy="28"
+                                      r="22"
+                                      stroke="#2a2d38"
+                                      strokeWidth="4"
+                                      fill="transparent"
+                                    />
+                                    <circle
+                                      cx="28"
+                                      cy="28"
+                                      r="22"
+                                      stroke="#10b981"
+                                      strokeWidth="4"
+                                      fill="transparent"
+                                      strokeDasharray={2 * Math.PI * 22}
+                                      strokeDashoffset={
+                                        2 * Math.PI * 22 * (1 - (uploadProgress || 0) / 100)
+                                      }
+                                      strokeLinecap="round"
+                                      className="transition-all duration-150"
+                                    />
+                                  </svg>
+                                  <span className="absolute text-xs font-bold text-white font-mono">
+                                    {uploadProgress}%
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-emerald-400 font-medium mt-1 font-mono">Uploading...</span>
+                              </div>
+                            )}
+
+                            {uploadProgress === null && !isRunning && (
+                              <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 backdrop-blur-sm text-[10px] text-neutral-300 font-medium flex items-center gap-1 border border-white/10 font-mono">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                <span>{videoFile?.name.slice(0, 16)}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 
                   {/* Video Inference Results & Visualizer */}
                   {msg.stats && (
-                    <div className="mt-4 bg-[#232732]/50 backdrop-blur-xl rounded-2xl p-5 space-y-4 shadow-lg">
+                    <div className="mt-4 bg-[#18191f] border border-[#242630] rounded-2xl p-5 space-y-4 shadow-md">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-sm font-semibold text-emerald-400">
                           <CheckCircle2 className="w-4 h-4" />
                           <span>Video Inference Output</span>
                         </div>
-                        <div className="flex items-center gap-4 text-xs text-gray-300 font-medium">
+                        <div className="flex items-center gap-4 text-xs text-neutral-300 font-mono">
                           <span>IN: <strong className="text-emerald-400">{msg.stats.in_count ?? 0}</strong></span>
-                          <span>OUT: <strong className="text-pink-400">{msg.stats.out_count ?? 0}</strong></span>
+                          <span>OUT: <strong className="text-rose-400">{msg.stats.out_count ?? 0}</strong></span>
                           <span>FPS: {msg.stats.processed_fps}</span>
                         </div>
                       </div>
 
-                      <div className="rounded-lg overflow-hidden bg-black aspect-video flex items-center justify-center border border-[#2b2e38]">
+                      <div className="rounded-xl overflow-hidden bg-black aspect-video flex items-center justify-center border border-[#242630]">
                         {msg.videoUrl ? (
                           <video
                             src={msg.videoUrl}
@@ -598,7 +608,7 @@ And so much more...`,
                             className="w-full h-full object-contain"
                           />
                         ) : (
-                          <div className="text-gray-500 text-xs flex flex-col items-center gap-2">
+                          <div className="text-neutral-500 text-xs flex flex-col items-center gap-2">
                             <Video className="w-8 h-8" />
                             <span>Annotated video rendered</span>
                           </div>
@@ -614,11 +624,11 @@ And so much more...`,
           <div ref={chatEndRef} />
         </div>
 
-        {/* DeepSeek Harness Style Bottom Floating Prompt Box */}
+        {/* Minimalist Floating Prompt Box */}
         <footer className="p-6">
           <form
             onSubmit={handleSendPrompt}
-            className="max-w-3xl mx-auto bg-[#1c1e24] border border-[#2e323e] rounded-2xl p-3 space-y-3 shadow-xl focus-within:border-cyan-500/70 transition-colors"
+            className="max-w-3xl mx-auto bg-[#131418] border border-[#242630] rounded-2xl p-3 space-y-3 shadow-2xl focus-within:border-neutral-500 transition-colors"
           >
             <input
               type="file"
@@ -644,43 +654,42 @@ And so much more...`,
                 }
               }}
               rows={2}
-              placeholder="Describe what you want to build, / commands, @ files or sessions"
-              className="w-full bg-transparent border-none outline-none text-sm text-gray-200 placeholder-gray-500 resize-none px-2"
+              placeholder="Describe what you want your camera or footage to track..."
+              className="w-full bg-transparent border-none outline-none text-sm text-[#ededef] placeholder-neutral-500 resize-none px-2"
             />
 
-            {/* Bottom Controls Bar */}
-            <div className="flex items-center justify-between pt-1 border-t border-[#2a2d36]/50">
+            <div className="flex items-center justify-between pt-1 border-t border-[#1d1f27]">
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-7 h-7 rounded-md hover:bg-[#282b35] flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+                  className="w-7 h-7 rounded-lg hover:bg-[#1c1d22] flex items-center justify-center text-neutral-400 hover:text-white transition-colors"
                   title="Attach video or component"
                 >
                   <Plus className="w-4 h-4" />
                 </button>
 
-                <div className="flex items-center gap-1.5 text-xs text-gray-400 bg-[#242731] px-2.5 py-1 rounded-md border border-[#313543] cursor-pointer hover:text-white">
-                  <Globe className="w-3.5 h-3.5" />
+                <div className="flex items-center gap-1.5 text-xs text-neutral-300 bg-[#1c1d22] px-2.5 py-1 rounded-lg border border-[#282a34] cursor-pointer hover:text-white font-medium">
+                  <Globe className="w-3.5 h-3.5 text-neutral-400" />
                   <span>{selectedToolMode}</span>
-                  <ChevronRight className="w-3 h-3 rotate-90" />
+                  <ChevronRight className="w-3 h-3 rotate-90 text-neutral-500" />
                 </div>
               </div>
 
               <div className="flex items-center gap-3">
-                <span className="text-xs text-gray-400 font-medium">
+                <span className="text-xs text-neutral-400 font-mono">
                   {selectedModel}
                 </span>
 
                 <button
                   type="submit"
                   disabled={!prompt.trim() || isPlanning}
-                  className="w-7 h-7 rounded-md bg-cyan-600 hover:bg-cyan-500 text-white flex items-center justify-center transition-colors disabled:opacity-40"
+                  className="w-8 h-8 rounded-lg bg-white hover:bg-neutral-200 text-black flex items-center justify-center transition-all disabled:opacity-40 shadow"
                 >
                   {isPlanning ? (
-                    <Activity className="w-4 h-4 animate-spin" />
+                    <Activity className="w-4 h-4 animate-spin text-black" />
                   ) : (
-                    <ArrowUp className="w-4 h-4" />
+                    <ArrowUp className="w-4 h-4 text-black stroke-[2.5]" />
                   )}
                 </button>
               </div>
