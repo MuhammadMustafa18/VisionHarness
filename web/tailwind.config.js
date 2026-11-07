@@ -5,7 +5,13 @@ module.exports = {
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        sans: ['"Google Sans"', '"Google Sans Text"', '"Product Sans"', 'sans-serif'],
+        mono: ['"Google Sans Code"', 'monospace'],
+      },
+    },
   },
   plugins: [],
 }
+
