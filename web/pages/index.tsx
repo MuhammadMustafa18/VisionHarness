@@ -421,11 +421,11 @@ And so much more...`,
                 <div className="max-w-3xl w-full bg-[#1c1f26]/60 backdrop-blur-2xl rounded-3xl p-6 shadow-2xl space-y-4">
                   
                   {/* Real Mascot from images folder */}
-                  <div className="flex items-center gap-3 pb-1">
+                  <div className="flex items-center gap-2.5 pb-1">
                     <img
                       src="/mascot.png"
                       alt="VisionHarness Mascot"
-                      className="w-9 h-9 object-contain drop-shadow-md"
+                      className="w-5 h-5 object-contain"
                     />
                     <span className="text-xs font-semibold tracking-wide text-white/90">VisionHarness</span>
                   </div>
