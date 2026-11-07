@@ -493,11 +493,9 @@ Capabilities:
                               {msg.spec.detector?.model || "yolov8n.pt"}
                             </span>
                           </div>
-                          {/* Bottom Right Icon - Bigger & Lighter */}
+                          {/* Bottom Right Icon - Bigger, No Bg, Reduced Opacity */}
                           <div className="self-end flex items-center justify-center pt-2">
-                            <span className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white transition-all">
-                              <Eye className="w-4 h-4" />
-                            </span>
+                            <Eye className="w-7 h-7 text-white opacity-25 group-hover:opacity-40 transition-opacity" />
                           </div>
                         </div>
 
@@ -512,11 +510,9 @@ Capabilities:
                               {msg.spec.tracker?.tracker_type || "bytetrack"}
                             </span>
                           </div>
-                          {/* Bottom Right Icon - Bigger & Lighter */}
+                          {/* Bottom Right Icon - Bigger, No Bg, Reduced Opacity */}
                           <div className="self-end flex items-center justify-center pt-2">
-                            <span className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white transition-all">
-                              <Activity className="w-4 h-4" />
-                            </span>
+                            <Activity className="w-7 h-7 text-white opacity-25 group-hover:opacity-40 transition-opacity" />
                           </div>
                         </div>
 
@@ -531,11 +527,9 @@ Capabilities:
                               Line Crossing Trigger
                             </span>
                           </div>
-                          {/* Bottom Right Icon - Bigger & Lighter */}
+                          {/* Bottom Right Icon - Bigger, No Bg, Reduced Opacity */}
                           <div className="self-end flex items-center justify-center pt-2">
-                            <span className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white transition-all">
-                              <SlidersHorizontal className="w-4 h-4" />
-                            </span>
+                            <SlidersHorizontal className="w-7 h-7 text-white opacity-25 group-hover:opacity-40 transition-opacity" />
                           </div>
                         </div>
                       </div>
