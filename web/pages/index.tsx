@@ -474,11 +474,11 @@ Capabilities:
                   {msg.spec && (
                     <div className="mt-4 bg-[#18191f] border border-[#242630] rounded-2xl p-5 space-y-4 shadow-md">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                          <Layers className="w-4 h-4 text-neutral-300" />
+                        <div className="flex items-center gap-2 text-xs font-medium text-neutral-300">
+                          <Layers className="w-3.5 h-3.5 text-neutral-400" />
                           <span>{msg.spec.name || "Generated Vision Pipeline"}</span>
                         </div>
-                        <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-950/40 border border-emerald-800 text-emerald-400 font-medium font-mono">
+                        <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-900 border border-neutral-800 text-neutral-400 font-normal font-mono">
                           Pipeline Verified
                         </span>
                       </div>
