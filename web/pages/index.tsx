@@ -52,6 +52,11 @@ interface Message {
   stats?: any;
   videoUrl?: string;
   toolCalls?: ToolCall[];
+  uploadedVideoUrl?: string;
+  uploadedVideoName?: string;
+  isUploading?: boolean;
+  uploadProgress?: number | null;
+  uploadDone?: boolean;
   timestamp: string;
 }
 
@@ -178,34 +183,67 @@ Capabilities:
   };
 
   const handleFileUpload = (file: File) => {
-    setVideoFile(file);
-    setVideoPreviewUrl(URL.createObjectURL(file));
-    setUploadDone(false);
-    setUploadProgress(0);
+    // Attach video directly to the active workflow card message in state
+    const fileUrl = URL.createObjectURL(file);
+
+    setMessages(prev => {
+      // Find the message index to attach video to
+      const targetIdx = [...prev].reverse().findIndex(m => m.spec);
+      if (targetIdx === -1) return prev;
+      const realIdx = prev.length - 1 - targetIdx;
+
+      const updated = [...prev];
+      updated[realIdx] = {
+        ...updated[realIdx],
+        uploadedVideoUrl: fileUrl,
+        uploadedVideoName: file.name,
+        isUploading: true,
+        uploadProgress: 0,
+        uploadDone: false
+      };
+      return updated;
+    });
 
     let current = 0;
     const interval = setInterval(() => {
       current += 20;
       if (current >= 100) {
-        setUploadProgress(100);
         clearInterval(interval);
-        setTimeout(() => {
-          setUploadProgress(null);
-          setUploadDone(true);
+        setMessages(prev => {
+          const targetIdx = [...prev].reverse().findIndex(m => m.spec);
+          if (targetIdx === -1) return prev;
+          const realIdx = prev.length - 1 - targetIdx;
 
-          // Find latest bot message with a spec and auto-trigger execution
-          setMessages(currentMsgs => {
-            const lastBotSpecMsg = [...currentMsgs].reverse().find(m => m.spec);
-            if (lastBotSpecMsg && lastBotSpecMsg.spec) {
-              setTimeout(() => {
-                handleRunInference(lastBotSpecMsg.spec, file);
-              }, 300);
-            }
-            return currentMsgs;
-          });
-        }, 300);
+          const updated = [...prev];
+          const targetMsg = updated[realIdx];
+          updated[realIdx] = {
+            ...targetMsg,
+            isUploading: false,
+            uploadProgress: null,
+            uploadDone: true
+          };
+
+          // Automatically trigger inference execution with this file
+          if (targetMsg.spec) {
+            setTimeout(() => {
+              handleRunInference(targetMsg.spec, file);
+            }, 300);
+          }
+          return updated;
+        });
       } else {
-        setUploadProgress(current);
+        setMessages(prev => {
+          const targetIdx = [...prev].reverse().findIndex(m => m.spec);
+          if (targetIdx === -1) return prev;
+          const realIdx = prev.length - 1 - targetIdx;
+
+          const updated = [...prev];
+          updated[realIdx] = {
+            ...updated[realIdx],
+            uploadProgress: current
+          };
+          return updated;
+        });
       }
     }, 80);
   };
@@ -725,20 +763,20 @@ Capabilities:
                         </div>
 
                         {/* Video Thumbnail with Circular Progress Bar when uploading & Done Overlay */}
-                        {videoPreviewUrl && (
+                        {msg.uploadedVideoUrl && (
                           <div className="relative w-64 h-36 rounded-xl overflow-hidden bg-black shadow-lg mt-1 group border-0">
                             <video
-                              src={videoPreviewUrl}
-                              controls={uploadProgress === null}
+                              src={msg.uploadedVideoUrl}
+                              controls={msg.uploadProgress === null}
                               playsInline
                               preload="metadata"
                               className={`w-full h-full object-cover transition-all duration-300 ${
-                                uploadProgress !== null ? "blur-md scale-105 opacity-60" : "blur-0 opacity-100"
+                                msg.uploadProgress !== null && msg.uploadProgress !== undefined ? "blur-md scale-105 opacity-60" : "blur-0 opacity-100"
                               }`}
                             />
 
                             {/* Upload Progress Overlay (Blurred Background + Circular Progress Ring) */}
-                            {uploadProgress !== null && (
+                            {msg.uploadProgress !== null && msg.uploadProgress !== undefined && (
                               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md">
                                 <div className="relative w-14 h-14 flex items-center justify-center">
                                   <svg className="w-14 h-14 transform -rotate-90">
@@ -759,14 +797,14 @@ Capabilities:
                                       fill="transparent"
                                       strokeDasharray={2 * Math.PI * 22}
                                       strokeDashoffset={
-                                        2 * Math.PI * 22 * (1 - (uploadProgress || 0) / 100)
+                                        2 * Math.PI * 22 * (1 - (msg.uploadProgress || 0) / 100)
                                       }
                                       strokeLinecap="round"
                                       className="transition-all duration-150"
                                     />
                                   </svg>
                                   <span className="absolute text-xs font-bold text-white font-mono">
-                                    {uploadProgress}%
+                                    {msg.uploadProgress}%
                                   </span>
                                 </div>
                                 <span className="text-[10px] text-emerald-400 font-medium mt-1 font-mono tracking-wide">Uploading...</span>
@@ -774,7 +812,7 @@ Capabilities:
                             )}
 
                             {/* Upload Done Overlay */}
-                            {uploadDone && uploadProgress === null && (
+                            {msg.uploadDone && (msg.uploadProgress === null || msg.uploadProgress === undefined) && (
                               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/45 backdrop-blur-[2px] transition-all">
                                 <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 shadow-md">
                                   <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -783,10 +821,10 @@ Capabilities:
                               </div>
                             )}
 
-                            {!uploadDone && uploadProgress === null && !isRunning && (
+                            {!msg.uploadDone && (msg.uploadProgress === null || msg.uploadProgress === undefined) && !isRunning && (
                               <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 backdrop-blur-sm text-[10px] text-neutral-300 font-medium flex items-center gap-1 border border-white/10 font-mono">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                                <span>{videoFile?.name.slice(0, 16)}</span>
+                                <span>{msg.uploadedVideoName?.slice(0, 16)}</span>
                               </div>
                             )}
                           </div>
