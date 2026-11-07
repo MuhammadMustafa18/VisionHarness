@@ -480,15 +480,15 @@ Capabilities:
                       {/* Component Metric Cards */}
                       <div className="grid grid-cols-3 gap-3 text-xs">
                         {/* Detector Card */}
-                        <div className="relative overflow-hidden bg-[#262835] hover:bg-[#2c2f3e] p-4 rounded-2xl flex flex-col justify-between h-28 transition-all group shadow-none border-0">
+                        <div className="relative overflow-hidden bg-[#262835] hover:bg-[#2c2f3e] p-4 rounded-2xl flex flex-col justify-between min-h-[7.5rem] transition-all group shadow-none border-0">
                           <div>
                             <span className="text-neutral-300 text-xs font-medium block mb-1.5">Detector</span>
-                            <span className="text-2xl font-bold tracking-tight text-white block">
+                            <span className="text-xl font-bold tracking-tight text-white block break-words leading-tight">
                               {msg.spec.detector?.model || "yolov8n.pt"}
                             </span>
                           </div>
                           {/* Bottom Right Icon - Bigger & Lighter */}
-                          <div className="self-end flex items-center justify-center">
+                          <div className="self-end flex items-center justify-center pt-2">
                             <span className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/80 group-hover:text-white group-hover:bg-white/15 transition-all">
                               <Eye className="w-4 h-4" />
                             </span>
@@ -496,15 +496,15 @@ Capabilities:
                         </div>
 
                         {/* Tracker Card */}
-                        <div className="relative overflow-hidden bg-[#262835] hover:bg-[#2c2f3e] p-4 rounded-2xl flex flex-col justify-between h-28 transition-all group shadow-none border-0">
+                        <div className="relative overflow-hidden bg-[#262835] hover:bg-[#2c2f3e] p-4 rounded-2xl flex flex-col justify-between min-h-[7.5rem] transition-all group shadow-none border-0">
                           <div>
                             <span className="text-neutral-300 text-xs font-medium block mb-1.5">Tracker</span>
-                            <span className="text-2xl font-bold tracking-tight text-white block">
+                            <span className="text-xl font-bold tracking-tight text-white block break-words leading-tight">
                               {msg.spec.tracker?.tracker_type || "bytetrack"}
                             </span>
                           </div>
                           {/* Bottom Right Icon - Bigger & Lighter */}
-                          <div className="self-end flex items-center justify-center">
+                          <div className="self-end flex items-center justify-center pt-2">
                             <span className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/80 group-hover:text-white group-hover:bg-white/15 transition-all">
                               <Activity className="w-4 h-4" />
                             </span>
@@ -512,15 +512,15 @@ Capabilities:
                         </div>
 
                         {/* Spatial Logic Card */}
-                        <div className="relative overflow-hidden bg-[#262835] hover:bg-[#2c2f3e] p-4 rounded-2xl flex flex-col justify-between h-28 transition-all group shadow-none border-0">
+                        <div className="relative overflow-hidden bg-[#262835] hover:bg-[#2c2f3e] p-4 rounded-2xl flex flex-col justify-between min-h-[7.5rem] transition-all group shadow-none border-0">
                           <div>
                             <span className="text-neutral-300 text-xs font-medium block mb-1.5">Spatial logic</span>
-                            <span className="text-base font-bold tracking-tight text-white block truncate" title="Line Crossing Trigger">
+                            <span className="text-base font-bold tracking-tight text-white block break-words leading-tight">
                               Line Crossing Trigger
                             </span>
                           </div>
                           {/* Bottom Right Icon - Bigger & Lighter */}
-                          <div className="self-end flex items-center justify-center">
+                          <div className="self-end flex items-center justify-center pt-2">
                             <span className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/80 group-hover:text-white group-hover:bg-white/15 transition-all">
                               <SlidersHorizontal className="w-4 h-4" />
                             </span>
