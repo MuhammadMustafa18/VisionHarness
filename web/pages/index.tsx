@@ -594,12 +594,12 @@ Capabilities:
             ...m,
             text: cleanText || accumulatedText || "Analysis complete.",
             thoughts: accumulatedThinking || m.thoughts,
-            spec: parsedSpec || m.spec || (currentWorkspace.spec ? currentWorkspace.spec : undefined),
+            spec: parsedSpec || m.spec || undefined,
             toolCalls: activeToolCalls,
             stats: m.stats || (currentWorkspace.last_stats ? currentWorkspace.last_stats : undefined),
             videoUrl: m.videoUrl || (currentWorkspace.last_stats?.video_url ? `http://localhost:8000${currentWorkspace.last_stats.video_url}` : undefined),
-            uploadedVideoUrl: (parsedSpec || m.spec || currentWorkspace.spec) ? activeVideoUrl : undefined,
-            uploadedVideoName: (parsedSpec || m.spec || currentWorkspace.spec) ? activeVideoName : undefined,
+            uploadedVideoUrl: parsedSpec ? activeVideoUrl : undefined,
+            uploadedVideoName: parsedSpec ? activeVideoName : undefined,
             uploadedVideoPath: activeVideoPath,
             uploadDone: !!activeVideoPath
           };
