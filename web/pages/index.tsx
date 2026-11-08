@@ -247,9 +247,14 @@ Capabilities:
       .catch(() => {});
   }, [activeSessionId]);
 
+  const prevMsgCountRef = useRef(messages.length);
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    // Only auto-scroll down if a new message was added while already near bottom or on sending
+    if (messages.length > prevMsgCountRef.current) {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+    prevMsgCountRef.current = messages.length;
+  }, [messages.length]);
 
   const handleNewChat = () => {
     const newId = `wf_${Date.now()}`;
@@ -902,11 +907,11 @@ Capabilities:
       </Head>
 
       {/* Deep Obsidian Sidebar (Matching Ember Design System) */}
-      <aside className="w-64 bg-[var(--bg-sidebar)] border-r border-[var(--border-app)] flex flex-col justify-between select-none">
-        <div className="flex flex-col">
+      <aside className="w-64 bg-[var(--bg-sidebar)] border-r border-[var(--border-app)] flex flex-col justify-between select-none shrink-0 h-full overflow-hidden">
+        <div className="flex flex-col min-h-0 flex-1">
           
           {/* Top Brand & Sidebar Switcher */}
-          <div className="px-5 pt-5 pb-4 flex items-center justify-between">
+          <div className="px-5 pt-5 pb-4 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2.5">
               <span className="font-semibold text-base tracking-tight text-[var(--fg)]">VisionHarness</span>
             </div>
@@ -920,7 +925,7 @@ Capabilities:
           </div>
 
           {/* New Chat Quick Button */}
-          <div className="px-4 pb-2">
+          <div className="px-4 pb-2 shrink-0">
             <button
               onClick={handleNewChat}
               className="w-full py-2.5 px-3.5 rounded-xl bg-[var(--fg)] hover:bg-[var(--fg)] text-[var(--bg-app)] text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98]"
@@ -931,7 +936,7 @@ Capabilities:
           </div>
 
           {/* Search Box with Pill Shortcut */}
-          <div className="px-4 py-2">
+          <div className="px-4 py-2 shrink-0">
             <div className="w-full py-2 px-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-input)] flex items-center justify-between text-neutral-400 text-xs">
               <div className="flex items-center gap-2 flex-1">
                 <Search className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
@@ -961,13 +966,13 @@ Capabilities:
           </div>
 
           {/* Chat Workspaces Section Header */}
-          <div className="px-5 pt-4 pb-2 flex items-center justify-between text-[11px] font-medium tracking-normal text-neutral-500">
+          <div className="px-5 pt-4 pb-2 flex items-center justify-between text-[11px] font-medium tracking-normal text-neutral-500 shrink-0">
             <span>Workspaces & Chats</span>
             <span className="font-mono text-[10px] text-neutral-500">{filteredSessions.length}</span>
           </div>
 
           {/* Dynamic Scrollable Chat Sessions List */}
-          <div className="px-3 space-y-1 overflow-y-auto max-h-[calc(100vh-340px)] pr-1">
+          <div className="px-3 space-y-1 overflow-y-auto flex-1 min-h-0 pr-1">
             {filteredSessions.map(s => {
               const isActive = activeSessionId === s.id;
               return (
@@ -1002,12 +1007,12 @@ Capabilities:
           </div>
 
           {/* Model Engines / Tiers Section */}
-          <div className="px-5 pt-6 pb-2 text-[11px] font-medium tracking-normal text-neutral-500">
+          <div className="px-5 pt-4 pb-2 text-[11px] font-medium tracking-normal text-neutral-500 shrink-0">
             Vision engines
           </div>
 
-          <div className="px-3 space-y-1">
-            <div className="flex items-center justify-between px-3 py-2 rounded-lg text-xs text-neutral-400">
+          <div className="px-3 pb-3 space-y-1 shrink-0">
+            <div className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs text-neutral-400">
               <div className="flex items-center gap-2.5">
                 <span className="w-2 h-2 rounded-full bg-[#f59e0b] shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
                 <span>YOLO11 Ultra</span>
@@ -1015,7 +1020,7 @@ Capabilities:
               <span className="text-neutral-500 font-mono text-[11px]">18</span>
             </div>
 
-            <div className="flex items-center justify-between px-3 py-2 rounded-lg text-xs text-neutral-400">
+            <div className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs text-neutral-400">
               <div className="flex items-center gap-2.5">
                 <span className="w-2 h-2 rounded-full bg-[#10b981] shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                 <span>ByteTrack Pro</span>
@@ -1023,7 +1028,7 @@ Capabilities:
               <span className="text-neutral-500 font-mono text-[11px]">64</span>
             </div>
 
-            <div className="flex items-center justify-between px-3 py-2 rounded-lg text-xs text-neutral-400">
+            <div className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs text-neutral-400">
               <div className="flex items-center gap-2.5">
                 <span className="w-2 h-2 rounded-full bg-[#3b82f6] shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
                 <span>Google Pro CLI</span>
@@ -1035,7 +1040,7 @@ Capabilities:
         </div>
 
         {/* User Footer Profile */}
-        <div className="p-4 border-t border-[var(--border-app)] flex items-center justify-between text-xs text-neutral-400">
+        <div className="p-4 border-t border-[var(--border-app)] flex items-center justify-between text-xs text-neutral-400 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-neutral-700 to-neutral-900 border border-neutral-700 flex items-center justify-center text-white font-semibold text-xs shadow">
               M
