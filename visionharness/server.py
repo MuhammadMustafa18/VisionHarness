@@ -190,6 +190,35 @@ def save_workflow(spec: WorkflowSpec):
     return {"status": "saved", "path": p, "id": spec.id}
 
 
+@app.post("/api/ground")
+async def ground_video_scene(
+    workflow_id: str = Form(...),
+    prompt: Optional[str] = Form("Track entities in video"),
+    video: Optional[UploadFile] = File(None),
+    video_path: Optional[str] = Form(None),
+):
+    """VLM Scene Grounding Endpoint: Inspects sampled footage frames and explains the scene."""
+    target_video = video_path
+    if video:
+        safe_filename = video.filename.replace(" ", "_") if video.filename else "input.mp4"
+        save_name = f"upload_{int(time.time())}_{safe_filename}"
+        target_video = os.path.join(UPLOADS_DIR, save_name)
+        with open(target_video, "wb") as f_out:
+            shutil.copyfileobj(video.file, f_out)
+
+    if not target_video or not os.path.exists(target_video):
+        synthetic_path = "./tests/synthetic_test.mp4"
+        if os.path.exists(synthetic_path):
+            target_video = synthetic_path
+        else:
+            raise HTTPException(status_code=400, detail="A valid video file or path is required.")
+
+    grounding_data = ground_scene_with_vlm(target_video, prompt)
+    grounding_data["video_path"] = target_video
+    grounding_data["video_name"] = os.path.basename(target_video)
+    return grounding_data
+
+
 @app.post("/api/run")
 async def run_pipeline(
     workflow_id: str = Form(...),

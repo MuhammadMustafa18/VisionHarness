@@ -74,6 +74,7 @@ export default function VisionHarnessApp() {
   const [prompt, setPrompt] = useState("");
   const [isPlanning, setIsPlanning] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
+  const [isGrounding, setIsGrounding] = useState(false);
   const [showThoughts, setShowThoughts] = useState(true);
 
   const [selectedModel, setSelectedModel] = useState("mimo-v2.6-flash");
@@ -83,21 +84,21 @@ export default function VisionHarnessApp() {
 
   const runningSteps = [
     "Grounding scene perspective with mimo-v2.6-flash...",
-    "Configuring dynamic spatial zones & line boundaries...",
-    "Running YOLOv8 detector & ByteTrack tracker...",
-    "Encoding annotated frames to H.264...",
+    "Sampling representative video frames (skipping black intros)...",
+    "Analyzing physical environment & spatial boundaries...",
+    "Computing normalized geometry coordinates...",
   ];
 
   useEffect(() => {
     let interval: any;
-    if (isRunning) {
+    if (isRunning || isGrounding) {
       setRunningStepIndex(0);
       interval = setInterval(() => {
         setRunningStepIndex(prev => (prev + 1) % runningSteps.length);
       }, 1800);
     }
     return () => clearInterval(interval);
-  }, [isRunning]);
+  }, [isRunning, isGrounding]);
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -243,10 +244,10 @@ Capabilities:
             uploadDone: true
           };
 
-          // Automatically trigger inference execution with this file
+          // Automatically trigger VLM Scene Grounding on the uploaded footage
           if (targetMsg.spec) {
             setTimeout(() => {
-              handleRunInference(targetMsg.spec, file);
+              handleRunGrounding(targetMsg.spec, file);
             }, 300);
           }
           return updated;
@@ -346,6 +347,122 @@ Capabilities:
       ]);
     } finally {
       setIsPlanning(false);
+    }
+  };
+
+  const handleRunGrounding = async (spec: any, fileOverride?: File) => {
+    const activeFile = fileOverride || videoFile;
+    if (!activeFile) {
+      alert("Please upload a video file to ground scene.");
+      return;
+    }
+
+    setIsGrounding(true);
+    setUploadProgress(null);
+    setUploadDone(false);
+
+    const formData = new FormData();
+    formData.append("workflow_id", spec.id || "wf_store_people_counter");
+    formData.append("prompt", spec.description || spec.name || "Track entities in video");
+    formData.append("video", activeFile);
+
+    try {
+      const grounding = await new Promise<any>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "http://localhost:8000/api/ground");
+
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percentComplete = Math.round((event.loaded / event.total) * 100);
+            setUploadProgress(percentComplete);
+            if (percentComplete >= 100) {
+              setUploadDone(true);
+            }
+          }
+        };
+
+        xhr.onload = () => {
+          setUploadProgress(null);
+          setUploadDone(true);
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              resolve(JSON.parse(xhr.responseText));
+            } catch (e) {
+              reject(e);
+            }
+          } else {
+            reject(new Error(xhr.statusText || "Request failed"));
+          }
+        };
+
+        xhr.onerror = () => {
+          setUploadProgress(null);
+          setUploadDone(false);
+          reject(new Error("Network Error"));
+        };
+
+        xhr.send(formData);
+      });
+
+      // Construct conversational NLP response from the VLM
+      const nlpText = grounding.nlp_explanation || "Visual scene inspected.";
+      const strategyText = grounding.strategy ? `\n\n**Strategy:** ${grounding.strategy}` : "";
+      const reasonText = grounding.spatial_logic_reasoning ? `\n\n**Spatial Boundary Logic:** ${grounding.spatial_logic_reasoning}` : "";
+
+      const resultMsg: Message = {
+        id: Date.now().toString(),
+        sender: "bot" as const,
+        text: `${nlpText}${strategyText}${reasonText}`,
+        thoughts: `Analyzed camera perspective and extracted spatial geometry. Recommends ${grounding.geometry_type === 'polygon' ? 'Polygon Zone' : 'Directional Line'}.`,
+        toolCalls: [
+          {
+            name: "vlm_scene_grounder",
+            args: { model: "mimo-v2.6-flash", prompt: spec.description || spec.name },
+            output: {
+              geometry_type: grounding.geometry_type,
+              zones: grounding.zones || [],
+              lines: grounding.lines || []
+            },
+            status: "completed"
+          }
+        ],
+        spec: {
+          ...spec,
+          zones: grounding.zones || [],
+          lines: grounding.lines || []
+        },
+        uploadedVideoUrl: URL.createObjectURL(activeFile),
+        uploadedVideoName: activeFile.name,
+        uploadDone: true,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      setMessages(prev => [...prev, resultMsg]);
+      fetch(`http://localhost:8000/api/sessions/${activeSessionId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(resultMsg)
+      }).catch(() => {});
+    } catch (err: any) {
+      console.error("Grounding error:", err);
+      const fallbackMsg: Message = {
+        id: Date.now().toString(),
+        sender: "bot" as const,
+        text: `VLM Grounding encounter: ${err.message || 'Error'}. Ready to proceed with default pipeline.`,
+        thoughts: `Grounding failed: ${err.message}`,
+        toolCalls: [
+          {
+            name: "vlm_scene_grounder",
+            args: { model: "mimo-v2.6-flash" },
+            output: { error: err.message },
+            status: "error"
+          }
+        ],
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      setMessages(prev => [...prev, fallbackMsg]);
+    } finally {
+      setIsGrounding(false);
     }
   };
 
@@ -922,8 +1039,8 @@ Capabilities:
             </div>
           )}
 
-          {/* Running Inference Dynamic Progress Indicator */}
-          {isRunning && (
+          {/* Running Inference or Grounding Dynamic Progress Indicator */}
+          {(isRunning || isGrounding) && (
             <div className="flex flex-col items-start space-y-3 max-w-xl">
               <div className="flex items-center gap-2.5">
                 <img

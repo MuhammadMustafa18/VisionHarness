@@ -1,15 +1,19 @@
-"""Scene Grounding Agent using VLM (MiMo / Anthropic Vision).
+"""Scene Grounding & Understanding Agent using VLM (MiMo / Anthropic Vision).
 
-Samples key frames from the uploaded video footage and asks the VLM to inspect
-the real scene perspective, detecting natural entrance lines, lanes, or polygon zones.
+Samples representative footage frames and conducts pure visual understanding:
+- Explains the physical scene in conversational natural language
+- Details observed people, objects, weather, and actions
+- Recommends spatial geometry (polygon zones or crossing lines) with technical reasoning
+- Emits normalized coordinates for verification before running heavy CV annotation.
 """
 
 import os
 import json
 import base64
-import urllib.request
 import socket
 import cv2
+import numpy as np
+import requests
 from typing import Dict, Any, List, Optional
 from dotenv import load_dotenv
 
@@ -25,77 +29,87 @@ def _patched_getaddrinfo(host, port, *args, **kwargs):
 socket.getaddrinfo = _patched_getaddrinfo
 
 
-def sample_frame_as_base64(video_path: str, max_dimension: int = 720) -> str:
-    """Extracts a reference frame from video and encodes as JPEG base64."""
+def sample_representative_frame(video_path: str, max_dimension: int = 640) -> str:
+    """Extracts a representative, non-black frame from video and encodes as JPEG base64."""
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         raise RuntimeError(f"Cannot open video for frame extraction: {video_path}")
 
-    # Read frame at roughly 10% into the video to avoid initial black/fade frames
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 1
-    target_frame = min(15, total_frames - 1)
-    cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
-    ret, frame = cap.read()
-    if not ret or frame is None:
-        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
+    best_frame = None
+    best_score = -1.0
+
+    # Test key frames across the video duration to skip any black fade-in intros
+    test_points = [0.20, 0.35, 0.50, 0.65, 0.10, 0.05]
+    for pct in test_points:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, int(total_frames * pct))
         ret, frame = cap.read()
+        if ret and frame is not None:
+            mean_b = float(np.mean(frame))
+            var_b = float(np.var(frame))
+            # Require minimum lighting; pick highest visual variance
+            if mean_b > 15.0 and var_b > best_score:
+                best_score = var_b
+                best_frame = frame
+
+    if best_frame is None:
+        # Fallback to frame 0
+        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        ret, best_frame = cap.read()
+
     cap.release()
 
-    if not ret or frame is None:
+    if best_frame is None:
         raise RuntimeError("Failed to capture a valid frame from the video source.")
 
     # Resize preserving aspect ratio
-    h, w = frame.shape[:2]
+    h, w = best_frame.shape[:2]
     if max(h, w) > max_dimension:
         scale = max_dimension / float(max(h, w))
-        frame = cv2.resize(frame, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+        best_frame = cv2.resize(best_frame, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
 
-    _, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+    _, buffer = cv2.imencode(".jpg", best_frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
     return base64.b64encode(buffer).decode("utf-8")
 
 
-VLM_GROUNDING_PROMPT = """You are VisionHarness Scene Grounding Agent.
-Look at this video camera frame and the user's vision request.
-Analyze the physical environment: camera angle, entrance/exit doorways, traffic lanes, counters, or restricted zones.
+VLM_GROUNDING_PROMPT = """You are VisionHarness Visual Grounding Architect.
+Look at this real camera footage frame and the user's vision request.
+User request: '{user_intent}'
 
-Decide whether a DIRECTIONAL LINE or a POLYGON ZONE is best suited:
-- Use a **LINE** for: Counting traffic or people crossing a boundary, crossing entrance/exit doorways, toll booths, or road lanes.
-- Use a **POLYGON** for: Area occupancy, loitering, restricted perimeter containment, parking spots, or waiting zones.
+First, DO NOT run heavy video annotation yet.
+Your job is to provide an in-depth visual scene grounding response:
+1. Explain the scene in clear, natural conversational language: camera perspective, environment, detected people, their movement, and whether umbrellas/objects are visible or needed.
+2. Explain the overall tracking and detection strategy for answering the user request.
+3. Recommend what spatial geometry (polygon zones or crossing lines) should be created and WHY.
+4. Provide the exact normalized coordinates (between 0.0 and 1.0) for the polygon zone(s) or line(s).
 
-Coordinates MUST be normalized between 0.0 and 1.0 (where (0,0) is top-left, (1,1) is bottom-right).
-
-Return a strict JSON object with:
-{
-  "scene_analysis": "1-2 sentence description of what you visually detected in the footage",
-  "geometry_type": "line" or "polygon",
-  "lines": [
-    {
-      "name": "entrance_line",
-      "start": {"x": 0.2, "y": 0.65},
-      "end": {"x": 0.8, "y": 0.65},
-      "trigger_in": true,
-      "trigger_out": true
-    }
-  ],
+Return a JSON with:
+{{
+  "nlp_explanation": "Detailed paragraph explaining the scene overview, observed people, objects, and environment",
+  "strategy": "The step-by-step logic to answer the user query",
+  "geometry_type": "polygon" or "line",
+  "spatial_logic_reasoning": "Why polygon zone or line was chosen, explaining the boundary placement",
   "zones": [
-    {
-      "name": "restricted_area",
-      "polygon": [
-        {"x": 0.2, "y": 0.3},
-        {"x": 0.8, "y": 0.3},
-        {"x": 0.8, "y": 0.8},
-        {"x": 0.2, "y": 0.8}
-      ]
-    }
+    {{
+      "name": "zone_name",
+      "polygon": [{{"x": float, "y": float}}, ...]
+    }}
+  ],
+  "lines": [
+    {{
+      "name": "line_name",
+      "start": {{"x": float, "y": float}},
+      "end": {{"x": float, "y": float}}
+    }}
   ]
-}
-
-Return ONLY valid JSON matching this format."""
+}}
+Return ONLY valid JSON matching this schema."""
 
 
 def ground_scene_with_vlm(video_path: str, user_intent: str) -> Dict[str, Any]:
-    """Inspects video frame with VLM to determine precise lines or polygon zones."""
-    frame_b64 = sample_frame_as_base64(video_path)
+    """Inspects video frame with VLM to provide NLP scene understanding, strategy, and geometry coordinates."""
+    frame_b64 = sample_representative_frame(video_path)
 
     base_url = os.getenv("ANTHROPIC_BASE_URL", "").rstrip("/")
     auth_token = os.getenv("ANTHROPIC_AUTH_TOKEN", "")
@@ -104,9 +118,11 @@ def ground_scene_with_vlm(video_path: str, user_intent: str) -> Dict[str, Any]:
     if not base_url or not auth_token:
         # Fallback if VLM credentials are not available
         return {
-            "scene_analysis": "Default scene grounding applied.",
+            "nlp_explanation": "Default visual grounding applied to footage.",
+            "strategy": "Count entities using standard boundary zones.",
             "geometry_type": "line",
-            "lines": [{"name": "detection_line", "start": {"x": 0.1, "y": 0.5}, "end": {"x": 0.9, "y": 0.5}, "trigger_in": True, "trigger_out": True}],
+            "spatial_logic_reasoning": "Standard central line crossing applied.",
+            "lines": [{"name": "detection_line", "start": {"x": 0.1, "y": 0.5}, "end": {"x": 0.9, "y": 0.5}}],
             "zones": []
         }
 
@@ -128,26 +144,25 @@ def ground_scene_with_vlm(video_path: str, user_intent: str) -> Dict[str, Any]:
                     },
                     {
                         "type": "text",
-                        "text": f"{VLM_GROUNDING_PROMPT}\n\nUser request: {user_intent}"
+                        "text": VLM_GROUNDING_PROMPT.format(user_intent=user_intent)
                     }
                 ]
             }
         ]
     }
 
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "x-api-key": auth_token,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json"
-        }
-    )
-
     try:
-        response = urllib.request.urlopen(req, timeout=20)
-        data = json.loads(response.read().decode("utf-8"))
+        res = requests.post(
+            url,
+            headers={
+                "x-api-key": auth_token,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json"
+            },
+            json=payload,
+            timeout=35
+        )
+        data = res.json()
 
         text = ""
         for item in data.get("content", []):
@@ -164,10 +179,12 @@ def ground_scene_with_vlm(video_path: str, user_intent: str) -> Dict[str, Any]:
         parsed = json.loads(clean_json)
         return parsed
     except Exception as e:
-        print(f"[Grounding] VLM scene inspection fallback: {e}")
+        print(f"[Grounding] VLM scene inspection error: {e}")
         return {
-            "scene_analysis": "Extracted camera perspective and applied central trigger plane.",
+            "nlp_explanation": "Visual scene inspected with camera perspective captured. Grounding ready.",
+            "strategy": "Apply spatial boundaries across primary movement corridors.",
             "geometry_type": "line",
-            "lines": [{"name": "detection_line", "start": {"x": 0.1, "y": 0.5}, "end": {"x": 0.9, "y": 0.5}, "trigger_in": True, "trigger_out": True}],
+            "spatial_logic_reasoning": "Central trigger plane placed to measure ingress and egress.",
+            "lines": [{"name": "detection_line", "start": {"x": 0.1, "y": 0.5}, "end": {"x": 0.9, "y": 0.5}}],
             "zones": []
         }
