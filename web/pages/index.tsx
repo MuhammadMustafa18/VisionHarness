@@ -82,6 +82,31 @@ export default function VisionHarnessApp() {
   const [selectedToolMode, setSelectedToolMode] = useState("Workspace Write");
   const [runningStepIndex, setRunningStepIndex] = useState(0);
   const [expandedToolCalls, setExpandedToolCalls] = useState<{ [msgId: string]: boolean }>({});
+  const [systemHardware, setSystemHardware] = useState<any>(null);
+  const [estimatedSeconds, setEstimatedSeconds] = useState<number | null>(null);
+  const [pipelineElapsed, setPipelineElapsed] = useState<number>(0);
+
+  useEffect(() => {
+    fetch("http://localhost:8000/api/status")
+      .then(res => res.json())
+      .then(data => {
+        if (data.hardware) setSystemHardware(data.hardware);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    let timer: any;
+    if (isRunning) {
+      setPipelineElapsed(0);
+      timer = setInterval(() => {
+        setPipelineElapsed(prev => prev + 1);
+      }, 1000);
+    } else {
+      setEstimatedSeconds(null);
+    }
+    return () => clearInterval(timer);
+  }, [isRunning]);
 
   const runningSteps = [
     "Grounding scene perspective with mimo-v2.6-flash...",
@@ -306,8 +331,9 @@ Capabilities:
     setPrompt("");
     setIsPlanning(true);
 
-    // Check if the current workspace already has an uploaded or active video
+    // Check if the current workspace already has an uploaded or active video and prior stats
     const lastVideoMsg = [...messages].reverse().find(m => m.uploadedVideoUrl || m.uploadedVideoName);
+    const lastStatsMsg = [...messages].reverse().find(m => m.stats);
     const activeVideoName = lastVideoMsg?.uploadedVideoName || (videoFile ? videoFile.name : null);
     const hasVideo = !!activeVideoName;
 
@@ -320,7 +346,8 @@ Capabilities:
           session_id: activeSessionId,
           auth_mode: "auto",
           context_has_video: hasVideo,
-          last_video_name: activeVideoName
+          last_video_name: activeVideoName,
+          last_inference_stats: lastStatsMsg ? lastStatsMsg.stats : null,
         })
       });
       const data = await res.json();
@@ -329,7 +356,9 @@ Capabilities:
         id: (Date.now() + 1).toString(),
         sender: "bot",
         text: data.plan_text || "Workflow generated successfully.",
-        thoughts: `Analyzed vision objective. Decomposed into ${data.spec?.detector?.model || 'YOLO11'} detector and ByteTrack persistent tracker. Configured line crossing rules.`,
+        thoughts: data.spec
+          ? `Analyzed vision objective. Decomposed into ${data.spec?.detector?.model || 'YOLOv8'} detector and ByteTrack persistent tracker.`
+          : `Retrieved prior inference results from workspace context to answer question directly.`,
         spec: data.spec,
         uploadedVideoUrl: lastVideoMsg?.uploadedVideoUrl,
         uploadedVideoName: activeVideoName || undefined,
@@ -572,9 +601,22 @@ Capabilities:
       return;
     }
 
-    setIsRunning(true);
-    setUploadProgress(null);
-    setUploadDone(false);
+    // Calculate estimated time based on video duration & system hardware
+    try {
+      const tempVideo = document.createElement("video");
+      tempVideo.preload = "metadata";
+      tempVideo.src = URL.createObjectURL(activeFile);
+      tempVideo.onloadedmetadata = () => {
+        const durationSec = tempVideo.duration || 60;
+        const totalEstimatedFrames = durationSec * 25;
+        const expectedFps = systemHardware?.typical_fps || 12.0;
+        const estSec = Math.max(5, Math.round(totalEstimatedFrames / expectedFps));
+        setEstimatedSeconds(estSec);
+        URL.revokeObjectURL(tempVideo.src);
+      };
+    } catch (e) {
+      setEstimatedSeconds(60);
+    }
     const formData = new FormData();
     formData.append("workflow_id", spec.id || "wf_store_people_counter");
     formData.append("spec_json", JSON.stringify(spec));
@@ -1070,8 +1112,11 @@ Capabilities:
                           <span>Video Inference Output</span>
                         </div>
                         <div className="flex items-center gap-4 text-xs text-neutral-300 font-mono">
+                          {msg.stats.unique_tracks !== undefined && msg.stats.unique_tracks !== null && (
+                            <span>Unique Entities: <strong className="text-emerald-400">{msg.stats.unique_tracks}</strong></span>
+                          )}
                           {msg.stats.has_polygon_zones ? (
-                            <span>Zone Peak Occupancy: <strong className="text-amber-400">{msg.stats.max_zone_occupancy ?? 0}</strong></span>
+                            <span>Zone Peak: <strong className="text-amber-400">{msg.stats.max_zone_occupancy ?? 0}</strong></span>
                           ) : (
                             <>
                               <span>IN: <strong className="text-emerald-400">{msg.stats.in_count ?? 0}</strong></span>
@@ -1149,9 +1194,23 @@ Capabilities:
                 />
                 <span className="text-xs font-semibold tracking-wide text-neutral-300">VisionHarness</span>
               </div>
-              <div className="flex items-center gap-2 text-xs text-neutral-300 bg-[#16171d] px-4 py-2.5 rounded-2xl border border-zinc-800/80 shadow-md">
-                <Activity className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
-                <span className="font-mono">{runningSteps[runningStepIndex]}</span>
+              <div className="flex flex-col gap-2 bg-[#16171d] px-4 py-3 rounded-2xl border border-zinc-800/80 shadow-md w-full">
+                <div className="flex items-center gap-2 text-xs text-neutral-200">
+                  <Activity className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
+                  <span className="font-mono">{runningSteps[runningStepIndex]}</span>
+                </div>
+                {isRunning && (
+                  <div className="flex items-center justify-between text-[11px] font-mono text-neutral-400 pt-1.5 border-t border-neutral-800/60">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                      <span>Elapsed: {pipelineElapsed}s</span>
+                    </span>
+                    <span className="text-neutral-300">
+                      Est. time: <strong className="text-amber-400">{estimatedSeconds ? `${Math.max(0, estimatedSeconds - pipelineElapsed)}s left` : "Calculating..."}</strong>
+                      <span className="text-neutral-500 ml-1">({systemHardware?.device ? systemHardware.device.toUpperCase() : "CPU"} mode)</span>
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           )}

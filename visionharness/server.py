@@ -67,6 +67,7 @@ class PlanRequest(BaseModel):
     auth_mode: Optional[str] = "auto"  # 'google_account', 'api_key', 'auto'
     context_has_video: Optional[bool] = False
     last_video_name: Optional[str] = None
+    last_inference_stats: Optional[Dict[str, Any]] = None
 
 
 @app.get("/api/sessions")
@@ -97,10 +98,28 @@ def append_message(session_id: str, message: ChatMessage):
 def status():
     """Return backend status and active auth mode."""
     auth = get_auth_status()
+    import torch
+    import psutil
+    cuda_avail = False
+    device_name = "CPU"
+    try:
+        cuda_avail = torch.cuda.is_available()
+        if cuda_avail:
+            device_name = torch.cuda.get_device_name(0)
+    except Exception:
+        pass
+
     return {
         "status": "ready",
         "version": "0.1.0",
         "auth": auth,
+        "hardware": {
+            "device": "cuda" if cuda_avail else "cpu",
+            "device_name": device_name,
+            "cpu_cores": psutil.cpu_count(logical=False),
+            "logical_cores": psutil.cpu_count(logical=True),
+            "typical_fps": 60.0 if cuda_avail else 12.0
+        }
     }
 
 
@@ -122,6 +141,7 @@ async def plan_pipeline(req: PlanRequest):
             prompt,
             context_has_video=req.context_has_video or False,
             last_video_name=req.last_video_name,
+            last_inference_stats=req.last_inference_stats,
         )
         clean_res = raw_res
         spec_obj = None
@@ -139,18 +159,7 @@ async def plan_pipeline(req: PlanRequest):
             except Exception:
                 pass
 
-        if not spec_obj:
-            # Fallback default workflow spec matching prompt
-            spec_obj = {
-                "id": f"wf_{int(time.time())}",
-                "name": "Custom Vision Pipeline",
-                "description": prompt,
-                "detector": {"model": "yolov8n.pt", "classes": ["car", "person"], "confidence": 0.35},
-                "tracker": {"tracker_type": "bytetrack", "track_buffer": 30},
-                "lines": [{"name": "detection_line", "start": {"x": 0.1, "y": 0.5}, "end": {"x": 0.9, "y": 0.5}, "trigger_in": True, "trigger_out": True}]
-            }
-
-        diagram_svg = generate_pipeline_svg(spec_obj)
+        diagram_svg = generate_pipeline_svg(spec_obj) if spec_obj else ""
         # Extract conversational text without the raw json block
         conversational_text = raw_res
         if "```json" in conversational_text:
@@ -159,9 +168,13 @@ async def plan_pipeline(req: PlanRequest):
             conversational_text = conversational_text.split("```")[0].strip()
 
         if not conversational_text:
-            conversational_text = "Got it! I've planned the detection and tracking pipeline for your task. Send the video in your next message (or click the attach button below) and I'll label and track the objects for you."
+            conversational_text = "Analysis complete."
 
-        return {"plan_text": conversational_text, "spec": spec_obj, "diagram_svg": diagram_svg}
+        # If user is asking a question about previous stats and no new spec was provided, do not force a new spec
+        is_qa_only = bool(req.last_inference_stats and "```" not in raw_res)
+        final_spec = None if is_qa_only else spec_obj
+
+        return {"plan_text": conversational_text, "spec": final_spec, "diagram_svg": diagram_svg}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

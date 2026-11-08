@@ -13,18 +13,19 @@ from visionharness.core.spec import WorkflowSpec
 
 
 SYSTEM_INSTRUCTIONS = """You are VisionHarness, a conversational AI Computer Vision Architect.
-When a user asks for a computer vision task (e.g. "I want to track cars at the intersection", "count people in a store", "how many guns in the video"):
-1. Respond naturally and conversationally, acknowledging their request in 1-2 friendly sentences.
-   - If a video is already in context or was previously uploaded in the workspace: acknowledge it! e.g. "Got it! I've updated the pipeline to detect and count guns on your active video. Click Run (or re-run) below and I'll analyze it."
-   - If no video has been uploaded yet: politely ask them to upload the footage or send it in their next message.
-2. Also plan the technical architecture behind the scenes and include a valid JSON code block ```json ... ``` with the WorkflowSpec:
+When a user asks for a computer vision task or asks questions about their video or analysis:
+1. Respond naturally and conversationally in 1-3 friendly sentences.
+   - If an inference result was already run and produced stats (e.g. peak occupancy, in/out count, unique tracks), ANSWER THEIR QUESTION DIRECTLY using those stats! (For example: "Based on our tracking analysis, there were 10 people in the peak zone occupancy and 21 unique people tracked across the video."). Do NOT tell them to re-run unless they asked to modify the pipeline.
+   - If a video is already loaded but hasn't run yet: acknowledge it! e.g. "Got it! I've configured the pipeline to track and count on '{{video_name}}'. Click Confirm & Run Pipeline below to execute."
+   - If no video has been uploaded yet: politely invite them to upload the footage.
+2. If this is a new pipeline architecture or configuration change, include a valid JSON code block ```json ... ``` with the WorkflowSpec:
    {
      "id": "wf_<timestamp>",
      "name": "Pipeline Name",
      "description": "Short description",
      "detector": {
        "model": "yolov8n.pt",
-       "classes": ["car", "person", "gun", etc],
+       "classes": ["car", "person"],
        "confidence": 0.35
      },
      "tracker": {
@@ -35,11 +36,17 @@ When a user asks for a computer vision task (e.g. "I want to track cars at the i
        { "name": "detection_line", "start": {"x": 0.1, "y": 0.5}, "end": {"x": 0.9, "y": 0.5}, "trigger_in": true, "trigger_out": true }
      ]
    }
+If the user is just asking a question about existing results, answer their question directly and omit the ```json block unless a pipeline redesign is requested.
 
-Be friendly, concise, and clear."""
+Be friendly, direct, concise, and helpful."""
 
 
-async def plan_workflow_anthropic(prompt: str, context_has_video: bool = False, last_video_name: str | None = None) -> str:
+async def plan_workflow_anthropic(
+    prompt: str,
+    context_has_video: bool = False,
+    last_video_name: str | None = None,
+    last_inference_stats: dict | None = None,
+) -> str:
     """Invoke Anthropic / MiMo endpoint."""
     base_url = os.getenv("ANTHROPIC_BASE_URL", "").rstrip("/")
     auth_token = os.getenv("ANTHROPIC_AUTH_TOKEN", "")
@@ -50,7 +57,9 @@ async def plan_workflow_anthropic(prompt: str, context_has_video: bool = False, 
 
     system_prompt = SYSTEM_INSTRUCTIONS
     if context_has_video:
-        system_prompt += f"\n\nCURRENT CONTEXT: The user already uploaded and is actively working with a video in this workspace ('{last_video_name or 'active_video.mp4'}'). Do NOT tell them to upload a video again unless they want to replace it. Acknowledge the existing video and state that you're ready to run on it!"
+        system_prompt += f"\n\nCURRENT VIDEO CONTEXT: Active video loaded in workspace: '{last_video_name or 'active_video.mp4'}'."
+    if last_inference_stats:
+        system_prompt += f"\n\nPRIOR INFERENCE RESULTS IN THIS WORKSPACE: The pipeline already executed on this video! Here are the actual numbers:\n{json.dumps(last_inference_stats, indent=2)}\nUse these exact figures to answer any direct questions (e.g. 'how many people', 'what was the count')."
 
     url = f"{base_url}/v1/messages"
     payload = {
@@ -93,12 +102,16 @@ async def plan_workflow(
     api_key: str | None = None,
     context_has_video: bool = False,
     last_video_name: str | None = None,
+    last_inference_stats: dict | None = None,
 ) -> str:
     """Run prompt against Anthropic / MiMo endpoint, falling back to Antigravity SDK if needed."""
     if os.getenv("ANTHROPIC_BASE_URL") and os.getenv("ANTHROPIC_AUTH_TOKEN"):
         try:
             return await plan_workflow_anthropic(
-                prompt, context_has_video=context_has_video, last_video_name=last_video_name
+                prompt,
+                context_has_video=context_has_video,
+                last_video_name=last_video_name,
+                last_inference_stats=last_inference_stats,
             )
         except Exception as e:
             print(f"[Planner] Anthropic call failed: {e}")

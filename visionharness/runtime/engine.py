@@ -145,6 +145,7 @@ class VisionRuntime:
         frame_count = 0
         start_time = time.time()
         max_zone_occupancy = 0
+        unique_track_ids = set()
 
         try:
             for frame in source.frames():
@@ -168,6 +169,9 @@ class VisionRuntime:
 
                 # Convert to Supervision Detections
                 detections = sv.Detections.from_ultralytics(results)
+                if detections.tracker_id is not None:
+                    for tid in detections.tracker_id:
+                        unique_track_ids.add(int(tid))
 
                 # 2. Trigger spatial geometry (lines & polygon zones)
                 for lz in self.line_zones:
@@ -250,6 +254,7 @@ class VisionRuntime:
             "processed_fps": processed_fps,
             "in_count": total_in,
             "out_count": total_out,
+            "unique_tracks": len(unique_track_ids),
             "max_zone_occupancy": max_zone_occupancy,
             "has_polygon_zones": len(self.polygon_zones) > 0,
             "output_video": output_video_path,
