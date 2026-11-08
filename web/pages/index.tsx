@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Head from "next/head";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   Plus,
   Play,
@@ -846,25 +848,25 @@ Capabilities:
   };
 
   return (
-    <div className="h-screen w-screen bg-[#0d0e11] text-[#ededef] flex overflow-hidden font-sans antialiased selection:bg-neutral-800">
+    <div className="h-screen w-screen bg-[var(--bg-app)] text-[var(--fg)] flex overflow-hidden font-sans antialiased selection:bg-[var(--selection-bg)]">
       <Head>
         <title>VisionHarness</title>
         <meta name="description" content="Agentic Computer Vision Builder" />
       </Head>
 
       {/* Deep Obsidian Sidebar (Matching Ember Design System) */}
-      <aside className="w-64 bg-[#0a0b0d] border-r border-[#191a1f] flex flex-col justify-between select-none">
+      <aside className="w-64 bg-[var(--bg-sidebar)] border-r border-[var(--border-app)] flex flex-col justify-between select-none">
         <div className="flex flex-col">
           
           {/* Top Brand & Sidebar Switcher */}
           <div className="px-5 pt-5 pb-4 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <span className="font-semibold text-base tracking-tight text-white">VisionHarness</span>
+              <span className="font-semibold text-base tracking-tight text-[var(--fg)]">VisionHarness</span>
             </div>
             <button
               onClick={handleNewChat}
               title="New Vision Chat (⌘N)"
-              className="p-1.5 rounded-lg bg-[#14151a] hover:bg-[#1f2026] text-neutral-400 hover:text-white border border-[#242630] transition-colors"
+              className="p-1.5 rounded-lg bg-[var(--bg-ghost)] hover:bg-[var(--bg-ghost-hover)] text-neutral-400 hover:text-[var(--fg)] border border-[var(--border-card)] transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
             </button>
@@ -874,7 +876,7 @@ Capabilities:
           <div className="px-4 pb-2">
             <button
               onClick={handleNewChat}
-              className="w-full py-2.5 px-3.5 rounded-xl bg-white hover:bg-neutral-200 text-black text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98]"
+              className="w-full py-2.5 px-3.5 rounded-xl bg-[var(--fg)] hover:bg-[var(--fg)] text-[var(--bg-app)] text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98]"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>New Workspace</span>
@@ -883,12 +885,12 @@ Capabilities:
 
           {/* Search Box with Pill Shortcut */}
           <div className="px-4 py-2">
-            <div className="w-full py-2 px-3 rounded-xl bg-[#131418] border border-[#202228] flex items-center justify-between text-neutral-400 text-xs">
+            <div className="w-full py-2 px-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-input)] flex items-center justify-between text-neutral-400 text-xs">
               <div className="flex items-center gap-2">
                 <Search className="w-3.5 h-3.5 text-neutral-500" />
                 <span>Search</span>
               </div>
-              <div className="flex items-center gap-1 text-[10px] font-mono bg-[#1c1e24] px-1.5 py-0.5 rounded text-neutral-400 border border-[#262830]">
+              <div className="flex items-center gap-1 text-[10px] font-mono bg-[var(--bg-chip)] px-1.5 py-0.5 rounded text-neutral-400 border border-[var(--border-kbd)]">
                 <span>⌘</span>
                 <span>K</span>
               </div>
@@ -905,8 +907,8 @@ Capabilities:
               onClick={() => setActiveSessionId("wf_store_people_counter")}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${
                 activeSessionId === "wf_store_people_counter"
-                  ? "bg-[#1c1d22] text-white shadow-inner font-semibold border border-[#2a2c34]"
-                  : "text-neutral-400 hover:text-white hover:bg-[#131418]"
+                  ? "bg-[var(--bg-hover)] text-[var(--fg)] shadow-inner font-semibold border border-[var(--border-nav)]"
+                  : "text-neutral-400 hover:text-[var(--fg)] hover:bg-[var(--bg-surface)]"
               }`}
             >
               <div className="flex items-center gap-2.5">
@@ -919,8 +921,8 @@ Capabilities:
               onClick={() => setActiveSessionId("wf_traffic_flow")}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${
                 activeSessionId === "wf_traffic_flow"
-                  ? "bg-[#1c1d22] text-white shadow-inner font-semibold border border-[#2a2c34]"
-                  : "text-neutral-400 hover:text-white hover:bg-[#131418]"
+                  ? "bg-[var(--bg-hover)] text-[var(--fg)] shadow-inner font-semibold border border-[var(--border-nav)]"
+                  : "text-neutral-400 hover:text-[var(--fg)] hover:bg-[var(--bg-surface)]"
               }`}
             >
               <div className="flex items-center gap-2.5">
@@ -930,7 +932,7 @@ Capabilities:
               <span className="text-[11px] text-neutral-500 font-mono">12</span>
             </button>
 
-            <button className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium text-neutral-400 hover:text-white hover:bg-[#131418] transition-all">
+            <button className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium text-neutral-400 hover:text-[var(--fg)] hover:bg-[var(--bg-surface)] transition-all">
               <div className="flex items-center gap-2.5">
                 <Layers className="w-4 h-4 text-neutral-400" />
                 <span>CV Projects</span>
@@ -938,7 +940,7 @@ Capabilities:
               <ChevronRight className="w-3.5 h-3.5 text-neutral-600 rotate-90" />
             </button>
 
-            <button className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium text-neutral-400 hover:text-white hover:bg-[#131418] transition-all">
+            <button className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium text-neutral-400 hover:text-[var(--fg)] hover:bg-[var(--bg-surface)] transition-all">
               <div className="flex items-center gap-2.5">
                 <BarChart3 className="w-4 h-4 text-neutral-400" />
                 <span>Analytics / Reports</span>
@@ -980,31 +982,31 @@ Capabilities:
         </div>
 
         {/* User Footer Profile */}
-        <div className="p-4 border-t border-[#191a1f] flex items-center justify-between text-xs text-neutral-400">
+        <div className="p-4 border-t border-[var(--border-app)] flex items-center justify-between text-xs text-neutral-400">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-neutral-700 to-neutral-900 border border-neutral-700 flex items-center justify-center text-white font-semibold text-xs shadow">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-neutral-700 to-neutral-900 border border-neutral-700 flex items-center justify-center text-[var(--fg)] font-semibold text-xs shadow">
               M
             </div>
             <div className="flex flex-col">
-              <span className="font-semibold text-white truncate max-w-[110px]">Mustafa</span>
+              <span className="font-semibold text-[var(--fg)] truncate max-w-[110px]">Mustafa</span>
               <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-mono">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 Pro Connected
               </span>
             </div>
           </div>
-          <Settings className="w-4 h-4 text-neutral-500 hover:text-white cursor-pointer transition-colors" />
+          <Settings className="w-4 h-4 text-neutral-500 hover:text-[var(--fg)] cursor-pointer transition-colors" />
         </div>
       </aside>
 
       {/* Main Center Canvas (Minimalist Charcoal Black) */}
-      <main className="flex-1 flex flex-col bg-[#0d0e11] overflow-hidden">
+      <main className="flex-1 flex flex-col bg-[var(--bg-app)] overflow-hidden">
         
         {/* Top Minimal Header */}
-        <header className="h-16 border-b border-[#17181e] flex items-center justify-between px-8">
+        <header className="h-16 border-b border-[var(--border-header)] flex items-center justify-between px-8">
           <div className="flex items-center gap-3">
             <LayoutGrid className="w-4 h-4 text-neutral-400" />
-            <h1 className="text-xl font-semibold tracking-tight text-white">
+            <h1 className="text-xl font-semibold tracking-tight text-[var(--fg)]">
               {activeSession.name}
             </h1>
           </div>
@@ -1022,7 +1024,7 @@ Capabilities:
             >
               {/* User Bubble */}
               {msg.sender === "user" ? (
-                <div className="max-w-xl bg-[#18191f] border border-[#262832] text-[#f4f4f5] px-5 py-3 rounded-2xl text-sm leading-relaxed space-y-2.5">
+                <div className="max-w-xl bg-[var(--bg-elevated)] border border-[var(--border-bubble)] text-[var(--fg-bubble)] px-5 py-3 rounded-2xl text-sm leading-relaxed space-y-2.5">
                   <div>{msg.text}</div>
                   {msg.uploadedVideoUrl && (
                     <div className="rounded-xl overflow-hidden bg-black/60 border border-white/10 w-56 aspect-video relative group">
@@ -1067,15 +1069,17 @@ Capabilities:
                   )}
 
                   {msg.thoughts && showThoughts && (
-                    <div className="border-l-2 border-[#2b2e38] pl-4 py-1 text-xs text-neutral-400 italic leading-relaxed my-2">
+                    <div className="border-l-2 border-[var(--border-badge)] pl-4 py-1 text-xs text-neutral-400 italic leading-relaxed my-2">
                       {msg.thoughts}
                     </div>
                   )}
 
-                  {/* Clean conversational response */}
+                  {/* Markdown formatted conversational response */}
                   {msg.text ? (
-                    <div className="text-sm text-neutral-200 leading-relaxed whitespace-pre-line font-normal">
-                      {msg.text}
+                    <div className="text-sm text-neutral-200 leading-relaxed font-normal prose prose-invert max-w-none prose-p:my-1.5 prose-headings:my-2 prose-h2:text-base prose-h3:text-sm prose-table:my-2 prose-th:px-3 prose-th:py-1.5 prose-td:px-3 prose-td:py-1.5 prose-th:bg-neutral-900 prose-td:border-neutral-800 prose-th:border-neutral-700">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {msg.text}
+                      </ReactMarkdown>
                     </div>
                   ) : (
                     isPlanning && (
@@ -1089,7 +1093,7 @@ Capabilities:
                   {/* Clean Single Pipeline Spec Card with Upload & Run Action */}
                   {msg.spec && (
                     <div 
-                      style={{ backgroundColor: "#1e1f26" }} 
+                      style={{ backgroundColor: "var(--bg-elevated)" }} 
                       className="mt-3 rounded-2xl p-5 space-y-4 shadow-xl border border-zinc-800/60"
                     >
                       <div className="flex items-center justify-between pb-1">
@@ -1117,7 +1121,7 @@ Capabilities:
 
                           <button
                             onClick={() => fileInputRef.current?.click()}
-                            className="px-4 py-2.5 rounded-xl bg-[#2a2c35] hover:bg-[#343742] text-zinc-200 font-semibold text-xs flex items-center gap-2 transition-all shadow-md active:scale-[0.98]"
+                            className="px-4 py-2.5 rounded-xl bg-[var(--bg-secondary)] hover:bg-[var(--bg-secondary-hover)] text-zinc-200 font-semibold text-xs flex items-center gap-2 transition-all shadow-md active:scale-[0.98]"
                           >
                             <Upload className="w-3.5 h-3.5" />
                             {msg.uploadedVideoName ? `Replace Video` : "Upload Video to Ground Scene"}
@@ -1217,7 +1221,7 @@ Capabilities:
                           {msg.toolCalls.map((tc, idx) => (
                             <div 
                               key={idx}
-                              className="bg-[#121318] border border-[#20222a] rounded-xl p-3 text-xs font-mono space-y-1.5"
+                              className="bg-[var(--bg-inset)] border border-[var(--border-tool)] rounded-xl p-3 text-xs font-mono space-y-1.5"
                             >
                               <div className="flex items-center justify-between">
                                 <span className="text-amber-400 font-semibold flex items-center gap-1.5">
@@ -1230,7 +1234,7 @@ Capabilities:
                                   {tc.status}
                                 </span>
                               </div>
-                              <div className="text-[11px] text-neutral-400 bg-[#0d0e11] p-2 rounded-lg overflow-x-auto">
+                              <div className="text-[11px] text-neutral-400 bg-[var(--bg-app)] p-2 rounded-lg overflow-x-auto">
                                 <div className="text-neutral-500">// Arguments:</div>
                                 <div className="text-neutral-300">{JSON.stringify(tc.args, null, 2)}</div>
                                 {tc.output && (
@@ -1249,7 +1253,7 @@ Capabilities:
 
                   {/* Video Inference Results & Visualizer */}
                   {msg.stats && (
-                    <div className="mt-4 bg-[#18191f] border border-[#242630] rounded-2xl p-5 space-y-4 shadow-md">
+                    <div className="mt-4 bg-[var(--bg-elevated)] border border-[var(--border-card)] rounded-2xl p-5 space-y-4 shadow-md">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-sm font-semibold text-emerald-400">
                           <CheckCircle2 className="w-4 h-4" />
@@ -1273,7 +1277,7 @@ Capabilities:
 
                       {/* VLM Scene Grounding Feedback */}
                       {msg.stats.scene_analysis && (
-                        <div className="bg-[#121318] border border-neutral-800 rounded-xl px-4 py-2.5 text-xs text-neutral-300 flex items-start gap-2.5">
+                        <div className="bg-[var(--bg-inset)] border border-neutral-800 rounded-xl px-4 py-2.5 text-xs text-neutral-300 flex items-start gap-2.5">
                           <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                           <div className="leading-relaxed">
                             <span className="text-neutral-400 font-medium">VLM Scene Analysis: </span>
@@ -1285,7 +1289,7 @@ Capabilities:
                         </div>
                       )}
 
-                      <div className="rounded-xl overflow-hidden bg-black aspect-video flex items-center justify-center border border-[#242630]">
+                      <div className="rounded-xl overflow-hidden bg-black aspect-video flex items-center justify-center border border-[var(--border-card)]">
                         {msg.videoUrl ? (
                           <video
                             src={msg.videoUrl}
@@ -1320,7 +1324,7 @@ Capabilities:
                 />
                 <span className="text-xs font-semibold tracking-wide text-neutral-300">VisionHarness</span>
               </div>
-              <div className="flex items-center gap-2 text-xs text-neutral-300 bg-[#16171d] px-4 py-2.5 rounded-2xl border border-zinc-800/80 shadow-md">
+              <div className="flex items-center gap-2 text-xs text-neutral-300 bg-[var(--bg-subtle)] px-4 py-2.5 rounded-2xl border border-zinc-800/80 shadow-md">
                 <Activity className="w-3.5 h-3.5 text-blue-400 animate-spin" />
                 <span className="font-mono">Processing with mimo-v2.6-flash...</span>
               </div>
@@ -1338,7 +1342,7 @@ Capabilities:
                 />
                 <span className="text-xs font-semibold tracking-wide text-neutral-300">VisionHarness</span>
               </div>
-              <div className="flex flex-col gap-2 bg-[#16171d] px-4 py-3 rounded-2xl border border-zinc-800/80 shadow-md w-full">
+              <div className="flex flex-col gap-2 bg-[var(--bg-subtle)] px-4 py-3 rounded-2xl border border-zinc-800/80 shadow-md w-full">
                 <div className="flex items-center gap-2 text-xs text-neutral-200">
                   <Activity className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
                   <span className="font-mono">{runningSteps[runningStepIndex]}</span>
@@ -1366,7 +1370,7 @@ Capabilities:
         <footer className="p-6">
           <form
             onSubmit={handleSendPrompt}
-            className="max-w-3xl mx-auto bg-[#131418] border border-[#242630] rounded-2xl p-3 space-y-3 shadow-2xl focus-within:border-neutral-500 transition-colors"
+            className="max-w-3xl mx-auto bg-[var(--bg-surface)] border border-[var(--border-card)] rounded-2xl p-3 space-y-3 shadow-2xl focus-within:border-neutral-500 transition-colors"
           >
             <input
               type="file"
@@ -1382,7 +1386,7 @@ Capabilities:
 
             {/* Selected File Attached Pill Badge — with live video preview */}
             {videoFile && (
-              <div className="flex items-center justify-between gap-3 bg-[#181920] border border-[#2b2d38] rounded-xl px-3 py-2 text-xs text-neutral-300">
+              <div className="flex items-center justify-between gap-3 bg-[var(--bg-badge)] border border-[var(--border-panel)] rounded-xl px-3 py-2 text-xs text-neutral-300">
                 <div className="flex items-center gap-3 truncate min-w-0">
                   {videoPreviewUrl ? (
                     <video
@@ -1430,21 +1434,21 @@ Capabilities:
               }}
               rows={2}
               placeholder="Describe what you want your camera or footage to track..."
-              className="w-full bg-transparent border-none outline-none text-sm text-[#ededef] placeholder-neutral-500 resize-none px-2"
+              className="w-full bg-transparent border-none outline-none text-sm text-[var(--fg)] placeholder-neutral-500 resize-none px-2"
             />
 
-            <div className="flex items-center justify-between pt-1 border-t border-[#1d1f27]">
+            <div className="flex items-center justify-between pt-1 border-t border-[var(--border-row)]">
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-7 h-7 rounded-lg hover:bg-[#1c1d22] flex items-center justify-center text-neutral-400 hover:text-white transition-colors"
+                  className="w-7 h-7 rounded-lg hover:bg-[var(--bg-hover)] flex items-center justify-center text-neutral-400 hover:text-[var(--fg)] transition-colors"
                   title="Attach video or component"
                 >
                   <Plus className="w-4 h-4" />
                 </button>
 
-                <div className="flex items-center gap-1.5 text-xs text-neutral-300 bg-[#1c1d22] px-2.5 py-1 rounded-lg border border-[#282a34] cursor-pointer hover:text-white font-medium">
+                <div className="flex items-center gap-1.5 text-xs text-neutral-300 bg-[var(--bg-hover)] px-2.5 py-1 rounded-lg border border-[var(--border-chip)] cursor-pointer hover:text-[var(--fg)] font-medium">
                   <Globe className="w-3.5 h-3.5 text-neutral-400" />
                   <span>{selectedToolMode}</span>
                   <ChevronRight className="w-3 h-3 rotate-90 text-neutral-500" />
@@ -1459,7 +1463,7 @@ Capabilities:
                 <button
                   type="submit"
                   disabled={!prompt.trim() || isPlanning}
-                  className="w-8 h-8 rounded-lg bg-white hover:bg-neutral-200 text-black flex items-center justify-center transition-all disabled:opacity-40 shadow"
+                  className="w-8 h-8 rounded-lg bg-[var(--accent-send)] hover:bg-[var(--accent-send-hover)] text-[var(--fg-on-accent)] flex items-center justify-center transition-all disabled:opacity-40 shadow"
                 >
                   {isPlanning ? (
                     <Activity className="w-4 h-4 animate-spin text-black" />

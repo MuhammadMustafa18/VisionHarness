@@ -2,12 +2,164 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Theme tokens ─────────────────────────────────────────── */
+:root,
+[data-theme="dark"] {
+  --bg-app: #0d0e11;
+  --bg-sidebar: #0a0b0d;
+  --bg-surface: #131418;
+  --bg-elevated: #18191f;
+  --bg-subtle: #16171d;
+  --bg-inset: #121318;
+  --bg-hover: #1c1d22;
+  --bg-badge: #181920;
+  --bg-chip: #1c1e24;
+  --bg-ghost: #14151a;
+  --bg-ghost-hover: #1f2026;
+  --bg-secondary: #2a2c35;
+  --bg-secondary-hover: #343742;
+  --bg-active: #1c1d22;
+
+  --border-app: #191a1f;
+  --border-header: #17181e;
+  --border-card: #242630;
+  --border-input: #202228;
+  --border-kbd: #262830;
+  --border-nav: #2a2c34;
+  --border-bubble: #262832;
+  --border-row: #1d1f27;
+  --border-chip: #282a34;
+  --border-tool: #20222a;
+  --border-panel: #2b2d38;
+  --border-badge: #2b2e38;
+
+  --fg: #ededef;
+  --fg-bubble: #f4f4f5;
+  --fg-muted: #a3a3a3;
+  --fg-on-accent: #000000;
+
+  --accent: #ffffff;
+  --accent-hover: #e5e5e5;
+  --accent-send: #ffffff;
+  --accent-send-hover: #e5e5e5;
+
+  --nav-active-bg: #1c1d22;
+  --nav-active-border: #2a2c34;
+  --nav-hover-bg: #131418;
+
+  --selection-bg: #262626;
+  --overlay-text: #ffffff;
+}
+
+[data-theme="light"] {
+  /* Claude-style warm light palette */
+  --bg-app: #fafaf9;
+  --bg-sidebar: #f5f5f4;
+  --bg-surface: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-subtle: #f5f5f4;
+  --bg-inset: #fafaf9;
+  --bg-hover: #e7e5e4;
+  --bg-badge: #f0f0ee;
+  --bg-chip: #e7e5e4;
+  --bg-ghost: #ffffff;
+  --bg-ghost-hover: #e7e5e4;
+  --bg-secondary: #e7e5e4;
+  --bg-secondary-hover: #d6d3d1;
+  --bg-active: #e7e5e4;
+
+  --border-app: #e7e5e4;
+  --border-header: #e7e5e4;
+  --border-card: #e5e5e4;
+  --border-input: #e5e5e4;
+  --border-kbd: #e5e5e4;
+  --border-nav: #d6d3d1;
+  --border-bubble: #e5e5e4;
+  --border-row: #e7e5e4;
+  --border-chip: #d6d3d1;
+  --border-tool: #e5e5e4;
+  --border-panel: #e5e5e4;
+  --border-badge: #e5e5e4;
+
+  --fg: #1c1917;
+  --fg-bubble: #1c1917;
+  --fg-muted: #78716c;
+  --fg-on-accent: #ffffff;
+
+  --accent: #c96442;
+  --accent-hover: #b55a3a;
+  --accent-send: #c96442;
+  --accent-send-hover: #b55a3a;
+
+  --nav-active-bg: #e7e5e4;
+  --nav-active-border: #d6d3d1;
+  --nav-hover-bg: #e7e5e4;
+
+  --selection-bg: #e7e5e4;
+  --overlay-text: #ffffff;
+}
+
 html,
 body {
   padding: 0;
   margin: 0;
-  background-color: #0d0e11;
-  color: #ededef;
+  background-color: var(--bg-app);
+  color: var(--fg);
   font-family: "Google Sans", "Google Sans Text", "Product Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow: hidden;
+}
+
+/* Light-theme fixes for Tailwind neutrals / white-on-light */
+[data-theme="light"] .text-white {
+  color: var(--fg);
+}
+[data-theme="light"] .hover\:text-white:hover {
+  color: var(--fg);
+}
+[data-theme="light"] .text-neutral-400 {
+  color: #78716c;
+}
+[data-theme="light"] .text-neutral-500 {
+  color: #78716c;
+}
+[data-theme="light"] .text-neutral-300 {
+  color: #57534e;
+}
+[data-theme="light"] .text-neutral-200 {
+  color: #44403c;
+}
+[data-theme="light"] .text-zinc-200,
+[data-theme="light"] .text-zinc-300,
+[data-theme="light"] .text-zinc-400 {
+  color: #57534e;
+}
+[data-theme="light"] .placeholder-neutral-500::placeholder {
+  color: #a8a29e;
+}
+[data-theme="light"] .selection\:bg-neutral-800::selection {
+  background-color: #e7e5e4;
+}
+[data-theme="light"] .from-neutral-700 {
+  --tw-gradient-from: #57534e !important;
+}
+[data-theme="light"] .to-neutral-900 {
+  --tw-gradient-to: #1c1917 !important;
+}
+/* Video / thumbnail overlays must stay readable */
+[data-theme="light"] .bg-black .text-white,
+[data-theme="light"] .bg-black\/60 .text-white,
+[data-theme="light"] .bg-black\/70 .text-white,
+[data-theme="light"] .bg-black\/80 .text-white {
+  color: #ffffff !important;
+}
+[data-theme="light"] button.bg-white,
+[data-theme="light"] .bg-white {
+  /* keep pure white surfaces (cards, input) */
+  background-color: #ffffff;
+}
+[data-theme="light"] .shadow-2xl {
+  box-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.04);
+}
+[data-theme="light"] .shadow-md {
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
 }
