@@ -268,6 +268,7 @@ Capabilities:
     let activeVideoPath = workspaceState.video_path;
     let activeVideoUrl = workspaceState.video_url;
     let activeVideoName = workspaceState.video_name;
+    let uploadedThisTurn = false;
 
     // 1. Upload once if a new file is attached
     if (videoFile && !activeVideoPath) {
@@ -283,6 +284,7 @@ Capabilities:
           activeVideoPath = upData.video_path;
           activeVideoUrl = `http://localhost:8000${upData.video_url}`;
           activeVideoName = upData.video_name;
+          uploadedThisTurn = true;
           setWorkspaceState(prev => ({
             ...prev,
             video_path: activeVideoPath,
@@ -295,13 +297,16 @@ Capabilities:
       }
     }
 
+    // Determine if a NEW video was uploaded in THIS turn
+    const isNewUploadThisTurn = !!uploadedThisTurn;
+
     const userMsg: Message = {
       id: Date.now().toString(),
       sender: "user",
       text: currentPrompt,
-      uploadedVideoUrl: activeVideoUrl,
-      uploadedVideoName: activeVideoName,
-      activeVideoFile: videoFile || undefined,
+      uploadedVideoUrl: isNewUploadThisTurn ? activeVideoUrl : undefined,
+      uploadedVideoName: isNewUploadThisTurn ? activeVideoName : undefined,
+      activeVideoFile: isNewUploadThisTurn ? (videoFile || undefined) : undefined,
       uploadDone: !!activeVideoPath,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
