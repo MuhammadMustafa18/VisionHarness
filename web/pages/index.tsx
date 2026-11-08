@@ -260,6 +260,9 @@ Capabilities:
 
     const currentPrompt = prompt;
     setPrompt("");
+    // Clear staged input bar file after message is submitted
+    setVideoFile(null);
+    setVideoPreviewUrl(null);
     setIsPlanning(true);
 
     let activeVideoPath = workspaceState.video_path;
