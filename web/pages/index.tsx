@@ -266,18 +266,12 @@ Capabilities:
         if (msgs && msgs.length > 0) {
           // Normalize video URLs, thumbnails, and state
           const normalized = msgs.map((m: any) => {
-            let restoredVideoUrl = m.uploadedVideoUrl;
-            if (!restoredVideoUrl && m.uploadedVideoPath) {
-              const filename = m.uploadedVideoPath.split(/[\\/]/).pop();
-              restoredVideoUrl = `http://localhost:8000/uploads/${filename}`;
-            }
-
             return {
               ...m,
               videoUrl: m.videoUrl || m.video_url,
-              uploadedVideoUrl: restoredVideoUrl,
-              uploadedVideoName: m.uploadedVideoName || (m.uploadedVideoPath ? m.uploadedVideoPath.split(/[\\/]/).pop() : undefined),
-              uploadDone: m.uploadDone !== undefined ? m.uploadDone : (!!restoredVideoUrl || !!m.uploadedVideoName),
+              uploadedVideoUrl: m.uploadedVideoUrl,
+              uploadedVideoName: m.uploadedVideoName,
+              uploadDone: m.uploadDone,
               diagramSvg: m.diagramSvg || m.diagram_svg
             };
           });
@@ -420,8 +414,8 @@ Capabilities:
       uploadedVideoUrl: isAttachmentThisTurn ? activeVideoUrl : undefined,
       uploadedVideoName: isAttachmentThisTurn ? activeVideoName : undefined,
       activeVideoFile: isAttachmentThisTurn ? (stagedFile || undefined) : undefined,
-      uploadedVideoPath: activeVideoPath,
-      uploadDone: !!activeVideoPath,
+      uploadedVideoPath: isAttachmentThisTurn ? activeVideoPath : undefined,
+      uploadDone: isAttachmentThisTurn ? !!activeVideoPath : undefined,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
