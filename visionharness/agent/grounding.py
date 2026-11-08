@@ -100,8 +100,8 @@ VLM_GROUNDING_PROMPT = (
 )
 
 
-def ground_scene_with_vlm(video_path: str, user_intent: str) -> Dict[str, Any]:
-    """Inspects video frame with VLM to provide NLP scene understanding, strategy, and geometry coordinates."""
+def stream_ground_scene_with_vlm(video_path: str, user_intent: str):
+    """Streams token-by-token visual scene grounding and yields thoughts, text, and final geometry."""
     frame_b64 = sample_representative_frame(video_path)
 
     base_url = os.getenv("ANTHROPIC_BASE_URL", "").rstrip("/")
@@ -109,18 +109,16 @@ def ground_scene_with_vlm(video_path: str, user_intent: str) -> Dict[str, Any]:
     model = os.getenv("ANTHROPIC_MODEL", "mimo-v2.6-flash")
 
     if not base_url or not auth_token:
-        # Fallback if VLM credentials are not available
-        return {
-            "formatted_text": "Default visual grounding applied to footage.\n\n**Proposed Tracking Plan:** Count entities using standard boundary zones.\n\n**Would you like to run inference with this setup?**",
-            "geometry_type": "line",
-            "lines": [{"name": "detection_line", "start": {"x": 0.1, "y": 0.5}, "end": {"x": 0.9, "y": 0.5}}],
-            "zones": []
-        }
+        fallback = ground_scene_with_vlm(video_path, user_intent)
+        yield {"type": "text", "delta": fallback.get("formatted_text", "")}
+        yield {"type": "done", "geometry_type": fallback.get("geometry_type", "line"), "zones": fallback.get("zones", []), "lines": fallback.get("lines", [])}
+        return
 
     url = f"{base_url}/v1/messages"
     payload = {
         "model": model,
         "max_tokens": 3500,
+        "stream": True,
         "messages": [
             {
                 "role": "user",
@@ -151,56 +149,92 @@ def ground_scene_with_vlm(video_path: str, user_intent: str) -> Dict[str, Any]:
                 "content-type": "application/json"
             },
             json=payload,
-            timeout=50
+            stream=True,
+            timeout=60
         )
-        data = res.json()
 
-        text = ""
-        for item in data.get("content", []):
-            if item.get("type") == "text":
-                text += item.get("text", "")
+        full_text = ""
+        full_thinking = ""
 
-        # Extract Geometry JSON block
+        for line in res.iter_lines():
+            if not line:
+                continue
+            decoded = line.decode("utf-8")
+            if not decoded.startswith("data: "):
+                continue
+            data_str = decoded[6:]
+            if data_str == "[DONE]":
+                break
+
+            try:
+                event = json.loads(data_str)
+                delta = event.get("delta", {})
+
+                if "thinking" in delta:
+                    th = delta["thinking"]
+                    full_thinking += th
+                    yield {"type": "thinking", "delta": th}
+
+                if "text" in delta:
+                    tx = delta["text"]
+                    full_text += tx
+                    yield {"type": "text", "delta": tx}
+
+            except Exception:
+                continue
+
+        # Extract Geometry JSON
         geometry_type = "line"
         zones = []
         lines = []
 
-        if "```json" in text:
-            geom_str = text.split("```json")[1].split("```")[0].strip()
+        if "```json" in full_text:
+            geom_str = full_text.split("```json")[1].split("```")[0].strip()
             try:
                 geom = json.loads(geom_str)
                 geometry_type = geom.get("geometry_type", "polygon")
                 zones = geom.get("zones", [])
                 lines = geom.get("lines", [])
-            except Exception as e:
-                print(f"[Grounding] Could not parse geometry JSON: {e}")
+            except Exception:
+                pass
 
-        # Strip the technical JSON code fence from the user-facing text
-        clean_text = text
-        if "### GEOMETRY" in clean_text:
-            parts = clean_text.split("### GEOMETRY")
-            before_geom = parts[0].strip()
-            after_geom = ""
-            if "### CONFIRMATION" in parts[1]:
-                after_geom = "\n\n### CONFIRMATION\n" + parts[1].split("### CONFIRMATION")[1].strip()
-            clean_text = f"{before_geom}{after_geom}"
-
-        return {
-            "formatted_text": clean_text.strip(),
+        yield {
+            "type": "done",
+            "full_text": full_text,
+            "full_thinking": full_thinking,
             "geometry_type": geometry_type,
             "zones": zones,
             "lines": lines
         }
+
     except Exception as e:
-        print(f"[Grounding] VLM scene inspection error: {e}")
-        return {
-            "formatted_text": (
-                "Visual scene inspected with camera perspective captured.\n\n"
-                "**Proposed Tracking Plan:** Apply spatial boundaries across primary movement corridors.\n\n"
-                "**Spatial Boundary Logic (Directional Lines):** Central trigger plane placed to measure ingress and egress.\n\n"
-                "**Would you like to run inference with this setup?**"
-            ),
-            "geometry_type": "line",
-            "lines": [{"name": "detection_line", "start": {"x": 0.1, "y": 0.5}, "end": {"x": 0.9, "y": 0.5}}],
-            "zones": []
-        }
+        print(f"[Grounding Stream Error] {e}")
+        fallback = ground_scene_with_vlm(video_path, user_intent)
+        yield {"type": "text", "delta": fallback.get("formatted_text", "")}
+        yield {"type": "done", "geometry_type": fallback.get("geometry_type", "line"), "zones": fallback.get("zones", []), "lines": fallback.get("lines", [])}
+def ground_scene_with_vlm(video_path: str, user_intent: str) -> Dict[str, Any]:
+    """Inspects video frame with VLM and returns completed payload."""
+    last_event = {}
+    accumulated_text = ""
+    for ev in stream_ground_scene_with_vlm(video_path, user_intent):
+        if ev.get("type") == "text":
+            accumulated_text += ev.get("delta", "")
+        elif ev.get("type") == "done":
+            last_event = ev
+
+    clean_text = accumulated_text or last_event.get("full_text", "")
+    if "### GEOMETRY" in clean_text:
+        parts = clean_text.split("### GEOMETRY")
+        before_geom = parts[0].strip()
+        after_geom = ""
+        if "### CONFIRMATION" in parts[1]:
+            after_geom = "\n\n### CONFIRMATION\n" + parts[1].split("### CONFIRMATION")[1].strip()
+        clean_text = f"{before_geom}{after_geom}"
+
+    return {
+        "formatted_text": clean_text.strip(),
+        "geometry_type": last_event.get("geometry_type", "line"),
+        "zones": last_event.get("zones", []),
+        "lines": last_event.get("lines", []),
+        "full_thinking": last_event.get("full_thinking", "")
+    }

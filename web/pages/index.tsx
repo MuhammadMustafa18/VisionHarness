@@ -361,104 +361,169 @@ Capabilities:
     setUploadProgress(null);
     setUploadDone(false);
 
+    // Create an initial streaming assistant message placeholder immediately
+    const tempMsgId = Date.now().toString();
+    const initialStreamMsg: Message = {
+      id: tempMsgId,
+      sender: "bot" as const,
+      text: "",
+      thoughts: "Observing camera footage and streaming scene perspective...",
+      toolCalls: [
+        {
+          name: "vlm_scene_grounder",
+          args: { model: "mimo-v2.6-flash", prompt: spec.description || spec.name },
+          status: "calling"
+        }
+      ],
+      spec: spec,
+      uploadedVideoUrl: URL.createObjectURL(activeFile),
+      uploadedVideoName: activeFile.name,
+      uploadDone: true,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setMessages(prev => [...prev, initialStreamMsg]);
+
     const formData = new FormData();
     formData.append("workflow_id", spec.id || "wf_store_people_counter");
     formData.append("prompt", spec.description || spec.name || "Track entities in video");
     formData.append("video", activeFile);
 
     try {
-      const grounding = await new Promise<any>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", "http://localhost:8000/api/ground");
-
-        xhr.upload.onprogress = (event) => {
-          if (event.lengthComputable) {
-            const percentComplete = Math.round((event.loaded / event.total) * 100);
-            setUploadProgress(percentComplete);
-            if (percentComplete >= 100) {
-              setUploadDone(true);
-            }
-          }
-        };
-
-        xhr.onload = () => {
-          setUploadProgress(null);
-          setUploadDone(true);
-          if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-              resolve(JSON.parse(xhr.responseText));
-            } catch (e) {
-              reject(e);
-            }
-          } else {
-            reject(new Error(xhr.statusText || "Request failed"));
-          }
-        };
-
-        xhr.onerror = () => {
-          setUploadProgress(null);
-          setUploadDone(false);
-          reject(new Error("Network Error"));
-        };
-
-        xhr.send(formData);
+      const response = await fetch("http://localhost:8000/api/ground", {
+        method: "POST",
+        body: formData
       });
 
-      // Construct comprehensive conversational response from the VLM
-      const fullResponse = grounding.formatted_text || grounding.nlp_explanation || "Visual scene inspected.";
+      if (!response.ok || !response.body) {
+        throw new Error(`Server returned ${response.status}`);
+      }
 
-      const resultMsg: Message = {
-        id: Date.now().toString(),
-        sender: "bot" as const,
-        text: fullResponse,
-        thoughts: `Analyzed camera perspective and extracted spatial geometry. Recommends ${grounding.geometry_type === 'polygon' ? 'Polygon Zone' : 'Directional Line'}. Awaiting user confirmation.`,
-        toolCalls: [
-          {
-            name: "vlm_scene_grounder",
-            args: { model: "mimo-v2.6-flash", prompt: spec.description || spec.name },
-            output: {
-              geometry_type: grounding.geometry_type,
-              zones: grounding.zones || [],
-              lines: grounding.lines || []
-            },
-            status: "completed"
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let streamBuffer = "";
+      let accumulatedText = "";
+      let accumulatedThinking = "";
+      let finalGeometry = { geometry_type: "line", zones: [], lines: [] };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        streamBuffer += decoder.decode(value, { stream: true });
+        const lines = streamBuffer.split("\n");
+        streamBuffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const dataStr = line.slice(6).trim();
+          if (!dataStr) continue;
+
+          try {
+            const chunk = JSON.parse(dataStr);
+
+            if (chunk.type === "thinking" && chunk.delta) {
+              accumulatedThinking += chunk.delta;
+              setMessages(prev =>
+                prev.map(m =>
+                  m.id === tempMsgId
+                    ? { ...m, thoughts: accumulatedThinking }
+                    : m
+                )
+              );
+            } else if (chunk.type === "text" && chunk.delta) {
+              accumulatedText += chunk.delta;
+              // Clean geometry code fence from streaming display
+              let displayText = accumulatedText;
+              if (displayText.includes("### GEOMETRY")) {
+                const parts = displayText.split("### GEOMETRY");
+                displayText = parts[0].trim();
+                if (parts[1] && parts[1].includes("### CONFIRMATION")) {
+                  displayText += "\n\n### CONFIRMATION\n" + parts[1].split("### CONFIRMATION")[1].trim();
+                }
+              }
+
+              setMessages(prev =>
+                prev.map(m =>
+                  m.id === tempMsgId
+                    ? { ...m, text: displayText }
+                    : m
+                )
+              );
+            } else if (chunk.type === "done") {
+              finalGeometry = {
+                geometry_type: chunk.geometry_type,
+                zones: chunk.zones || [],
+                lines: chunk.lines || []
+              };
+            }
+          } catch (e) {}
+        }
+      }
+
+      // Finalize the message with full tool output and updated spec
+      setMessages(prev =>
+        prev.map(m => {
+          if (m.id !== tempMsgId) return m;
+
+          let cleanText = accumulatedText;
+          if (cleanText.includes("### GEOMETRY")) {
+            const parts = cleanText.split("### GEOMETRY");
+            cleanText = parts[0].trim();
+            if (parts[1] && parts[1].includes("### CONFIRMATION")) {
+              cleanText += "\n\n### CONFIRMATION\n" + parts[1].split("### CONFIRMATION")[1].trim();
+            }
           }
-        ],
-        spec: {
-          ...spec,
-          zones: grounding.zones || [],
-          lines: grounding.lines || []
-        },
-        uploadedVideoUrl: URL.createObjectURL(activeFile),
-        uploadedVideoName: activeFile.name,
-        uploadDone: true,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
 
-      setMessages(prev => [...prev, resultMsg]);
-      fetch(`http://localhost:8000/api/sessions/${activeSessionId}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(resultMsg)
-      }).catch(() => {});
+          const finalized: Message = {
+            ...m,
+            text: cleanText.trim() || "Visual scene grounding complete.",
+            thoughts: accumulatedThinking || `Analyzed camera perspective and extracted spatial geometry. Recommends ${finalGeometry.geometry_type === 'polygon' ? 'Polygon Zone' : 'Directional Line'}. Awaiting user confirmation.`,
+            toolCalls: [
+              {
+                name: "vlm_scene_grounder",
+                args: { model: "mimo-v2.6-flash", prompt: spec.description || spec.name },
+                output: finalGeometry,
+                status: "completed"
+              }
+            ],
+            spec: {
+              ...m.spec,
+              zones: finalGeometry.zones,
+              lines: finalGeometry.lines
+            }
+          };
+
+          fetch(`http://localhost:8000/api/sessions/${activeSessionId}/messages`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(finalized)
+          }).catch(() => {});
+
+          return finalized;
+        })
+      );
     } catch (err: any) {
-      console.error("Grounding error:", err);
-      const fallbackMsg: Message = {
-        id: Date.now().toString(),
-        sender: "bot" as const,
-        text: `VLM Grounding encounter: ${err.message || 'Error'}. Ready to proceed with default pipeline.`,
-        thoughts: `Grounding failed: ${err.message}`,
-        toolCalls: [
-          {
-            name: "vlm_scene_grounder",
-            args: { model: "mimo-v2.6-flash" },
-            output: { error: err.message },
-            status: "error"
-          }
-        ],
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-      setMessages(prev => [...prev, fallbackMsg]);
+      console.error("Grounding stream error:", err);
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === tempMsgId
+            ? {
+                ...m,
+                text: `VLM Grounding encounter: ${err.message || 'Error'}. Ready to proceed with default pipeline.`,
+                thoughts: `Grounding stream failed: ${err.message}`,
+                toolCalls: [
+                  {
+                    name: "vlm_scene_grounder",
+                    args: { model: "mimo-v2.6-flash" },
+                    output: { error: err.message },
+                    status: "error"
+                  }
+                ]
+              }
+            : m
+        )
+      );
     } finally {
       setIsGrounding(false);
     }

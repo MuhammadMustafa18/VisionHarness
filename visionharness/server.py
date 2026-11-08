@@ -17,12 +17,12 @@ from typing import Dict, Any, Optional
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 from visionharness.agent.auth import get_auth_status, GoogleAccountBridge
 from visionharness.agent.planner import plan_workflow
-from visionharness.agent.grounding import ground_scene_with_vlm
+from visionharness.agent.grounding import ground_scene_with_vlm, stream_ground_scene_with_vlm
 from visionharness.registry.components import search_components, get_component, REGISTRY
 from visionharness.core.spec import (
     WorkflowSpec,
@@ -197,7 +197,7 @@ async def ground_video_scene(
     video: Optional[UploadFile] = File(None),
     video_path: Optional[str] = Form(None),
 ):
-    """VLM Scene Grounding Endpoint: Inspects sampled footage frames and explains the scene."""
+    """VLM Scene Grounding Endpoint: Inspects sampled footage frames and streams the explanation."""
     target_video = video_path
     if video:
         safe_filename = video.filename.replace(" ", "_") if video.filename else "input.mp4"
@@ -213,10 +213,13 @@ async def ground_video_scene(
         else:
             raise HTTPException(status_code=400, detail="A valid video file or path is required.")
 
-    grounding_data = ground_scene_with_vlm(target_video, prompt)
-    grounding_data["video_path"] = target_video
-    grounding_data["video_name"] = os.path.basename(target_video)
-    return grounding_data
+    def event_stream():
+        for chunk in stream_ground_scene_with_vlm(target_video, prompt):
+            chunk["video_path"] = target_video
+            chunk["video_name"] = os.path.basename(target_video)
+            yield f"data: {json.dumps(chunk)}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 @app.post("/api/run")
