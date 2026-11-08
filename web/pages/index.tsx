@@ -57,6 +57,7 @@ interface Message {
   isUploading?: boolean;
   uploadProgress?: number | null;
   uploadDone?: boolean;
+  activeVideoFile?: File;
   timestamp: string;
 }
 
@@ -204,8 +205,10 @@ Capabilities:
   };
 
   const handleFileUpload = (file: File) => {
-    // Attach video directly to the active workflow card message in state
+    // Save to global state so subsequent turns always have the active file
+    setVideoFile(file);
     const fileUrl = URL.createObjectURL(file);
+    setVideoPreviewUrl(fileUrl);
 
     setMessages(prev => {
       // Find the message index to attach video to
@@ -218,6 +221,7 @@ Capabilities:
         ...updated[realIdx],
         uploadedVideoUrl: fileUrl,
         uploadedVideoName: file.name,
+        activeVideoFile: file,
         isUploading: true,
         uploadProgress: 0,
         uploadDone: false
@@ -378,6 +382,7 @@ Capabilities:
       spec: spec,
       uploadedVideoUrl: URL.createObjectURL(activeFile),
       uploadedVideoName: activeFile.name,
+      activeVideoFile: activeFile,
       uploadDone: true,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
@@ -491,7 +496,11 @@ Capabilities:
               ...m.spec,
               zones: finalGeometry.zones,
               lines: finalGeometry.lines
-            }
+            },
+            activeVideoFile: activeFile,
+            uploadedVideoUrl: m.uploadedVideoUrl || URL.createObjectURL(activeFile),
+            uploadedVideoName: m.uploadedVideoName || activeFile.name,
+            uploadDone: true,
           };
 
           fetch(`http://localhost:8000/api/sessions/${activeSessionId}/messages`, {
@@ -530,7 +539,15 @@ Capabilities:
   };
 
   const handleRunInference = async (spec: any, fileOverride?: File) => {
-    const activeFile = fileOverride || videoFile;
+    // Resolve active file from parameter, state, or recent messages with active video file
+    let activeFile = fileOverride || videoFile;
+    if (!activeFile) {
+      const msgWithFile = [...messages].reverse().find(m => m.activeVideoFile);
+      if (msgWithFile?.activeVideoFile) {
+        activeFile = msgWithFile.activeVideoFile;
+      }
+    }
+
     if (!activeFile) {
       alert("Please upload a video file to run tracking.");
       return;
@@ -884,7 +901,7 @@ Capabilities:
                         <div className="flex items-center gap-3">
                           {msg.uploadedVideoName ? (
                             <button
-                              onClick={() => handleRunInference(msg.spec)}
+                              onClick={() => handleRunInference(msg.spec, msg.activeVideoFile)}
                               disabled={isRunning}
                               className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs flex items-center gap-2 transition-all shadow-md active:scale-[0.98] disabled:opacity-50"
                             >
