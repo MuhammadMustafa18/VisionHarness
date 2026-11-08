@@ -97,7 +97,7 @@ class VisionRuntime:
                     pts.append([px, py])
                 if len(pts) >= 3:
                     polygon_np = np.array(pts, dtype=np.int32)
-                    pz = sv.PolygonZone(polygon=polygon_np, frame_resolution_wh=(frame_width, frame_height))
+                    pz = sv.PolygonZone(polygon=polygon_np)
                     pza = sv.PolygonZoneAnnotator(zone=pz, color=sv.Color.RED, thickness=2, text_scale=0.6)
                     self.polygon_zones.append(pz)
                     self.polygon_zone_annotators.append(pza)
