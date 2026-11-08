@@ -56,8 +56,9 @@ UPLOADS_DIR = "./uploads"
 for d in [WORKFLOWS_DIR, OUTPUTS_DIR, UPLOADS_DIR]:
     os.makedirs(d, exist_ok=True)
 
-# Mount outputs for direct video playback
+# Mount outputs and uploads for direct video playback & thumbnail previews
 app.mount("/output", StaticFiles(directory=OUTPUTS_DIR), name="output")
+app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 
 class PlanRequest(BaseModel):

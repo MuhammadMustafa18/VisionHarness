@@ -148,12 +148,23 @@ Capabilities:
       .then(res => res.json())
       .then(msgs => {
         if (msgs && msgs.length > 0) {
-          // Map backend video_url and diagram_svg to frontend keys
-          const normalized = msgs.map((m: any) => ({
-            ...m,
-            videoUrl: m.videoUrl || m.video_url,
-            diagramSvg: m.diagramSvg || m.diagram_svg
-          }));
+          // Normalize video URLs, thumbnails, and state
+          const normalized = msgs.map((m: any) => {
+            let restoredVideoUrl = m.uploadedVideoUrl;
+            if (!restoredVideoUrl && m.uploadedVideoPath) {
+              const filename = m.uploadedVideoPath.split(/[\\/]/).pop();
+              restoredVideoUrl = `http://localhost:8000/uploads/${filename}`;
+            }
+
+            return {
+              ...m,
+              videoUrl: m.videoUrl || m.video_url,
+              uploadedVideoUrl: restoredVideoUrl,
+              uploadedVideoName: m.uploadedVideoName || (m.uploadedVideoPath ? m.uploadedVideoPath.split(/[\\/]/).pop() : undefined),
+              uploadDone: m.uploadDone !== undefined ? m.uploadDone : (!!restoredVideoUrl || !!m.uploadedVideoName),
+              diagramSvg: m.diagramSvg || m.diagram_svg
+            };
+          });
           setMessages(normalized);
         }
       })
@@ -503,10 +514,12 @@ Capabilities:
             uploadDone: true,
           };
 
+          const { activeVideoFile, ...persistableMessage } = finalized;
+
           fetch(`http://localhost:8000/api/sessions/${activeSessionId}/messages`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(finalized)
+            body: JSON.stringify(persistableMessage)
           }).catch(() => {});
 
           return finalized;
