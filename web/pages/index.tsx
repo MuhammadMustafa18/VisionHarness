@@ -449,8 +449,11 @@ Capabilities:
               );
             } else if (chunk.type === "text" && chunk.delta) {
               accumulatedText += chunk.delta;
-              // Clean geometry code fence from streaming display
+              // Clean thinking leakage and geometry code fence from streaming display
               let displayText = accumulatedText;
+              if (displayText.includes("### SCENE OVERVIEW")) {
+                displayText = "### SCENE OVERVIEW" + displayText.split("### SCENE OVERVIEW")[1];
+              }
               if (displayText.includes("### GEOMETRY")) {
                 const parts = displayText.split("### GEOMETRY");
                 displayText = parts[0].trim();
@@ -483,6 +486,9 @@ Capabilities:
           if (m.id !== tempMsgId) return m;
 
           let cleanText = accumulatedText;
+          if (cleanText.includes("### SCENE OVERVIEW")) {
+            cleanText = "### SCENE OVERVIEW" + cleanText.split("### SCENE OVERVIEW")[1];
+          }
           if (cleanText.includes("### GEOMETRY")) {
             const parts = cleanText.split("### GEOMETRY");
             cleanText = parts[0].trim();

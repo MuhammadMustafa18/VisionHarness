@@ -316,7 +316,7 @@ async def run_pipeline(
     source = VideoSource(target_video)
     runtime = VisionRuntime(spec)
     stats = runtime.process_video(
-        source, output_video_path=output_video_path, max_frames=max_frames or 150
+        source, output_video_path=output_video_path, max_frames=max_frames
     )
     stats["video_url"] = f"/output/{output_video_rel}"
     stats["scene_analysis"] = scene_analysis_text
