@@ -383,8 +383,8 @@ Capabilities:
       id: Date.now().toString(),
       sender: "user",
       text: currentPrompt,
-      uploadedVideoUrl: isAttachmentThisTurn ? activeVideoUrl : undefined,
-      uploadedVideoName: isAttachmentThisTurn ? activeVideoName : undefined,
+      uploadedVideoUrl: activeVideoUrl || undefined,
+      uploadedVideoName: activeVideoName || undefined,
       activeVideoFile: isAttachmentThisTurn ? (stagedFile || undefined) : undefined,
       uploadedVideoPath: activeVideoPath,
       uploadDone: !!activeVideoPath,
@@ -1303,7 +1303,7 @@ Capabilities:
                           <div className="relative w-64 h-36 rounded-xl overflow-hidden bg-black shadow-lg mt-1 group border border-white/10">
                             <video
                               src={msg.uploadedVideoUrl}
-                              controls={msg.uploadProgress === null}
+                              controls={msg.uploadProgress === null || msg.uploadProgress === undefined}
                               playsInline
                               preload="metadata"
                               className={`w-full h-full object-cover transition-all duration-300 ${
@@ -1312,20 +1312,48 @@ Capabilities:
                             />
 
                             {/* Live SVG HUD Polygon Overlay on the footage */}
-                            {msg.uploadProgress === null && (() => {
-                              const zones = msg.spec?.zones || msg.spec?.workflow?.zones || (msg.toolCalls?.find(tc => tc.output?.zones)?.output?.zones) || [];
+                            {(() => {
+                              // Extract zones from all possible places: spec.zones, spec.steps, or toolCalls
+                              let zones: any[] = [];
+                              if (msg.spec?.zones && Array.isArray(msg.spec.zones)) {
+                                zones = msg.spec.zones;
+                              } else if (msg.spec?.workflow?.zones && Array.isArray(msg.spec.workflow.zones)) {
+                                zones = msg.spec.workflow.zones;
+                              } else if (msg.spec?.steps && Array.isArray(msg.spec.steps)) {
+                                for (const st of msg.spec.steps) {
+                                  if (st.config?.zones && Array.isArray(st.config.zones)) {
+                                    zones = st.config.zones;
+                                    break;
+                                  }
+                                }
+                              }
+                              if (zones.length === 0 && msg.toolCalls) {
+                                for (const tc of msg.toolCalls) {
+                                  const out = tc.output;
+                                  if (out && Array.isArray(out.zones) && out.zones.length > 0) {
+                                    zones = out.zones;
+                                    break;
+                                  }
+                                }
+                              }
+
                               const lines = msg.spec?.lines || msg.spec?.workflow?.lines || (msg.toolCalls?.find(tc => tc.output?.lines)?.output?.lines) || [];
                               if ((!zones || zones.length === 0) && (!lines || lines.length === 0)) return null;
 
                               return (
                                 <svg
-                                  className="absolute inset-0 w-full h-full pointer-events-none"
+                                  className="absolute inset-0 w-full h-full pointer-events-none z-10"
                                   viewBox="0 0 100 100"
                                   preserveAspectRatio="none"
                                 >
                                   {zones.map((z: any, zIdx: number) => {
-                                    const poly = z.polygon || [];
-                                    if (poly.length < 3) return null;
+                                    const rawPoly = z.polygon || [];
+                                    if (!rawPoly || rawPoly.length < 3) return null;
+                                    // Normalize point formats: support both {x, y} and [x, y]
+                                    const poly = rawPoly.map((pt: any) => {
+                                      if (Array.isArray(pt)) return { x: pt[0], y: pt[1] };
+                                      return { x: pt.x ?? pt[0] ?? 0, y: pt.y ?? pt[1] ?? 0 };
+                                    });
                                     const pointsStr = poly.map((pt: any) => `${pt.x * 100},${pt.y * 100}`).join(" ");
                                     const colors = ["#10b981", "#f59e0b", "#3b82f6", "#ec4899"];
                                     const c = colors[zIdx % colors.length];
@@ -1335,9 +1363,9 @@ Capabilities:
                                         <polygon
                                           points={pointsStr}
                                           fill={c}
-                                          fillOpacity="0.25"
+                                          fillOpacity="0.28"
                                           stroke={c}
-                                          strokeWidth="1.8"
+                                          strokeWidth="2"
                                           strokeLinejoin="round"
                                         />
                                         {poly.map((pt: any, pIdx: number) => (
@@ -1345,7 +1373,7 @@ Capabilities:
                                             key={pIdx}
                                             cx={pt.x * 100}
                                             cy={pt.y * 100}
-                                            r="1.2"
+                                            r="1.4"
                                             fill="#ffffff"
                                             stroke={c}
                                             strokeWidth="0.8"
@@ -1365,7 +1393,7 @@ Capabilities:
                                         x2={l.end.x * 100}
                                         y2={l.end.y * 100}
                                         stroke="#f59e0b"
-                                        strokeWidth="2"
+                                        strokeWidth="2.5"
                                         strokeDasharray="3 2"
                                       />
                                     );
@@ -1376,12 +1404,30 @@ Capabilities:
 
                             {/* Zone Label Badge if zones exist */}
                             {(() => {
-                              const zones = msg.spec?.zones || msg.spec?.workflow?.zones || (msg.toolCalls?.find(tc => tc.output?.zones)?.output?.zones) || [];
-                              if (!zones || zones.length === 0) return null;
+                              let zoneName = "";
+                              if (msg.spec?.zones?.[0]?.name) zoneName = msg.spec.zones[0].name;
+                              else if (msg.spec?.steps) {
+                                for (const st of msg.spec.steps) {
+                                  if (st.config?.zones?.[0]?.name) {
+                                    zoneName = st.config.zones[0].name;
+                                    break;
+                                  }
+                                }
+                              }
+                              if (!zoneName && msg.toolCalls) {
+                                for (const tc of msg.toolCalls) {
+                                  if (tc.output?.zones?.[0]?.name) {
+                                    zoneName = tc.output.zones[0].name;
+                                    break;
+                                  }
+                                }
+                              }
+                              if (!zoneName) return null;
+
                               return (
-                                <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/80 backdrop-blur-sm text-[10px] text-emerald-400 font-mono font-medium flex items-center gap-1 border border-emerald-500/30">
+                                <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/80 backdrop-blur-sm text-[10px] text-emerald-400 font-mono font-medium flex items-center gap-1 border border-emerald-500/30 pointer-events-none z-20">
                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                  <span>{zones[0].name || "active_zone"}</span>
+                                  <span>{zoneName}</span>
                                 </div>
                               );
                             })()}
