@@ -170,16 +170,43 @@ async def stream_react_agent(
     if active_video:
         video_context_note = f"\nIMPORTANT: The user has attached/uploaded video footage: '{workspace.get('video_path')}' (filename: '{workspace.get('video_name')}'). You SHOULD immediately call `vlm_ground_scene` with video_path='{workspace.get('video_path')}' to inspect the scene, understand objects and camera angle, and extract zones/lines for the user!"
 
-    sys_prompt = SYSTEM_PROMPT + f"\n\nACTIVE WORKSPACE STATE:\n{json.dumps(workspace, indent=2)}{video_context_note}"
+    stats_note = ""
+    if workspace.get("last_stats"):
+        stats_note = (
+            "\nPRIOR INFERENCE RESULTS: A pipeline has already run. "
+            f"Use these exact numbers for follow-up questions: "
+            f"{json.dumps(workspace['last_stats'])}"
+        )
+
+    sys_prompt = SYSTEM_PROMPT + f"\n\nACTIVE WORKSPACE STATE:\n{json.dumps(workspace, indent=2)}{stats_note}{video_context_note}"
 
     # Load recent conversation history from session store
     past_messages = SessionStore.get_messages(session_id)[-8:]
+
+    # Recover last inference stats from history if the client workspace lost them
+    if not workspace.get("last_stats"):
+        for pm in reversed(past_messages):
+            if pm.get("stats"):
+                workspace["last_stats"] = pm["stats"]
+                break
+
     messages_payload: List[Dict[str, Any]] = []
 
     for pm in past_messages:
         role = "user" if pm.get("sender") == "user" else "assistant"
         txt = pm.get("text", "")
         if txt:
+            # Surface prior run numbers in-band so the model can't miss them
+            if role == "assistant" and pm.get("stats"):
+                s = pm["stats"]
+                txt += (
+                    "\n\n[Prior run results] "
+                    f"unique_tracks={s.get('unique_tracks')}, "
+                    f"max_zone_occupancy={s.get('max_zone_occupancy')}, "
+                    f"in_count={s.get('in_count')}, out_count={s.get('out_count')}, "
+                    f"processed_frames={s.get('processed_frames')}, "
+                    f"processed_fps={s.get('processed_fps')}"
+                )
             messages_payload.append({"role": role, "content": txt})
 
     # Append current user prompt

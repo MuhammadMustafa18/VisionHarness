@@ -379,11 +379,15 @@ Capabilities:
     };
     setMessages(prev => [...prev, assistantMsg]);
 
+    // Prefer live workspace stats; fall back to latest stats-bearing message
+    const lastStatsMsg = [...messages].reverse().find(m => m.stats);
     const currentWorkspace = {
       ...workspaceState,
       video_path: activeVideoPath,
       video_url: activeVideoUrl,
       video_name: activeVideoName,
+      last_stats: workspaceState.last_stats || lastStatsMsg?.stats,
+      spec: workspaceState.spec || lastStatsMsg?.spec,
     };
 
     try {
@@ -493,7 +497,8 @@ Capabilities:
                 )
               );
             } else if (chunk.type === "done" && chunk.workspace) {
-              setWorkspaceState(chunk.workspace);
+              // MERGE — never wipe last_stats / video_path if server omits them
+              setWorkspaceState(prev => ({ ...prev, ...chunk.workspace }));
             }
           } catch (e) {}
         }
