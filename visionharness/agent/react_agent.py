@@ -165,7 +165,12 @@ async def stream_react_agent(
         return
 
     # Prepare system context with workspace state
-    sys_prompt = SYSTEM_PROMPT + f"\n\nACTIVE WORKSPACE STATE:\n{json.dumps(workspace, indent=2)}"
+    active_video = workspace.get("video_path") or workspace.get("video_name")
+    video_context_note = ""
+    if active_video:
+        video_context_note = f"\nIMPORTANT: The user has attached/uploaded video footage: '{workspace.get('video_path')}' (filename: '{workspace.get('video_name')}'). You SHOULD immediately call `vlm_ground_scene` with video_path='{workspace.get('video_path')}' to inspect the scene, understand objects and camera angle, and extract zones/lines for the user!"
+
+    sys_prompt = SYSTEM_PROMPT + f"\n\nACTIVE WORKSPACE STATE:\n{json.dumps(workspace, indent=2)}{video_context_note}"
 
     # Load recent conversation history from session store
     past_messages = SessionStore.get_messages(session_id)[-8:]
