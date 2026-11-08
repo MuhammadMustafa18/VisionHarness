@@ -49,6 +49,10 @@
 
   --selection-bg: #262626;
   --overlay-text: #ffffff;
+
+  --scroll-track: transparent;
+  --scroll-thumb: #3f3f46;
+  --scroll-thumb-hover: #52525b;
 }
 
 [data-theme="light"] {
@@ -97,6 +101,10 @@
 
   --selection-bg: #e7e5e4;
   --overlay-text: #ffffff;
+
+  --scroll-track: transparent;
+  --scroll-thumb: #d6d3d1;
+  --scroll-thumb-hover: #a8a29e;
 }
 
 html,
@@ -162,4 +170,35 @@ body {
 }
 [data-theme="light"] .shadow-md {
   box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+}
+
+/* ── Scrollbars — match theme, never stark white ─────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) var(--scroll-track);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scroll-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scroll-thumb-hover);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
