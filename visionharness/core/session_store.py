@@ -97,14 +97,32 @@ class SessionStore:
 
     @classmethod
     def append_message(cls, session_id: str, message: ChatMessage) -> Dict[str, Any]:
-        """Appends a new message turn to the session log and touches updated_at."""
+        """Appends a new message turn or updates an existing message turn by id."""
         s_dir = cls._get_session_dir(session_id)
         msg_file = os.path.join(s_dir, "messages.jsonl")
         meta_path = os.path.join(s_dir, "session.json")
 
-        # Append message in JSONL format
-        with open(msg_file, "a", encoding="utf-8") as f:
-            f.write(message.model_dump_json() + "\n")
+        existing_lines = []
+        replaced = False
+        if os.path.exists(msg_file):
+            with open(msg_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        try:
+                            d = json.loads(line)
+                            if d.get("id") == message.id:
+                                existing_lines.append(message.model_dump_json() + "\n")
+                                replaced = True
+                            else:
+                                existing_lines.append(line)
+                        except Exception:
+                            existing_lines.append(line)
+
+        if not replaced:
+            existing_lines.append(message.model_dump_json() + "\n")
+
+        with open(msg_file, "w", encoding="utf-8") as f:
+            f.writelines(existing_lines)
 
         # Update metadata timestamp
         if os.path.exists(meta_path):
