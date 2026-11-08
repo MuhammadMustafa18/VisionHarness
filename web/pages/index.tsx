@@ -797,11 +797,31 @@ Capabilities:
                           <span>Video Inference Output</span>
                         </div>
                         <div className="flex items-center gap-4 text-xs text-neutral-300 font-mono">
-                          <span>IN: <strong className="text-emerald-400">{msg.stats.in_count ?? 0}</strong></span>
-                          <span>OUT: <strong className="text-rose-400">{msg.stats.out_count ?? 0}</strong></span>
+                          {msg.stats.has_polygon_zones ? (
+                            <span>Zone Peak Occupancy: <strong className="text-amber-400">{msg.stats.max_zone_occupancy ?? 0}</strong></span>
+                          ) : (
+                            <>
+                              <span>IN: <strong className="text-emerald-400">{msg.stats.in_count ?? 0}</strong></span>
+                              <span>OUT: <strong className="text-rose-400">{msg.stats.out_count ?? 0}</strong></span>
+                            </>
+                          )}
                           <span>FPS: {msg.stats.processed_fps}</span>
                         </div>
                       </div>
+
+                      {/* VLM Scene Grounding Feedback */}
+                      {msg.stats.scene_analysis && (
+                        <div className="bg-[#121318] border border-neutral-800 rounded-xl px-4 py-2.5 text-xs text-neutral-300 flex items-start gap-2.5">
+                          <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                          <div className="leading-relaxed">
+                            <span className="text-neutral-400 font-medium">VLM Scene Analysis: </span>
+                            <span className="text-neutral-200">{msg.stats.scene_analysis}</span>
+                            <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-mono uppercase bg-neutral-800 text-neutral-300">
+                              {msg.stats.geometry_type === "polygon" ? "Polygon Zone" : "Directional Line"}
+                            </span>
+                          </div>
+                        </div>
+                      )}
 
                       <div className="rounded-xl overflow-hidden bg-black aspect-video flex items-center justify-center border border-[#242630]">
                         {msg.videoUrl ? (

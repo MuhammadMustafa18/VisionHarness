@@ -77,28 +77,51 @@ class VisionRuntime:
         self.line_zones = []
         self.line_zone_annotators = []
 
-    def _setup_line_zones(self, frame_width: int, frame_height: int):
+        # Polygon zones for area containment / occupancy
+        self.polygon_zones = []
+        self.polygon_zone_annotators = []
+
+    def _setup_spatial_geometry(self, frame_width: int, frame_height: int):
         self.line_zones = []
         self.line_zone_annotators = []
+        self.polygon_zones = []
+        self.polygon_zone_annotators = []
 
-        if not self.spec.lines:
-            # Default line crossing horizontally across the middle if none specified
-            mid_y = int(frame_height * 0.5)
-            start = sv.Point(int(frame_width * 0.1), mid_y)
-            end = sv.Point(int(frame_width * 0.9), mid_y)
-            lz = sv.LineZone(start=start, end=end)
-            self.line_zones.append(lz)
-            self.line_zone_annotators.append(sv.LineZoneAnnotator(thickness=2, text_scale=0.6))
-        else:
-            for l in self.spec.lines:
-                # Handle relative (0.0 - 1.0) or absolute coords
-                sx = int(l.start.x * frame_width) if l.start.x <= 1.0 else int(l.start.x)
-                sy = int(l.start.y * frame_height) if l.start.y <= 1.0 else int(l.start.y)
-                ex = int(l.end.x * frame_width) if l.end.x <= 1.0 else int(l.end.x)
-                ey = int(l.end.y * frame_height) if l.end.y <= 1.0 else int(l.end.y)
-                lz = sv.LineZone(start=sv.Point(sx, sy), end=sv.Point(ex, ey))
+        # 1. Setup Polygon Zones if requested
+        if self.spec.zones:
+            for zone_spec in self.spec.zones:
+                pts = []
+                for pt in zone_spec.polygon:
+                    px = int(pt.x * frame_width) if pt.x <= 1.0 else int(pt.x)
+                    py = int(pt.y * frame_height) if pt.y <= 1.0 else int(pt.y)
+                    pts.append([px, py])
+                if len(pts) >= 3:
+                    polygon_np = np.array(pts, dtype=np.int32)
+                    pz = sv.PolygonZone(polygon=polygon_np, frame_resolution_wh=(frame_width, frame_height))
+                    pza = sv.PolygonZoneAnnotator(zone=pz, color=sv.Color.RED, thickness=2, text_scale=0.6)
+                    self.polygon_zones.append(pz)
+                    self.polygon_zone_annotators.append(pza)
+
+        # 2. Setup Line Zones if spec has lines or if no zones were defined
+        if self.spec.lines or not self.polygon_zones:
+            if not self.spec.lines:
+                # Default line crossing horizontally across the middle if none specified
+                mid_y = int(frame_height * 0.5)
+                start = sv.Point(int(frame_width * 0.1), mid_y)
+                end = sv.Point(int(frame_width * 0.9), mid_y)
+                lz = sv.LineZone(start=start, end=end)
                 self.line_zones.append(lz)
                 self.line_zone_annotators.append(sv.LineZoneAnnotator(thickness=2, text_scale=0.6))
+            else:
+                for l in self.spec.lines:
+                    # Handle relative (0.0 - 1.0) or absolute coords
+                    sx = int(l.start.x * frame_width) if l.start.x <= 1.0 else int(l.start.x)
+                    sy = int(l.start.y * frame_height) if l.start.y <= 1.0 else int(l.start.y)
+                    ex = int(l.end.x * frame_width) if l.end.x <= 1.0 else int(l.end.x)
+                    ey = int(l.end.y * frame_height) if l.end.y <= 1.0 else int(l.end.y)
+                    lz = sv.LineZone(start=sv.Point(sx, sy), end=sv.Point(ex, ey))
+                    self.line_zones.append(lz)
+                    self.line_zone_annotators.append(sv.LineZoneAnnotator(thickness=2, text_scale=0.6))
 
     def process_video(
         self,
@@ -111,7 +134,7 @@ class VisionRuntime:
         info = source.get_info()
         w, h, fps = info.get("width", 640), info.get("height", 480), info.get("fps", 30.0)
 
-        self._setup_line_zones(w, h)
+        self._setup_spatial_geometry(w, h)
 
         writer = None
         if output_video_path:
@@ -121,6 +144,7 @@ class VisionRuntime:
 
         frame_count = 0
         start_time = time.time()
+        max_zone_occupancy = 0
 
         try:
             for frame in source.frames():
@@ -145,11 +169,17 @@ class VisionRuntime:
                 # Convert to Supervision Detections
                 detections = sv.Detections.from_ultralytics(results)
 
-                # 3. Line crossing triggers
-                for lz, lz_annotator in zip(self.line_zones, self.line_zone_annotators):
+                # 2. Trigger spatial geometry (lines & polygon zones)
+                for lz in self.line_zones:
                     lz.trigger(detections=detections)
 
-                # 4. Rendering & Annotations
+                for pz in self.polygon_zones:
+                    is_in_zone = pz.trigger(detections=detections)
+                    occ = int(np.sum(is_in_zone)) if is_in_zone is not None else 0
+                    if occ > max_zone_occupancy:
+                        max_zone_occupancy = occ
+
+                # 3. Rendering & Annotations
                 annotated_frame = frame.copy()
 
                 if self.spec.output.draw_trails and detections.tracker_id is not None:
@@ -172,6 +202,10 @@ class VisionRuntime:
                     for lz, lz_annotator in zip(self.line_zones, self.line_zone_annotators):
                         annotated_frame = lz_annotator.annotate(
                             frame=annotated_frame, line_counter=lz
+                        )
+                    for pz, pz_annotator in zip(self.polygon_zones, self.polygon_zone_annotators):
+                        annotated_frame = pz_annotator.annotate(
+                            scene=annotated_frame
                         )
 
                 if writer:
@@ -216,5 +250,7 @@ class VisionRuntime:
             "processed_fps": processed_fps,
             "in_count": total_in,
             "out_count": total_out,
+            "max_zone_occupancy": max_zone_occupancy,
+            "has_polygon_zones": len(self.polygon_zones) > 0,
             "output_video": output_video_path,
         }

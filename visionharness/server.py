@@ -22,6 +22,7 @@ from pydantic import BaseModel
 
 from visionharness.agent.auth import get_auth_status, GoogleAccountBridge
 from visionharness.agent.planner import plan_workflow
+from visionharness.agent.grounding import ground_scene_with_vlm
 from visionharness.registry.components import search_components, get_component, REGISTRY
 from visionharness.core.spec import (
     WorkflowSpec,
@@ -29,6 +30,7 @@ from visionharness.core.spec import (
     TrackerConfig,
     LineCrossingConfig,
     ZoneConfig,
+    Point2D,
     WorkflowOutputConfig,
 )
 from visionharness.runtime.engine import VisionRuntime, VideoSource
@@ -232,6 +234,42 @@ async def run_pipeline(
         else:
             raise HTTPException(status_code=400, detail="A valid video file or path is required.")
 
+    # Visual Scene Grounding with VLM (MiMo)
+    # Inspects real footage frames to dynamically position line crossings or polygon zones
+    scene_analysis_text = None
+    geometry_type = None
+    try:
+        grounding_result = ground_scene_with_vlm(target_video, spec.description or spec.name)
+        scene_analysis_text = grounding_result.get("scene_analysis")
+        geometry_type = grounding_result.get("geometry_type")
+
+        # Dynamically inject VLM grounded lines or zones
+        if geometry_type == "polygon" and grounding_result.get("zones"):
+            grounded_zones = []
+            for z in grounding_result["zones"]:
+                poly_pts = [Point2D(x=pt["x"], y=pt["y"]) for pt in z.get("polygon", [])]
+                if len(poly_pts) >= 3:
+                    grounded_zones.append(ZoneConfig(name=z.get("name", "zone"), polygon=poly_pts))
+            if grounded_zones:
+                spec.zones = grounded_zones
+                spec.lines = []  # prioritize polygon zone
+        elif grounding_result.get("lines"):
+            grounded_lines = []
+            for l in grounding_result["lines"]:
+                grounded_lines.append(
+                    LineCrossingConfig(
+                        name=l.get("name", "line"),
+                        start=Point2D(x=l["start"]["x"], y=l["start"]["y"]),
+                        end=Point2D(x=l["end"]["x"], y=l["end"]["y"]),
+                        trigger_in=l.get("trigger_in", True),
+                        trigger_out=l.get("trigger_out", True),
+                    )
+                )
+            if grounded_lines:
+                spec.lines = grounded_lines
+    except Exception as e:
+        print(f"[Grounding Warning] Failed to ground scene geometry: {e}")
+
     # Execute runtime
     output_video_rel = f"output_{spec.id}_{int(time.time())}.mp4"
     output_video_path = os.path.join(OUTPUTS_DIR, output_video_rel)
@@ -242,5 +280,7 @@ async def run_pipeline(
         source, output_video_path=output_video_path, max_frames=max_frames or 150
     )
     stats["video_url"] = f"/output/{output_video_rel}"
+    stats["scene_analysis"] = scene_analysis_text
+    stats["geometry_type"] = geometry_type
 
     return stats
