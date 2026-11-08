@@ -203,6 +203,8 @@ Capabilities:
 
   useEffect(() => {
     if (!activeSessionId) return;
+    // Clear workspace state immediately when switching to avoid stale footage / stats bleeding in
+    setWorkspaceState({});
     fetch(`http://localhost:8000/api/sessions/${activeSessionId}/messages`)
       .then(res => res.json())
       .then(msgs => {
@@ -226,13 +228,12 @@ Capabilities:
           });
           setMessages(normalized);
 
-          // Restore workspace state from existing conversation if available
+          // Restore workspace state from THIS conversation only
           const lastWithVideo = [...normalized].reverse().find(m => m.uploadedVideoUrl || m.uploadedVideoPath);
           const lastWithStats = [...normalized].reverse().find(m => m.stats);
           const lastWithSpec = [...normalized].reverse().find(m => m.spec);
           if (lastWithVideo || lastWithStats || lastWithSpec) {
-            setWorkspaceState(prev => ({
-              ...prev,
+            setWorkspaceState({
               ...(lastWithVideo ? {
                 video_url: lastWithVideo.uploadedVideoUrl,
                 video_name: lastWithVideo.uploadedVideoName,
@@ -240,7 +241,7 @@ Capabilities:
               } : {}),
               ...(lastWithStats?.stats ? { last_stats: lastWithStats.stats } : {}),
               ...(lastWithSpec?.spec ? { spec: lastWithSpec.spec } : {})
-            }));
+            });
           }
         }
       })
@@ -271,6 +272,9 @@ Capabilities:
     setVideoPreviewUrl(null);
     setUploadDone(false);
     setUploadProgress(null);
+    setWorkspaceState({});
+    // CRITICAL: wipe workspace so old stats/video/spec never leak into a new chat
+    setWorkspaceState({});
 
     const initialBotMsg: Message = {
       id: (Date.now() + 1).toString(),
