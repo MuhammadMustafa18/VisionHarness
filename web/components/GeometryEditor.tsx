@@ -80,6 +80,8 @@ export const GeometryEditor: React.FC<GeometryEditorProps> = ({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const activeDragRef = useRef<typeof dragState>(null);
+  activeDragRef.current = dragState;
 
   // Sync when props change
   useEffect(() => {
@@ -92,59 +94,54 @@ export const GeometryEditor: React.FC<GeometryEditorProps> = ({
     }
   }, [initialZones, initialLines]);
 
-  const handlePointerDown = (
-    e: React.PointerEvent,
-    target: { type: "vertex" | "line-endpoint"; zoneIdx?: number; pointIdx?: number; endpoint?: "start" | "end" }
-  ) => {
-    if (!isEditing) return;
-    e.stopPropagation();
-    e.preventDefault();
-    (e.target as Element).setPointerCapture(e.pointerId);
-    setDragState(target);
-  };
-
-  const handlePointerMove = useCallback(
-    (e: React.PointerEvent) => {
-      if (!dragState || !containerRef.current) return;
+  const updateCoordinates = useCallback(
+    (clientX: number, clientY: number) => {
+      const currentDrag = activeDragRef.current;
+      if (!currentDrag || !containerRef.current) return;
 
       const rect = containerRef.current.getBoundingClientRect();
-      const rawX = (e.clientX - rect.left) / rect.width;
-      const rawY = (e.clientY - rect.top) / rect.height;
+      const rawX = (clientX - rect.left) / rect.width;
+      const rawY = (clientY - rect.top) / rect.height;
 
       // Clamp between 0.0 and 1.0
       const clampedX = Math.max(0.01, Math.min(0.99, Number(rawX.toFixed(3))));
       const clampedY = Math.max(0.01, Math.min(0.99, Number(rawY.toFixed(3))));
 
-      if (dragState.type === "vertex" && dragState.zoneIdx !== undefined && dragState.pointIdx !== undefined) {
+      if (currentDrag.type === "vertex" && currentDrag.zoneIdx !== undefined && currentDrag.pointIdx !== undefined) {
         setZones(prev => {
           const next = [...prev];
-          const targetZone = { ...next[dragState.zoneIdx!] };
+          const targetZone = { ...next[currentDrag.zoneIdx!] };
           const targetPoly = [...targetZone.polygon];
-          targetPoly[dragState.pointIdx!] = { x: clampedX, y: clampedY };
+          targetPoly[currentDrag.pointIdx!] = { x: clampedX, y: clampedY };
           targetZone.polygon = targetPoly;
-          next[dragState.zoneIdx!] = targetZone;
+          next[currentDrag.zoneIdx!] = targetZone;
           return next;
         });
-      } else if (dragState.type === "line-endpoint" && dragState.endpoint) {
+      } else if (currentDrag.type === "line-endpoint" && currentDrag.endpoint) {
         setLines(prev => {
           const next = [...prev];
           const targetLine = { ...next[0] };
-          targetLine[dragState.endpoint!] = { x: clampedX, y: clampedY };
+          targetLine[currentDrag.endpoint!] = { x: clampedX, y: clampedY };
           next[0] = targetLine;
           return next;
         });
       }
     },
-    [dragState]
+    []
   );
 
-  const handlePointerUp = (e: React.PointerEvent) => {
-    if (dragState) {
-      try {
-        (e.target as Element).releasePointerCapture(e.pointerId);
-      } catch {}
+  // Global window listeners while dragging to guarantee smooth tracking
+  useEffect(() => {
+    if (!dragState) return;
+
+    const onGlobalPointerMove = (e: PointerEvent) => {
+      e.preventDefault();
+      updateCoordinates(e.clientX, e.clientY);
+    };
+
+    const onGlobalPointerUp = (e: PointerEvent) => {
       setDragState(null);
-      // Auto-notify parent on modification
+      activeDragRef.current = null;
       if (onSave) {
         onSave({
           geometry_type: mode,
@@ -152,13 +149,35 @@ export const GeometryEditor: React.FC<GeometryEditorProps> = ({
           lines: mode === "line" ? lines : []
         });
       }
-    }
+    };
+
+    window.addEventListener("pointermove", onGlobalPointerMove, { passive: false });
+    window.addEventListener("pointerup", onGlobalPointerUp);
+    window.addEventListener("pointercancel", onGlobalPointerUp);
+
+    return () => {
+      window.removeEventListener("pointermove", onGlobalPointerMove);
+      window.removeEventListener("pointerup", onGlobalPointerUp);
+      window.removeEventListener("pointercancel", onGlobalPointerUp);
+    };
+  }, [dragState, mode, zones, lines, onSave, updateCoordinates]);
+
+  const handlePointerDown = (
+    e: React.PointerEvent,
+    target: { type: "vertex" | "line-endpoint"; zoneIdx?: number; pointIdx?: number; endpoint?: "start" | "end" }
+  ) => {
+    if (!isEditing) return;
+    e.stopPropagation();
+    e.preventDefault();
+    setDragState(target);
+    activeDragRef.current = target;
   };
 
   // Add vertex on segment click
   const handleAddVertex = (e: React.MouseEvent, zoneIdx: number, edgeIdx: number) => {
     if (!isEditing || mode !== "polygon" || !containerRef.current) return;
     e.stopPropagation();
+    e.preventDefault();
 
     const rect = containerRef.current.getBoundingClientRect();
     const x = Math.max(0.02, Math.min(0.98, Number(((e.clientX - rect.left) / rect.width).toFixed(3))));
@@ -179,6 +198,7 @@ export const GeometryEditor: React.FC<GeometryEditorProps> = ({
   const handleDeleteVertex = (e: React.MouseEvent, zoneIdx: number, pointIdx: number) => {
     if (!isEditing || mode !== "polygon") return;
     e.stopPropagation();
+    e.preventDefault();
 
     setZones(prev => {
       const z = prev[zoneIdx];
@@ -191,6 +211,21 @@ export const GeometryEditor: React.FC<GeometryEditorProps> = ({
       next[zoneIdx] = targetZ;
       return next;
     });
+  };
+
+  // Preset Bounding Box Crop (Reset to nice central box)
+  const handlePresetCrop = () => {
+    setZones([
+      {
+        name: "active_zone",
+        polygon: [
+          { x: 0.15, y: 0.2 },
+          { x: 0.85, y: 0.2 },
+          { x: 0.85, y: 0.85 },
+          { x: 0.15, y: 0.85 }
+        ]
+      }
+    ]);
   };
 
   const handleReset = () => {
@@ -274,6 +309,16 @@ export const GeometryEditor: React.FC<GeometryEditorProps> = ({
 
         {isEditing && (
           <div className="flex items-center gap-1.5">
+            {mode === "polygon" && (
+              <button
+                type="button"
+                onClick={handlePresetCrop}
+                title="Reset to 4-corner crop box"
+                className="px-2 py-0.5 rounded bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border border-white/10 text-[10px] font-mono flex items-center gap-1 transition-colors"
+              >
+                <span>Box Crop</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={handleReset}
@@ -292,10 +337,8 @@ export const GeometryEditor: React.FC<GeometryEditorProps> = ({
       {/* Video Container with Interactive SVG Canvas Overlay */}
       <div
         ref={containerRef}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        className={`relative w-80 h-44 rounded-xl overflow-hidden bg-black shadow-xl select-none group border ${
-          isEditing ? "border-emerald-500/60 ring-2 ring-emerald-500/20" : "border-white/10"
+        className={`relative w-80 h-44 rounded-xl overflow-hidden bg-black shadow-xl select-none group border touch-none ${
+          isEditing ? "border-emerald-500/60 ring-2 ring-emerald-500/20 cursor-crosshair" : "border-white/10"
         }`}
       >
         <video
@@ -304,14 +347,15 @@ export const GeometryEditor: React.FC<GeometryEditorProps> = ({
           controls={!isEditing}
           playsInline
           preload="metadata"
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover select-none pointer-events-none"
         />
 
         {/* SVG Drawing Canvas Layer */}
         <svg
-          className="absolute inset-0 w-full h-full pointer-events-none"
+          className="absolute inset-0 w-full h-full"
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
+          style={{ pointerEvents: isEditing ? "auto" : "none" }}
         >
           {/* 1. Polygon Zone Mode */}
           {mode === "polygon" &&
@@ -330,7 +374,7 @@ export const GeometryEditor: React.FC<GeometryEditorProps> = ({
                     stroke="#10b981"
                     strokeWidth={isEditing ? 2.4 : 1.8}
                     strokeLinejoin="round"
-                    className="transition-all"
+                    className="pointer-events-none"
                   />
 
                   {/* Edge segments (clickable to add vertex when editing) */}
@@ -345,27 +389,41 @@ export const GeometryEditor: React.FC<GeometryEditorProps> = ({
                           x2={nextPt.x * 100}
                           y2={nextPt.y * 100}
                           stroke="transparent"
-                          strokeWidth="6"
-                          className="pointer-events-auto cursor-copy hover:stroke-white/40 transition-colors"
+                          strokeWidth="8"
+                          className="cursor-copy hover:stroke-white/50 transition-colors pointer-events-auto"
                           onClick={e => handleAddVertex(e, zIdx, pIdx)}
                         />
                       );
                     })}
 
-                  {/* Vertices handles */}
+                  {/* Vertices handles with generous transparent hit-box */}
                   {poly.map((pt, pIdx) => (
-                    <circle
-                      key={`v-${pIdx}`}
-                      cx={pt.x * 100}
-                      cy={pt.y * 100}
-                      r={isEditing ? 2.6 : 1.3}
-                      fill={isEditing ? "#ffffff" : "#ffffff"}
-                      stroke="#10b981"
-                      strokeWidth={isEditing ? 1.2 : 0.8}
-                      className={isEditing ? "pointer-events-auto cursor-grab active:cursor-grabbing hover:scale-125 transition-transform" : "pointer-events-none"}
-                      onPointerDown={e => handlePointerDown(e, { type: "vertex", zoneIdx: zIdx, pointIdx: pIdx })}
-                      onDoubleClick={e => handleDeleteVertex(e, zIdx, pIdx)}
-                    />
+                    <g key={`v-group-${pIdx}`} className={isEditing ? "pointer-events-auto" : "pointer-events-none"}>
+                      {/* Generous invisible target to make clicking/touch effortless */}
+                      {isEditing && (
+                        <circle
+                          cx={pt.x * 100}
+                          cy={pt.y * 100}
+                          r={8}
+                          fill="transparent"
+                          className="cursor-grab active:cursor-grabbing pointer-events-auto"
+                          onPointerDown={e => handlePointerDown(e, { type: "vertex", zoneIdx: zIdx, pointIdx: pIdx })}
+                          onDoubleClick={e => handleDeleteVertex(e, zIdx, pIdx)}
+                        />
+                      )}
+                      {/* Visible styled handle */}
+                      <circle
+                        cx={pt.x * 100}
+                        cy={pt.y * 100}
+                        r={isEditing ? 3.2 : 1.4}
+                        fill="#ffffff"
+                        stroke="#10b981"
+                        strokeWidth={isEditing ? 1.8 : 0.8}
+                        className={`pointer-events-none drop-shadow-md transition-transform ${
+                          isEditing ? "ring-2 ring-emerald-400" : ""
+                        }`}
+                      />
+                    </g>
                   ))}
                 </g>
               );
@@ -384,31 +442,54 @@ export const GeometryEditor: React.FC<GeometryEditorProps> = ({
                 strokeWidth={isEditing ? 3.5 : 2.5}
                 strokeDasharray="4 2"
                 strokeLinecap="round"
+                className="pointer-events-none"
               />
 
               {/* Start Handle */}
-              <circle
-                cx={activeLine.start.x * 100}
-                cy={activeLine.start.y * 100}
-                r={isEditing ? 3.0 : 1.8}
-                fill="#ffffff"
-                stroke="#f59e0b"
-                strokeWidth={1.5}
-                className={isEditing ? "pointer-events-auto cursor-grab active:cursor-grabbing" : "pointer-events-none"}
-                onPointerDown={e => handlePointerDown(e, { type: "line-endpoint", endpoint: "start" })}
-              />
+              <g className={isEditing ? "pointer-events-auto" : "pointer-events-none"}>
+                {isEditing && (
+                  <circle
+                    cx={activeLine.start.x * 100}
+                    cy={activeLine.start.y * 100}
+                    r={9}
+                    fill="transparent"
+                    className="cursor-grab active:cursor-grabbing pointer-events-auto"
+                    onPointerDown={e => handlePointerDown(e, { type: "line-endpoint", endpoint: "start" })}
+                  />
+                )}
+                <circle
+                  cx={activeLine.start.x * 100}
+                  cy={activeLine.start.y * 100}
+                  r={isEditing ? 3.6 : 1.8}
+                  fill="#ffffff"
+                  stroke="#f59e0b"
+                  strokeWidth={2}
+                  className="pointer-events-none drop-shadow-md"
+                />
+              </g>
 
               {/* End Handle */}
-              <circle
-                cx={activeLine.end.x * 100}
-                cy={activeLine.end.y * 100}
-                r={isEditing ? 3.0 : 1.8}
-                fill="#ffffff"
-                stroke="#f59e0b"
-                strokeWidth={1.5}
-                className={isEditing ? "pointer-events-auto cursor-grab active:cursor-grabbing" : "pointer-events-none"}
-                onPointerDown={e => handlePointerDown(e, { type: "line-endpoint", endpoint: "end" })}
-              />
+              <g className={isEditing ? "pointer-events-auto" : "pointer-events-none"}>
+                {isEditing && (
+                  <circle
+                    cx={activeLine.end.x * 100}
+                    cy={activeLine.end.y * 100}
+                    r={9}
+                    fill="transparent"
+                    className="cursor-grab active:cursor-grabbing pointer-events-auto"
+                    onPointerDown={e => handlePointerDown(e, { type: "line-endpoint", endpoint: "end" })}
+                  />
+                )}
+                <circle
+                  cx={activeLine.end.x * 100}
+                  cy={activeLine.end.y * 100}
+                  r={isEditing ? 3.6 : 1.8}
+                  fill="#ffffff"
+                  stroke="#f59e0b"
+                  strokeWidth={2}
+                  className="pointer-events-none drop-shadow-md"
+                />
+              </g>
             </g>
           )}
         </svg>
