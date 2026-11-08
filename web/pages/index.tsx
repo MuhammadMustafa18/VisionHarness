@@ -66,6 +66,13 @@ interface Message {
   uploadDone?: boolean;
   activeVideoFile?: File;
   timestamp: string;
+  geometryEditEvent?: {
+    action: "saved";
+    geometry_type: "polygon" | "line";
+    zones?: any[];
+    lines?: any[];
+    summary: string;
+  };
 }
 
 const API_BASE = "http://localhost:8000";
@@ -1221,25 +1228,49 @@ Capabilities:
             >
               {/* User Bubble */}
               {msg.sender === "user" ? (
-                <div className="max-w-xl bg-[var(--bg-elevated)] border border-[var(--border-bubble)] text-[var(--fg-bubble)] px-5 py-3 rounded-2xl text-sm leading-relaxed space-y-2.5">
-                  <div>{msg.text}</div>
-                  {msg.uploadedVideoUrl && (
-                    <div className="rounded-xl overflow-hidden bg-black/60 border border-white/10 w-56 aspect-video relative group">
-                      <video
-                        src={msg.uploadedVideoUrl}
-                        controls
-                        playsInline
-                        preload="metadata"
-                        className="w-full h-full object-cover bg-black"
-                      />
-                      {msg.uploadedVideoName && (
-                        <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/80 text-[10px] text-neutral-300 font-mono truncate max-w-[200px]">
-                          {msg.uploadedVideoName}
-                        </div>
-                      )}
+                msg.geometryEditEvent ? (
+                  /* Formatted Geometry Edit Audit Card */
+                  <div className="max-w-xl bg-emerald-950/30 border border-emerald-500/30 text-emerald-200 px-4 py-3 rounded-2xl text-xs font-mono space-y-2 shadow-lg">
+                    <div className="flex items-center justify-between pb-1 border-b border-emerald-500/20">
+                      <div className="flex items-center gap-2 font-semibold text-emerald-400">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span>Geometry Adjusted by User</span>
+                      </div>
+                      <span className="text-[10px] text-emerald-400/60 uppercase">{msg.geometryEditEvent.geometry_type}</span>
                     </div>
-                  )}
-                </div>
+                    <div className="text-[11px] text-zinc-300">
+                      {msg.text}
+                    </div>
+                    {msg.geometryEditEvent.zones && msg.geometryEditEvent.zones[0]?.polygon && (
+                      <div className="bg-black/40 rounded-lg p-2 text-[10px] text-zinc-400 overflow-x-auto">
+                        <span className="text-zinc-500">// Saved coordinates:</span>
+                        <div className="text-emerald-300 mt-0.5">
+                          {JSON.stringify(msg.geometryEditEvent.zones[0].polygon.map((p: any) => [p.x, p.y]))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="max-w-xl bg-[var(--bg-elevated)] border border-[var(--border-bubble)] text-[var(--fg-bubble)] px-5 py-3 rounded-2xl text-sm leading-relaxed space-y-2.5">
+                    <div>{msg.text}</div>
+                    {msg.uploadedVideoUrl && (
+                      <div className="rounded-xl overflow-hidden bg-black/60 border border-white/10 w-56 aspect-video relative group">
+                        <video
+                          src={msg.uploadedVideoUrl}
+                          controls
+                          playsInline
+                          preload="metadata"
+                          className="w-full h-full object-cover bg-black"
+                        />
+                        {msg.uploadedVideoName && (
+                          <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/80 text-[10px] text-neutral-300 font-mono truncate max-w-[200px]">
+                            {msg.uploadedVideoName}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
               ) : (
                 /* Assistant Seamless Response (No Outer Card) */
                 <div className="max-w-3xl w-full space-y-4">
@@ -1325,8 +1356,11 @@ Capabilities:
                           </button>
                         </div>
 
-                        {/* Interactive Visual Geometry Editor over Footage */}
+                        {/* Video Preview or Interactive Visual Geometry Editor when requested */}
                         {msg.uploadedVideoUrl && (() => {
+                          // Check if an active open_geometry_editor tool call was triggered on this message or workspace
+                          const isEditorRequested = msg.toolCalls?.some(tc => tc.name === "open_geometry_editor" && tc.status === "completed");
+
                           // Extract initial zones from spec or toolCalls
                           let extractedZones: any[] = [];
                           if (msg.spec?.zones && Array.isArray(msg.spec.zones)) {
@@ -1361,43 +1395,86 @@ Capabilities:
 
                           const extractedLines = msg.spec?.lines || msg.spec?.workflow?.lines || (msg.toolCalls?.find(tc => tc.output?.lines)?.output?.lines) || [];
 
-                          return (
-                            <GeometryEditor
-                              videoUrl={msg.uploadedVideoUrl}
-                              initialZones={normalizedZones}
-                              initialLines={extractedLines}
-                              onSave={({ geometry_type, zones, lines }) => {
-                                // Update spec and workspaceState immediately with the user's edited geometry!
-                                setWorkspaceState(prev => {
-                                  const currentSpec = msg.spec || prev.spec || {};
-                                  const updatedSpec = {
-                                    ...currentSpec,
-                                    geometry_type,
-                                    zones: geometry_type === "polygon" ? zones : [],
-                                    lines: geometry_type === "line" ? lines : []
-                                  };
-                                  return {
-                                    ...prev,
-                                    spec: updatedSpec
-                                  };
-                                });
-
-                                setMessages(prev =>
-                                  prev.map(m => {
-                                    if (m.id !== msg.id) return m;
-                                    return {
-                                      ...m,
-                                      spec: {
-                                        ...(m.spec || {}),
+                          // If the user requested the editor via NLP, render the full interactive GeometryEditor
+                          if (isEditorRequested) {
+                            return (
+                              <div className="mt-2 space-y-2">
+                                <div className="flex items-center gap-2 text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg">
+                                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                  <span>Visual Geometry Editor Activated</span>
+                                </div>
+                                <GeometryEditor
+                                  videoUrl={msg.uploadedVideoUrl}
+                                  initialZones={normalizedZones}
+                                  initialLines={extractedLines}
+                                  onSave={({ geometry_type, zones, lines }) => {
+                                    // Update spec and workspaceState immediately with the user's edited geometry!
+                                    setWorkspaceState(prev => {
+                                      const currentSpec = msg.spec || prev.spec || {};
+                                      const updatedSpec = {
+                                        ...currentSpec,
                                         geometry_type,
                                         zones: geometry_type === "polygon" ? zones : [],
                                         lines: geometry_type === "line" ? lines : []
+                                      };
+                                      return {
+                                        ...prev,
+                                        spec: updatedSpec
+                                      };
+                                    });
+
+                                    setMessages(prev =>
+                                      prev.map(m => {
+                                        if (m.id !== msg.id) return m;
+                                        return {
+                                          ...m,
+                                          spec: {
+                                            ...(m.spec || {}),
+                                            geometry_type,
+                                            zones: geometry_type === "polygon" ? zones : [],
+                                            lines: geometry_type === "line" ? lines : []
+                                          }
+                                        };
+                                      })
+                                    );
+
+                                    // Append an explicit audit trail message in conversation history!
+                                    const historyEventMsg: Message = {
+                                      id: `edit_event_${Date.now()}`,
+                                      sender: "user",
+                                      text: `📐 Adjusted zone geometry: defined ${zones[0]?.polygon?.length || 4}-point custom boundary.`,
+                                      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                                      geometryEditEvent: {
+                                        action: "saved",
+                                        geometry_type,
+                                        zones,
+                                        lines,
+                                        summary: `User adjusted ${geometry_type} with ${zones[0]?.polygon?.length || 4} points`
                                       }
                                     };
-                                  })
-                                );
-                              }}
-                            />
+                                    setMessages(prev => [...prev, historyEventMsg]);
+                                  }}
+                                />
+                              </div>
+                            );
+                          }
+
+                          // Otherwise, render a clean video preview with an option to request editing
+                          return (
+                            <div className="relative w-80 h-44 rounded-xl overflow-hidden bg-black shadow-lg border border-white/10 group mt-1">
+                              <video
+                                src={msg.uploadedVideoUrl}
+                                autoPlay
+                                loop
+                                muted
+                                playsInline
+                                className="w-full h-full object-cover"
+                              />
+                              <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/80 backdrop-blur-sm text-[10px] font-mono text-zinc-300 border border-white/10 flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                <span>{msg.uploadedVideoName || "Footage Preview"}</span>
+                              </div>
+                            </div>
                           );
                         })()}
                       </div>

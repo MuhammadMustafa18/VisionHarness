@@ -57,6 +57,17 @@ AGENT_TOOLS = [
         }
     },
     {
+        "name": "open_geometry_editor",
+        "description": "Open the interactive visual geometry editor card in the user's chat interface. Call this whenever the user in natural language asks to edit, adjust, draw, reshape, crop, or customize the polygon zone or crossing line on the video.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "video_path": {"type": "string", "description": "Path to the video footage being annotated"},
+                "geometry_type": {"type": "string", "enum": ["polygon", "line"], "description": "Whether to edit 'polygon' zone or 'line' crossing"}
+            }
+        }
+    },
+    {
         "name": "run_pipeline",
         "description": "Execute YOLO detection + ByteTrack tracking on the full video footage using the confirmed workflow specification. Only call this when the user explicitly confirms or asks to run the pipeline.",
         "input_schema": {
@@ -81,12 +92,13 @@ You operate inside an autonomous ReAct loop with access to tools:
 
 GUIDELINES:
 1. When the user provides or references video footage, call `vlm_ground_scene` to inspect the scene, understand the camera perspective, and propose tracking zones. If the scene has already been grounded in this session and the user has custom-edited their polygon, do NOT re-call `vlm_ground_scene` unless they explicitly ask to reset or re-ground the footage.
-2. If the user asks for your opinion on their custom polygon (e.g., "what do you think about what I drew?"), evaluate it directly based on the scene context and their tracking goal (e.g., sidewalk vs road coverage, excluding background foliage/buildings, occlusion considerations). Answer directly without calling unnecessary tools.
-3. If the user asks a question about previous counts or results (e.g. "how many total people?"), query the existing workspace stats or answer directly using the workspace context.
-4. Be friendly, concise, and structured. For greetings or casual chat, reply in 1-2 short sentences — no tables, no capability lists, no essays.
-5. When planning or configuring a pipeline, format your final spec in a ```json code block so the UI can render the interactive action card.
-6. If the user has edited or drawn custom geometry (zones or lines in ACTIVE WORKSPACE STATE `workspace.spec.zones` or `workspace.spec.lines`), ALWAYS preserve and respect their exact edited coordinates when building or updating the pipeline spec! Do NOT regenerate or overwrite their polygon unless explicitly asked. In your text response, explicitly acknowledge their custom zone/line (e.g., "Using your adjusted active zone...").
-7. Only call tools when the task actually needs them. Never call tools for greetings or small talk.
+2. When the user in natural language asks to edit, adjust, draw, customize, reshape, or crop the zone or line (e.g., "let me edit the polygon", "open geometry editor", "adjust line"), call the `open_geometry_editor` tool. This presents the interactive editor card to the user so they can adjust the handles directly.
+3. If the user asks for your opinion on their custom polygon (e.g., "what do you think about what I drew?"), evaluate it directly based on the scene context and their tracking goal (e.g., sidewalk vs road coverage, excluding background foliage/buildings, occlusion considerations). Answer directly without calling unnecessary tools.
+4. If the user asks a question about previous counts or results (e.g. "how many total people?"), query the existing workspace stats or answer directly using the workspace context.
+5. Be friendly, concise, and structured. For greetings or casual chat, reply in 1-2 short sentences — no tables, no capability lists, no essays.
+6. When planning or configuring a pipeline, format your final spec in a ```json code block so the UI can render the interactive action card.
+7. If the user has edited or drawn custom geometry (zones or lines in ACTIVE WORKSPACE STATE `workspace.spec.zones` or `workspace.spec.lines`), ALWAYS preserve and respect their exact edited coordinates when building or updating the pipeline spec! Do NOT regenerate or overwrite their polygon unless explicitly asked. In your text response, explicitly acknowledge their custom zone/line (e.g., "Using your adjusted active zone...").
+8. Only call tools when the task actually needs them. Never call tools for greetings or small talk.
 """
 
 
@@ -123,6 +135,20 @@ def execute_tool(tool_name: str, tool_input: Dict[str, Any], workspace: Dict[str
         q = tool_input.get("query", "")
         results = search_components(query=q, category=cat)
         return {"components": results[:5]}
+
+    elif tool_name == "open_geometry_editor":
+        video_path = tool_input.get("video_path") or workspace.get("video_path")
+        g_type = tool_input.get("geometry_type") or "polygon"
+        current_zones = workspace.get("spec", {}).get("zones") or []
+        current_lines = workspace.get("spec", {}).get("lines") or []
+        return {
+            "status": "editor_opened",
+            "message": "Interactive geometry editor card activated in UI.",
+            "video_path": video_path,
+            "geometry_type": g_type,
+            "zones": current_zones,
+            "lines": current_lines
+        }
 
     elif tool_name == "run_pipeline":
         video_path = tool_input.get("video_path") or workspace.get("video_path")
