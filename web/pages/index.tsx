@@ -78,6 +78,26 @@ export default function VisionHarnessApp() {
 
   const [selectedModel, setSelectedModel] = useState("mimo-v2.6-flash");
   const [selectedToolMode, setSelectedToolMode] = useState("Workspace Write");
+  const [runningStepIndex, setRunningStepIndex] = useState(0);
+  const [expandedToolCalls, setExpandedToolCalls] = useState<{ [msgId: string]: boolean }>({});
+
+  const runningSteps = [
+    "Grounding scene perspective with mimo-v2.6-flash...",
+    "Configuring dynamic spatial zones & line boundaries...",
+    "Running YOLOv8 detector & ByteTrack tracker...",
+    "Encoding annotated frames to H.264...",
+  ];
+
+  useEffect(() => {
+    let interval: any;
+    if (isRunning) {
+      setRunningStepIndex(0);
+      interval = setInterval(() => {
+        setRunningStepIndex(prev => (prev + 1) % runningSteps.length);
+      }, 1800);
+    }
+    return () => clearInterval(interval);
+  }, [isRunning]);
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -748,43 +768,55 @@ Capabilities:
                     </div>
                   )}
 
-                  {/* Tool Calls Accordion */}
+                  {/* Tool Calls Expandable Accordion */}
                   {msg.toolCalls && msg.toolCalls.length > 0 && (
-                    <div className="space-y-2 mt-2">
-                      <div className="text-[11px] font-mono uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
-                        <Cpu className="w-3.5 h-3.5 text-neutral-400" />
-                        <span>Tool Executions ({msg.toolCalls.length})</span>
+                    <div className="mt-2">
+                      <div 
+                        onClick={() => {
+                          setExpandedToolCalls(prev => ({
+                            ...prev,
+                            [msg.id]: !prev[msg.id]
+                          }));
+                        }}
+                        className="inline-flex items-center gap-1.5 text-xs text-neutral-400 hover:text-neutral-200 cursor-pointer select-none py-1 transition-colors"
+                      >
+                        <ChevronRight className={`w-3.5 h-3.5 transition-transform duration-200 ${expandedToolCalls[msg.id] ? "rotate-90" : ""}`} />
+                        <span className="font-medium font-mono">Tool calls</span>
+                        <span className="text-[10px] text-neutral-500 font-mono">({msg.toolCalls.length})</span>
                       </div>
-                      <div className="space-y-1.5">
-                        {msg.toolCalls.map((tc, idx) => (
-                          <div 
-                            key={idx}
-                            className="bg-[#121318] border border-[#20222a] rounded-xl p-3 text-xs font-mono space-y-1.5"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-amber-400 font-semibold flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                                {tc.name}
-                              </span>
-                              <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                                tc.status === "completed" ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
-                              }`}>
-                                {tc.status}
-                              </span>
+
+                      {expandedToolCalls[msg.id] && (
+                        <div className="space-y-1.5 mt-2">
+                          {msg.toolCalls.map((tc, idx) => (
+                            <div 
+                              key={idx}
+                              className="bg-[#121318] border border-[#20222a] rounded-xl p-3 text-xs font-mono space-y-1.5"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-amber-400 font-semibold flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                                  {tc.name}
+                                </span>
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                                  tc.status === "completed" ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
+                                }`}>
+                                  {tc.status}
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-neutral-400 bg-[#0d0e11] p-2 rounded-lg overflow-x-auto">
+                                <div className="text-neutral-500">// Arguments:</div>
+                                <div className="text-neutral-300">{JSON.stringify(tc.args, null, 2)}</div>
+                                {tc.output && (
+                                  <>
+                                    <div className="text-neutral-500 mt-1">// Result:</div>
+                                    <div className="text-emerald-400">{JSON.stringify(tc.output, null, 2)}</div>
+                                  </>
+                                )}
+                              </div>
                             </div>
-                            <div className="text-[11px] text-neutral-400 bg-[#0d0e11] p-2 rounded-lg overflow-x-auto">
-                              <div className="text-neutral-500">// Arguments:</div>
-                              <div className="text-neutral-300">{JSON.stringify(tc.args, null, 2)}</div>
-                              {tc.output && (
-                                <>
-                                  <div className="text-neutral-500 mt-1">// Result:</div>
-                                  <div className="text-emerald-400">{JSON.stringify(tc.output, null, 2)}</div>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -865,7 +897,7 @@ Capabilities:
             </div>
           )}
 
-          {/* Running Inference Progress Indicator */}
+          {/* Running Inference Dynamic Progress Indicator */}
           {isRunning && (
             <div className="flex flex-col items-start space-y-3 max-w-xl">
               <div className="flex items-center gap-2.5">
@@ -878,7 +910,7 @@ Capabilities:
               </div>
               <div className="flex items-center gap-2 text-xs text-neutral-300 bg-[#16171d] px-4 py-2.5 rounded-2xl border border-zinc-800/80 shadow-md">
                 <Activity className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
-                <span className="font-mono">Processing video frames with YOLOv8 + ByteTrack...</span>
+                <span className="font-mono">{runningSteps[runningStepIndex]}</span>
               </div>
             </div>
           )}
