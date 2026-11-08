@@ -329,7 +329,7 @@ Capabilities:
     let uploadedThisTurn = false;
 
     // 1. Upload once if a new file is attached
-    if (stagedFile && !activeVideoPath) {
+    if (stagedFile) {
       try {
         const uploadForm = new FormData();
         uploadForm.append("video", stagedFile);
@@ -355,16 +355,16 @@ Capabilities:
       }
     }
 
-    // Determine if a NEW video was uploaded in THIS turn
-    const isNewUploadThisTurn = !!uploadedThisTurn;
+    // Determine if a video is present on this turn (either newly uploaded or newly attached)
+    const isAttachmentThisTurn = !!stagedFile || !!uploadedThisTurn;
 
     const userMsg: Message = {
       id: Date.now().toString(),
       sender: "user",
       text: currentPrompt,
-      uploadedVideoUrl: isNewUploadThisTurn ? activeVideoUrl : undefined,
-      uploadedVideoName: isNewUploadThisTurn ? activeVideoName : undefined,
-      activeVideoFile: isNewUploadThisTurn ? (stagedFile || undefined) : undefined,
+      uploadedVideoUrl: isAttachmentThisTurn ? activeVideoUrl : undefined,
+      uploadedVideoName: isAttachmentThisTurn ? activeVideoName : undefined,
+      activeVideoFile: isAttachmentThisTurn ? (stagedFile || undefined) : undefined,
       uploadedVideoPath: activeVideoPath,
       uploadDone: !!activeVideoPath,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })

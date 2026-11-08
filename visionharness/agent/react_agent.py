@@ -202,13 +202,17 @@ def _summarize_tool_calls(tool_calls: Optional[List[Dict[str, Any]]]) -> str:
     return "[tools]\n" + "\n".join(f"- {p}" for p in parts)
 
 
-async def stream_react_agent(
+def stream_react_agent(
     session_id: str,
     user_prompt: str,
     workspace: Dict[str, Any],
     max_iterations: int = 6
-) -> AsyncGenerator[Dict[str, Any], None]:
-    """Run server-side ReAct agent loop with mimo-v2.6-flash, streaming SSE events."""
+):
+    """Run server-side ReAct agent loop with mimo-v2.6-flash, streaming SSE events.
+
+    Sync generator on purpose: blocking HTTP runs off the event loop via
+    StreamingResponse's threadpool, so each yield flushes immediately.
+    """
     base_url = os.getenv("ANTHROPIC_BASE_URL", "").rstrip("/")
     auth_token = os.getenv("ANTHROPIC_AUTH_TOKEN", "")
     model = os.getenv("ANTHROPIC_MODEL", "mimo-v2.6-flash")

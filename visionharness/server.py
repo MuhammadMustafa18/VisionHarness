@@ -153,8 +153,11 @@ async def react_agent_endpoint(req: AgentChatRequest):
     """Server-side autonomous ReAct agent streaming loop."""
     workspace = req.workspace or {}
 
-    async def event_generator():
-        async for chunk in stream_react_agent(
+    # Sync generator → Starlette runs it in a threadpool so blocking
+    # LLM HTTP does not freeze the event loop (keeps SSE flushing live).
+    def event_generator():
+        yield f"data: {json.dumps({'type': 'start'})}\n\n"
+        for chunk in stream_react_agent(
             session_id=req.session_id,
             user_prompt=req.prompt,
             workspace=workspace,
