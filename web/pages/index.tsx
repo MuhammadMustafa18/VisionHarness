@@ -834,6 +834,43 @@ Capabilities:
               )}
             </div>
           ))}
+
+          {/* Thinking / Working Indicator */}
+          {isPlanning && (
+            <div className="flex flex-col items-start space-y-3 max-w-xl">
+              <div className="flex items-center gap-2.5">
+                <img
+                  src="/mascot.png"
+                  alt="VisionHarness Mascot"
+                  className="w-5 h-5 object-contain"
+                />
+                <span className="text-xs font-semibold tracking-wide text-neutral-300">VisionHarness</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-neutral-300 bg-[#16171d] px-4 py-2.5 rounded-2xl border border-zinc-800/80 shadow-md">
+                <Activity className="w-3.5 h-3.5 text-blue-400 animate-spin" />
+                <span className="font-mono">Designing vision pipeline with mimo-v2.6-flash...</span>
+              </div>
+            </div>
+          )}
+
+          {/* Running Inference Progress Indicator */}
+          {isRunning && (
+            <div className="flex flex-col items-start space-y-3 max-w-xl">
+              <div className="flex items-center gap-2.5">
+                <img
+                  src="/mascot.png"
+                  alt="VisionHarness Mascot"
+                  className="w-5 h-5 object-contain"
+                />
+                <span className="text-xs font-semibold tracking-wide text-neutral-300">VisionHarness</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-neutral-300 bg-[#16171d] px-4 py-2.5 rounded-2xl border border-zinc-800/80 shadow-md">
+                <Activity className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
+                <span className="font-mono">Processing video frames with YOLOv8 + ByteTrack...</span>
+              </div>
+            </div>
+          )}
+
           <div ref={chatEndRef} />
         </div>
 
