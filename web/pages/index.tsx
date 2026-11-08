@@ -1354,7 +1354,7 @@ Capabilities:
           ))}
 
           {/* Thinking / Working Indicator */}
-          {isPlanning && (
+          {isPlanning && !messages.some(m => m.sender === "bot" && (m.text || m.thoughts)) && (
             <div className="flex flex-col items-start space-y-3 max-w-xl">
               <div className="flex items-center gap-2.5">
                 <img
@@ -1366,7 +1366,7 @@ Capabilities:
               </div>
               <div className="flex items-center gap-2 text-xs text-neutral-300 bg-[#16171d] px-4 py-2.5 rounded-2xl border border-zinc-800/80 shadow-md">
                 <Activity className="w-3.5 h-3.5 text-blue-400 animate-spin" />
-                <span className="font-mono">Designing vision pipeline with mimo-v2.6-flash...</span>
+                <span className="font-mono">Processing with mimo-v2.6-flash...</span>
               </div>
             </div>
           )}
