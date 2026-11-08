@@ -55,10 +55,11 @@ interface Message {
   spec?: any;
   diagramSvg?: string;
   stats?: any;
-  videoUrl?: string;
+  videoUrl?: string | null;
   toolCalls?: ToolCall[];
   uploadedVideoUrl?: string;
   uploadedVideoName?: string;
+  uploadedVideoPath?: string;
   isUploading?: boolean;
   uploadProgress?: number | null;
   uploadDone?: boolean;
@@ -376,15 +377,15 @@ Capabilities:
       }
     }
 
-    // Determine if a video is present on this turn (either newly uploaded or newly attached)
+    // Only attach uploadedVideoUrl on the user message if a new video was uploaded/attached ON THIS TURN
     const isAttachmentThisTurn = !!stagedFile || !!uploadedThisTurn;
 
     const userMsg: Message = {
       id: Date.now().toString(),
       sender: "user",
       text: currentPrompt,
-      uploadedVideoUrl: activeVideoUrl || undefined,
-      uploadedVideoName: activeVideoName || undefined,
+      uploadedVideoUrl: isAttachmentThisTurn ? activeVideoUrl : undefined,
+      uploadedVideoName: isAttachmentThisTurn ? activeVideoName : undefined,
       activeVideoFile: isAttachmentThisTurn ? (stagedFile || undefined) : undefined,
       uploadedVideoPath: activeVideoPath,
       uploadDone: !!activeVideoPath,
@@ -564,8 +565,8 @@ Capabilities:
             toolCalls: activeToolCalls,
             stats: m.stats || (currentWorkspace.last_stats ? currentWorkspace.last_stats : undefined),
             videoUrl: m.videoUrl || (currentWorkspace.last_stats?.video_url ? `http://localhost:8000${currentWorkspace.last_stats.video_url}` : undefined),
-            uploadedVideoUrl: activeVideoUrl,
-            uploadedVideoName: activeVideoName,
+            uploadedVideoUrl: (parsedSpec || m.spec || currentWorkspace.spec) ? activeVideoUrl : undefined,
+            uploadedVideoName: (parsedSpec || m.spec || currentWorkspace.spec) ? activeVideoName : undefined,
             uploadedVideoPath: activeVideoPath,
             uploadDone: !!activeVideoPath
           };
