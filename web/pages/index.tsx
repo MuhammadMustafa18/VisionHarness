@@ -260,6 +260,11 @@ Capabilities:
 
     const currentPrompt = prompt;
     setPrompt("");
+
+    // Capture staged file BEFORE clearing badge state (React state in closure is stable for this turn)
+    const stagedFile = videoFile;
+    const stagedPreviewUrl = videoPreviewUrl;
+
     // Clear staged input bar file after message is submitted
     setVideoFile(null);
     setVideoPreviewUrl(null);
@@ -271,10 +276,10 @@ Capabilities:
     let uploadedThisTurn = false;
 
     // 1. Upload once if a new file is attached
-    if (videoFile && !activeVideoPath) {
+    if (stagedFile && !activeVideoPath) {
       try {
         const uploadForm = new FormData();
-        uploadForm.append("video", videoFile);
+        uploadForm.append("video", stagedFile);
         const upRes = await fetch("http://localhost:8000/api/upload", {
           method: "POST",
           body: uploadForm
@@ -306,7 +311,7 @@ Capabilities:
       text: currentPrompt,
       uploadedVideoUrl: isNewUploadThisTurn ? activeVideoUrl : undefined,
       uploadedVideoName: isNewUploadThisTurn ? activeVideoName : undefined,
-      activeVideoFile: isNewUploadThisTurn ? (videoFile || undefined) : undefined,
+      activeVideoFile: isNewUploadThisTurn ? (stagedFile || undefined) : undefined,
       uploadDone: !!activeVideoPath,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
@@ -420,7 +425,12 @@ Capabilities:
                   }
                 }));
               }
+              let toolStats = null;
+              let toolVideoUrl = null;
+
               if (chunk.output && chunk.output.processed_frames) {
+                toolStats = chunk.output;
+                toolVideoUrl = chunk.output.video_url ? `http://localhost:8000${chunk.output.video_url}` : null;
                 setWorkspaceState(prev => ({
                   ...prev,
                   last_stats: chunk.output
@@ -429,7 +439,13 @@ Capabilities:
 
               setMessages(prev =>
                 prev.map(m =>
-                  m.id === assistantMsgId ? { ...m, toolCalls: [...activeToolCalls] } : m
+                  m.id === assistantMsgId
+                    ? {
+                        ...m,
+                        toolCalls: [...activeToolCalls],
+                        ...(toolStats ? { stats: toolStats, videoUrl: toolVideoUrl } : {})
+                      }
+                    : m
                 )
               );
             } else if (chunk.type === "done" && chunk.workspace) {
@@ -463,6 +479,8 @@ Capabilities:
             thoughts: accumulatedThinking || m.thoughts,
             spec: parsedSpec || m.spec || (currentWorkspace.spec ? currentWorkspace.spec : undefined),
             toolCalls: activeToolCalls,
+            stats: m.stats || (currentWorkspace.last_stats ? currentWorkspace.last_stats : undefined),
+            videoUrl: m.videoUrl || (currentWorkspace.last_stats?.video_url ? `http://localhost:8000${currentWorkspace.last_stats.video_url}` : undefined),
             uploadedVideoUrl: activeVideoUrl,
             uploadedVideoName: activeVideoName,
             uploadDone: !!activeVideoPath
@@ -1013,7 +1031,7 @@ Capabilities:
                         controls
                         playsInline
                         preload="metadata"
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover bg-black"
                       />
                       {msg.uploadedVideoName && (
                         <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/80 text-[10px] text-neutral-300 font-mono truncate max-w-[200px]">
@@ -1362,23 +1380,38 @@ Capabilities:
               }}
             />
 
-            {/* Selected File Attached Pill Badge */}
+            {/* Selected File Attached Pill Badge — with live video preview */}
             {videoFile && (
-              <div className="flex items-center justify-between bg-[#181920] border border-[#2b2d38] rounded-xl px-3 py-1.5 text-xs text-neutral-300">
-                <div className="flex items-center gap-2 truncate">
-                  <Video className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span className="font-mono truncate">{videoFile.name}</span>
-                  <span className="text-[10px] text-neutral-500 font-mono">
-                    ({(videoFile.size / (1024 * 1024)).toFixed(1)} MB)
-                  </span>
+              <div className="flex items-center justify-between gap-3 bg-[#181920] border border-[#2b2d38] rounded-xl px-3 py-2 text-xs text-neutral-300">
+                <div className="flex items-center gap-3 truncate min-w-0">
+                  {videoPreviewUrl ? (
+                    <video
+                      src={videoPreviewUrl}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      className="w-20 h-12 rounded-md object-cover bg-black border border-white/10 shrink-0"
+                    />
+                  ) : (
+                    <div className="w-20 h-12 rounded-md bg-black/60 border border-white/10 flex items-center justify-center shrink-0">
+                      <Video className="w-4 h-4 text-emerald-400" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <div className="font-mono truncate">{videoFile.name}</div>
+                    <div className="text-[10px] text-neutral-500 font-mono">
+                      {(videoFile.size / (1024 * 1024)).toFixed(1)} MB · ready to attach
+                    </div>
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => {
+                    if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
                     setVideoFile(null);
                     setVideoPreviewUrl(null);
                   }}
-                  className="text-neutral-400 hover:text-rose-400 text-xs ml-2 font-mono"
+                  className="text-neutral-400 hover:text-rose-400 text-xs shrink-0 font-mono"
                   title="Remove video"
                 >
                   ✕
