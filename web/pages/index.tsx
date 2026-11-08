@@ -356,6 +356,23 @@ Capabilities:
     setPrompt("");
     setIsPlanning(true);
 
+    // If the user attached a new video with this message, trigger VLM Scene Grounding directly!
+    if (currentVideoFile) {
+      setIsPlanning(false);
+      handleRunGrounding(
+        {
+          id: `wf_${Date.now()}`,
+          name: "Custom Vision Pipeline",
+          description: currentPrompt,
+          detector: { model: "yolov8n.pt", classes: ["person", "car"], confidence: 0.35 },
+          tracker: { tracker_type: "bytetrack", track_buffer: 30 },
+          lines: [{ name: "detection_line", start: { x: 0.1, y: 0.5 }, end: { x: 0.9, y: 0.5 }, trigger_in: true, trigger_out: true }]
+        },
+        currentVideoFile
+      );
+      return;
+    }
+
     // Check if the current workspace already has an uploaded or active video and prior stats
     const lastVideoMsg = [...messages, userMsg].reverse().find(m => m.uploadedVideoUrl || m.uploadedVideoName);
     const lastStatsMsg = [...messages].reverse().find(m => m.stats);
