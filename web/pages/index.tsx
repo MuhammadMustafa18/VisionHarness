@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Head from "next/head";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import GeometryEditor from "@/components/GeometryEditor";
 import {
   Plus,
   Play,
@@ -65,6 +66,23 @@ interface Message {
   uploadDone?: boolean;
   activeVideoFile?: File;
   timestamp: string;
+}
+
+const API_BASE = "http://localhost:8000";
+
+// The desktop build starts its Python backend alongside the window, so the
+// first requests can arrive before it is listening. Retry instead of giving up.
+async function waitForBackend(attempts = 30, delayMs = 1000): Promise<boolean> {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(`${API_BASE}/api/status`, { cache: "no-store" });
+      if (res.ok) return true;
+    } catch {
+      // backend not up yet
+    }
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+  }
+  return false;
 }
 
 export default function VisionHarnessApp() {
@@ -206,15 +224,23 @@ Capabilities:
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetch("http://localhost:8000/api/sessions")
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.length > 0) {
-          setSessions(data);
-          setActiveSessionId(data[0].id);
-        }
-      })
-      .catch(() => {});
+    let cancelled = false;
+    (async () => {
+      await waitForBackend();
+      if (cancelled) return;
+      fetch(`${API_BASE}/api/sessions`)
+        .then(res => res.json())
+        .then(data => {
+          if (!cancelled && data && data.length > 0) {
+            setSessions(data);
+            setActiveSessionId(data[0].id);
+          }
+        })
+        .catch(() => {});
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -1299,183 +1325,81 @@ Capabilities:
                           </button>
                         </div>
 
-                        {/* Video Thumbnail with Circular Progress Bar when uploading & Done Overlay, plus VLM Suggested Polygon HUD */}
-                        {msg.uploadedVideoUrl && (
-                          <div className="relative w-64 h-36 rounded-xl overflow-hidden bg-black shadow-lg mt-1 group border border-white/10">
-                            <video
-                              src={msg.uploadedVideoUrl}
-                              controls={msg.uploadProgress === null || msg.uploadProgress === undefined}
-                              playsInline
-                              preload="metadata"
-                              className={`w-full h-full object-cover transition-all duration-300 ${
-                                msg.uploadProgress !== null && msg.uploadProgress !== undefined ? "blur-md scale-105 opacity-60" : "blur-0 opacity-100"
-                              }`}
-                            />
-
-                            {/* Live SVG HUD Polygon Overlay on the footage */}
-                            {(() => {
-                              // Extract zones from all possible places: spec.zones, spec.steps, or toolCalls
-                              let zones: any[] = [];
-                              if (msg.spec?.zones && Array.isArray(msg.spec.zones)) {
-                                zones = msg.spec.zones;
-                              } else if (msg.spec?.workflow?.zones && Array.isArray(msg.spec.workflow.zones)) {
-                                zones = msg.spec.workflow.zones;
-                              } else if (msg.spec?.steps && Array.isArray(msg.spec.steps)) {
-                                for (const st of msg.spec.steps) {
-                                  if (st.config?.zones && Array.isArray(st.config.zones)) {
-                                    zones = st.config.zones;
-                                    break;
-                                  }
-                                }
+                        {/* Interactive Visual Geometry Editor over Footage */}
+                        {msg.uploadedVideoUrl && (() => {
+                          // Extract initial zones from spec or toolCalls
+                          let extractedZones: any[] = [];
+                          if (msg.spec?.zones && Array.isArray(msg.spec.zones)) {
+                            extractedZones = msg.spec.zones;
+                          } else if (msg.spec?.workflow?.zones && Array.isArray(msg.spec.workflow.zones)) {
+                            extractedZones = msg.spec.workflow.zones;
+                          } else if (msg.spec?.steps && Array.isArray(msg.spec.steps)) {
+                            for (const st of msg.spec.steps) {
+                              if (st.config?.zones && Array.isArray(st.config.zones)) {
+                                extractedZones = st.config.zones;
+                                break;
                               }
-                              if (zones.length === 0 && msg.toolCalls) {
-                                for (const tc of msg.toolCalls) {
-                                  const out = tc.output;
-                                  if (out && Array.isArray(out.zones) && out.zones.length > 0) {
-                                    zones = out.zones;
-                                    break;
-                                  }
-                                }
+                            }
+                          }
+                          if (extractedZones.length === 0 && msg.toolCalls) {
+                            for (const tc of msg.toolCalls) {
+                              if (tc.output?.zones && Array.isArray(tc.output.zones) && tc.output.zones.length > 0) {
+                                extractedZones = tc.output.zones;
+                                break;
                               }
+                            }
+                          }
 
-                              const lines = msg.spec?.lines || msg.spec?.workflow?.lines || (msg.toolCalls?.find(tc => tc.output?.lines)?.output?.lines) || [];
-                              if ((!zones || zones.length === 0) && (!lines || lines.length === 0)) return null;
+                          // Normalize polygon points to {x, y} objects
+                          const normalizedZones = extractedZones.map((z: any) => ({
+                            name: z.name || "active_zone",
+                            polygon: (z.polygon || []).map((pt: any) => {
+                              if (Array.isArray(pt)) return { x: pt[0], y: pt[1] };
+                              return { x: pt.x ?? pt[0] ?? 0, y: pt.y ?? pt[1] ?? 0 };
+                            })
+                          }));
 
-                              return (
-                                <svg
-                                  className="absolute inset-0 w-full h-full pointer-events-none z-10"
-                                  viewBox="0 0 100 100"
-                                  preserveAspectRatio="none"
-                                >
-                                  {zones.map((z: any, zIdx: number) => {
-                                    const rawPoly = z.polygon || [];
-                                    if (!rawPoly || rawPoly.length < 3) return null;
-                                    // Normalize point formats: support both {x, y} and [x, y]
-                                    const poly = rawPoly.map((pt: any) => {
-                                      if (Array.isArray(pt)) return { x: pt[0], y: pt[1] };
-                                      return { x: pt.x ?? pt[0] ?? 0, y: pt.y ?? pt[1] ?? 0 };
-                                    });
-                                    const pointsStr = poly.map((pt: any) => `${pt.x * 100},${pt.y * 100}`).join(" ");
-                                    const colors = ["#10b981", "#f59e0b", "#3b82f6", "#ec4899"];
-                                    const c = colors[zIdx % colors.length];
+                          const extractedLines = msg.spec?.lines || msg.spec?.workflow?.lines || (msg.toolCalls?.find(tc => tc.output?.lines)?.output?.lines) || [];
 
-                                    return (
-                                      <g key={zIdx}>
-                                        <polygon
-                                          points={pointsStr}
-                                          fill={c}
-                                          fillOpacity="0.28"
-                                          stroke={c}
-                                          strokeWidth="2"
-                                          strokeLinejoin="round"
-                                        />
-                                        {poly.map((pt: any, pIdx: number) => (
-                                          <circle
-                                            key={pIdx}
-                                            cx={pt.x * 100}
-                                            cy={pt.y * 100}
-                                            r="1.4"
-                                            fill="#ffffff"
-                                            stroke={c}
-                                            strokeWidth="0.8"
-                                          />
-                                        ))}
-                                      </g>
-                                    );
-                                  })}
+                          return (
+                            <GeometryEditor
+                              videoUrl={msg.uploadedVideoUrl}
+                              initialZones={normalizedZones}
+                              initialLines={extractedLines}
+                              onSave={({ geometry_type, zones, lines }) => {
+                                // Update spec and workspaceState immediately with the user's edited geometry!
+                                setWorkspaceState(prev => {
+                                  const currentSpec = msg.spec || prev.spec || {};
+                                  const updatedSpec = {
+                                    ...currentSpec,
+                                    geometry_type,
+                                    zones: geometry_type === "polygon" ? zones : [],
+                                    lines: geometry_type === "line" ? lines : []
+                                  };
+                                  return {
+                                    ...prev,
+                                    spec: updatedSpec
+                                  };
+                                });
 
-                                  {lines.map((l: any, lIdx: number) => {
-                                    if (!l.start || !l.end) return null;
-                                    return (
-                                      <line
-                                        key={lIdx}
-                                        x1={l.start.x * 100}
-                                        y1={l.start.y * 100}
-                                        x2={l.end.x * 100}
-                                        y2={l.end.y * 100}
-                                        stroke="#f59e0b"
-                                        strokeWidth="2.5"
-                                        strokeDasharray="3 2"
-                                      />
-                                    );
-                                  })}
-                                </svg>
-                              );
-                            })()}
-
-                            {/* Zone Label Badge if zones exist */}
-                            {(() => {
-                              let zoneName = "";
-                              if (msg.spec?.zones?.[0]?.name) zoneName = msg.spec.zones[0].name;
-                              else if (msg.spec?.steps) {
-                                for (const st of msg.spec.steps) {
-                                  if (st.config?.zones?.[0]?.name) {
-                                    zoneName = st.config.zones[0].name;
-                                    break;
-                                  }
-                                }
-                              }
-                              if (!zoneName && msg.toolCalls) {
-                                for (const tc of msg.toolCalls) {
-                                  if (tc.output?.zones?.[0]?.name) {
-                                    zoneName = tc.output.zones[0].name;
-                                    break;
-                                  }
-                                }
-                              }
-                              if (!zoneName) return null;
-
-                              return (
-                                <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/80 backdrop-blur-sm text-[10px] text-emerald-400 font-mono font-medium flex items-center gap-1 border border-emerald-500/30 pointer-events-none z-20">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                  <span>{zoneName}</span>
-                                </div>
-                              );
-                            })()}
-
-                            {/* Upload Done Overlay (Temporary pill badge that fades or stays unobtrusive, does not block video controls) */}
-                            {msg.uploadProgress !== null && msg.uploadProgress !== undefined && (
-                              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md z-10 pointer-events-none">
-                                <div className="relative w-14 h-14 flex items-center justify-center">
-                                  <svg className="w-14 h-14 transform -rotate-90">
-                                    <circle
-                                      cx="28"
-                                      cy="28"
-                                      r="22"
-                                      stroke="rgba(255,255,255,0.12)"
-                                      strokeWidth="4"
-                                      fill="transparent"
-                                    />
-                                    <circle
-                                      cx="28"
-                                      cy="28"
-                                      r="22"
-                                      stroke="#10b981"
-                                      strokeWidth="4"
-                                      fill="transparent"
-                                      strokeDasharray={2 * Math.PI * 22}
-                                      strokeDashoffset={
-                                        2 * Math.PI * 22 * (1 - (msg.uploadProgress || 0) / 100)
+                                setMessages(prev =>
+                                  prev.map(m => {
+                                    if (m.id !== msg.id) return m;
+                                    return {
+                                      ...m,
+                                      spec: {
+                                        ...(m.spec || {}),
+                                        geometry_type,
+                                        zones: geometry_type === "polygon" ? zones : [],
+                                        lines: geometry_type === "line" ? lines : []
                                       }
-                                      strokeLinecap="round"
-                                      className="transition-all duration-150"
-                                    />
-                                  </svg>
-                                  <span className="absolute text-xs font-bold text-white font-mono">
-                                    {msg.uploadProgress}%
-                                  </span>
-                                </div>
-                                <span className="text-[10px] text-emerald-400 font-medium mt-1 font-mono tracking-wide">Uploading...</span>
-                              </div>
-                            )}
-
-                            {/* Corner Video Info & Ready Badge (Unobtrusive & Pointer-events-none so player is 100% clickable) */}
-                            <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 backdrop-blur-sm text-[10px] text-neutral-300 font-medium flex items-center gap-1.5 border border-white/10 font-mono pointer-events-none z-10">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                              <span>{msg.uploadedVideoName || "Footage ready"}</span>
-                            </div>
-                          </div>
-                        )}
+                                    };
+                                  })
+                                );
+                              }}
+                            />
+                          );
+                        })()}
                       </div>
                     </div>
                   )}
