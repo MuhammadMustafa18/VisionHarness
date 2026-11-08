@@ -246,23 +246,39 @@ Capabilities:
     const fileUrl = URL.createObjectURL(file);
     setVideoPreviewUrl(fileUrl);
 
+    // If there is an existing pipeline card (spec), attach to it.
+    // Otherwise, create a visible user upload card in chat!
     setMessages(prev => {
-      // Find the message index to attach video to
       const targetIdx = [...prev].reverse().findIndex(m => m.spec);
-      if (targetIdx === -1) return prev;
-      const realIdx = prev.length - 1 - targetIdx;
+      if (targetIdx !== -1) {
+        const realIdx = prev.length - 1 - targetIdx;
+        const updated = [...prev];
+        updated[realIdx] = {
+          ...updated[realIdx],
+          uploadedVideoUrl: fileUrl,
+          uploadedVideoName: file.name,
+          activeVideoFile: file,
+          isUploading: true,
+          uploadProgress: 0,
+          uploadDone: false
+        };
+        return updated;
+      }
 
-      const updated = [...prev];
-      updated[realIdx] = {
-        ...updated[realIdx],
+      // No spec card yet — create a clean user video attachment bubble
+      const attachmentMsg: Message = {
+        id: Date.now().toString(),
+        sender: "user",
+        text: `Attached video: ${file.name}`,
         uploadedVideoUrl: fileUrl,
         uploadedVideoName: file.name,
         activeVideoFile: file,
         isUploading: true,
         uploadProgress: 0,
-        uploadDone: false
+        uploadDone: false,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
-      return updated;
+      return [...prev, attachmentMsg];
     });
 
     let current = 0;
@@ -271,39 +287,40 @@ Capabilities:
       if (current >= 100) {
         clearInterval(interval);
         setMessages(prev => {
+          // If attached to a spec message
           const targetIdx = [...prev].reverse().findIndex(m => m.spec);
-          if (targetIdx === -1) return prev;
-          const realIdx = prev.length - 1 - targetIdx;
-
-          const updated = [...prev];
-          const targetMsg = updated[realIdx];
-          updated[realIdx] = {
-            ...targetMsg,
-            isUploading: false,
-            uploadProgress: null,
-            uploadDone: true
-          };
-
-          // Automatically trigger VLM Scene Grounding on the uploaded footage
-          if (targetMsg.spec) {
-            setTimeout(() => {
-              handleRunGrounding(targetMsg.spec, file);
-            }, 300);
+          if (targetIdx !== -1) {
+            const realIdx = prev.length - 1 - targetIdx;
+            const updated = [...prev];
+            const targetMsg = updated[realIdx];
+            updated[realIdx] = {
+              ...targetMsg,
+              isUploading: false,
+              uploadProgress: null,
+              uploadDone: true
+            };
+            if (targetMsg.spec) {
+              setTimeout(() => {
+                handleRunGrounding(targetMsg.spec, file);
+              }, 300);
+            }
+            return updated;
           }
-          return updated;
+
+          // Otherwise mark the standalone user attachment message as done
+          return prev.map(m =>
+            m.activeVideoFile === file
+              ? { ...m, isUploading: false, uploadProgress: null, uploadDone: true }
+              : m
+          );
         });
       } else {
         setMessages(prev => {
-          const targetIdx = [...prev].reverse().findIndex(m => m.spec);
-          if (targetIdx === -1) return prev;
-          const realIdx = prev.length - 1 - targetIdx;
-
-          const updated = [...prev];
-          updated[realIdx] = {
-            ...updated[realIdx],
-            uploadProgress: current
-          };
-          return updated;
+          return prev.map(m =>
+            m.activeVideoFile === file
+              ? { ...m, uploadProgress: current }
+              : m
+          );
         });
       }
     }, 80);
@@ -1235,6 +1252,30 @@ Capabilities:
                 }
               }}
             />
+
+            {/* Selected File Attached Pill Badge */}
+            {videoFile && (
+              <div className="flex items-center justify-between bg-[#181920] border border-[#2b2d38] rounded-xl px-3 py-1.5 text-xs text-neutral-300">
+                <div className="flex items-center gap-2 truncate">
+                  <Video className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span className="font-mono truncate">{videoFile.name}</span>
+                  <span className="text-[10px] text-neutral-500 font-mono">
+                    ({(videoFile.size / (1024 * 1024)).toFixed(1)} MB)
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVideoFile(null);
+                    setVideoPreviewUrl(null);
+                  }}
+                  className="text-neutral-400 hover:text-rose-400 text-xs ml-2 font-mono"
+                  title="Remove video"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
 
             <textarea
               value={prompt}
