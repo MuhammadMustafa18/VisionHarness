@@ -1,3 +1,4 @@
+import time
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
 
@@ -22,8 +23,8 @@ class Point2D(BaseModel):
 
 class LineCrossingConfig(BaseModel):
     name: str = "entrance_line"
-    start: Point2D
-    end: Point2D
+    start: Point2D = Field(default_factory=lambda: Point2D(x=0.1, y=0.5))
+    end: Point2D = Field(default_factory=lambda: Point2D(x=0.9, y=0.5))
     trigger_in: bool = True
     trigger_out: bool = True
 
@@ -44,9 +45,9 @@ class WorkflowOutputConfig(BaseModel):
 
 
 class WorkflowSpec(BaseModel):
-    id: str = Field(description="Unique workflow identifier")
-    name: str = Field(description="Human readable name")
-    description: str = Field(description="Description of the vision task")
+    id: str = Field(default_factory=lambda: f"wf_{int(time.time())}", description="Unique workflow identifier")
+    name: str = Field(default="Vision Workflow", description="Human readable name")
+    description: str = Field(default="Automated vision detection and tracking", description="Description of the vision task")
     detector: DetectorConfig = Field(default_factory=DetectorConfig)
     tracker: Optional[TrackerConfig] = Field(default_factory=TrackerConfig)
     lines: List[LineCrossingConfig] = Field(default_factory=list)

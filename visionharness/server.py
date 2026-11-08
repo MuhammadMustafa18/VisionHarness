@@ -217,14 +217,16 @@ async def run_pipeline(
     # Resolve video source
     target_video = video_path
     if video:
-        save_name = f"upload_{int(time.time())}_{video.filename}"
+        # Sanitize filename
+        safe_filename = video.filename.replace(" ", "_") if video.filename else "input.mp4"
+        save_name = f"upload_{int(time.time())}_{safe_filename}"
         target_video = os.path.join(UPLOADS_DIR, save_name)
         with open(target_video, "wb") as f_out:
             shutil.copyfileobj(video.file, f_out)
 
     if not target_video or not os.path.exists(target_video):
         # Fallback to synthetic test footage if available
-        synthetic_path = os.path.join(ROOT_DIR, "tests", "synthetic_test.mp4")
+        synthetic_path = "./tests/synthetic_test.mp4"
         if os.path.exists(synthetic_path):
             target_video = synthetic_path
         else:
