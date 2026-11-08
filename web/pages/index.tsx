@@ -330,10 +330,18 @@ Capabilities:
     if (e) e.preventDefault();
     if (!prompt.trim() || isPlanning) return;
 
+    // Attach active file directly to the user message if one is selected in prompt bar
+    const currentVideoFile = videoFile;
+    const currentVideoUrl = videoPreviewUrl;
+
     const userMsg: Message = {
       id: Date.now().toString(),
       sender: "user",
       text: prompt,
+      uploadedVideoUrl: currentVideoUrl || undefined,
+      uploadedVideoName: currentVideoFile ? currentVideoFile.name : undefined,
+      activeVideoFile: currentVideoFile || undefined,
+      uploadDone: !!currentVideoFile,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
@@ -349,9 +357,9 @@ Capabilities:
     setIsPlanning(true);
 
     // Check if the current workspace already has an uploaded or active video and prior stats
-    const lastVideoMsg = [...messages].reverse().find(m => m.uploadedVideoUrl || m.uploadedVideoName);
+    const lastVideoMsg = [...messages, userMsg].reverse().find(m => m.uploadedVideoUrl || m.uploadedVideoName);
     const lastStatsMsg = [...messages].reverse().find(m => m.stats);
-    const activeVideoName = lastVideoMsg?.uploadedVideoName || (videoFile ? videoFile.name : null);
+    const activeVideoName = lastVideoMsg?.uploadedVideoName || (currentVideoFile ? currentVideoFile.name : null);
     const hasVideo = !!activeVideoName;
 
     try {
@@ -920,8 +928,24 @@ Capabilities:
             >
               {/* User Bubble */}
               {msg.sender === "user" ? (
-                <div className="max-w-xl bg-[#18191f] text-[#f4f4f5] px-5 py-3 rounded-2xl text-sm leading-relaxed">
-                  {msg.text}
+                <div className="max-w-xl bg-[#18191f] border border-[#262832] text-[#f4f4f5] px-5 py-3 rounded-2xl text-sm leading-relaxed space-y-2.5">
+                  <div>{msg.text}</div>
+                  {msg.uploadedVideoUrl && (
+                    <div className="rounded-xl overflow-hidden bg-black/60 border border-white/10 w-56 aspect-video relative group">
+                      <video
+                        src={msg.uploadedVideoUrl}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        className="w-full h-full object-cover"
+                      />
+                      {msg.uploadedVideoName && (
+                        <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/80 text-[10px] text-neutral-300 font-mono truncate max-w-[200px]">
+                          {msg.uploadedVideoName}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 /* Assistant Seamless Response (No Outer Card) */
