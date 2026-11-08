@@ -123,6 +123,48 @@ def status():
     }
 
 
+from visionharness.agent.react_agent import stream_react_agent
+
+
+@app.post("/api/upload")
+async def upload_video_once(video: UploadFile = File(...)):
+    """Upload footage once, save to disk, and return persistent path and preview url."""
+    safe_filename = video.filename.replace(" ", "_") if video.filename else "footage.mp4"
+    save_name = f"upload_{int(time.time())}_{safe_filename}"
+    target_path = os.path.join(UPLOADS_DIR, save_name)
+    with open(target_path, "wb") as f_out:
+        shutil.copyfileobj(video.file, f_out)
+
+    return {
+        "video_path": target_path,
+        "video_name": safe_filename,
+        "video_url": f"/uploads/{save_name}"
+    }
+
+
+class AgentChatRequest(BaseModel):
+    session_id: str
+    prompt: str
+    workspace: Optional[Dict[str, Any]] = None
+
+
+@app.post("/api/agent")
+async def react_agent_endpoint(req: AgentChatRequest):
+    """Server-side autonomous ReAct agent streaming loop."""
+    workspace = req.workspace or {}
+
+    async def event_generator():
+        async for chunk in stream_react_agent(
+            session_id=req.session_id,
+            user_prompt=req.prompt,
+            workspace=workspace,
+            max_iterations=6
+        ):
+            yield f"data: {json.dumps(chunk)}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
 @app.get("/api/components")
 def list_components(category: Optional[str] = None, q: Optional[str] = None):
     """List or search verified CV components."""
@@ -287,40 +329,42 @@ async def run_pipeline(
             raise HTTPException(status_code=400, detail="A valid video file or path is required.")
 
     # Visual Scene Grounding with VLM (MiMo)
-    # Inspects real footage frames to dynamically position line crossings or polygon zones
+    # Only ground scene if spec does NOT already contain confirmed zones or lines
     scene_analysis_text = None
     geometry_type = None
-    try:
-        grounding_result = ground_scene_with_vlm(target_video, spec.description or spec.name)
-        scene_analysis_text = grounding_result.get("scene_analysis")
-        geometry_type = grounding_result.get("geometry_type")
+    has_existing_geometry = bool(spec.zones or spec.lines)
+    if not has_existing_geometry:
+        try:
+            grounding_result = ground_scene_with_vlm(target_video, spec.description or spec.name)
+            scene_analysis_text = grounding_result.get("scene_analysis")
+            geometry_type = grounding_result.get("geometry_type")
 
-        # Dynamically inject VLM grounded lines or zones
-        if geometry_type == "polygon" and grounding_result.get("zones"):
-            grounded_zones = []
-            for z in grounding_result["zones"]:
-                poly_pts = [Point2D(x=pt["x"], y=pt["y"]) for pt in z.get("polygon", [])]
-                if len(poly_pts) >= 3:
-                    grounded_zones.append(ZoneConfig(name=z.get("name", "zone"), polygon=poly_pts))
-            if grounded_zones:
-                spec.zones = grounded_zones
-                spec.lines = []  # prioritize polygon zone
-        elif grounding_result.get("lines"):
-            grounded_lines = []
-            for l in grounding_result["lines"]:
-                grounded_lines.append(
-                    LineCrossingConfig(
-                        name=l.get("name", "line"),
-                        start=Point2D(x=l["start"]["x"], y=l["start"]["y"]),
-                        end=Point2D(x=l["end"]["x"], y=l["end"]["y"]),
-                        trigger_in=l.get("trigger_in", True),
-                        trigger_out=l.get("trigger_out", True),
+            # Dynamically inject VLM grounded lines or zones
+            if geometry_type == "polygon" and grounding_result.get("zones"):
+                grounded_zones = []
+                for z in grounding_result["zones"]:
+                    poly_pts = [Point2D(x=pt["x"], y=pt["y"]) for pt in z.get("polygon", [])]
+                    if len(poly_pts) >= 3:
+                        grounded_zones.append(ZoneConfig(name=z.get("name", "zone"), polygon=poly_pts))
+                if grounded_zones:
+                    spec.zones = grounded_zones
+                    spec.lines = []  # prioritize polygon zone
+            elif grounding_result.get("lines"):
+                grounded_lines = []
+                for l in grounding_result["lines"]:
+                    grounded_lines.append(
+                        LineCrossingConfig(
+                            name=l.get("name", "line"),
+                            start=Point2D(x=l["start"]["x"], y=l["start"]["y"]),
+                            end=Point2D(x=l["end"]["x"], y=l["end"]["y"]),
+                            trigger_in=l.get("trigger_in", True),
+                            trigger_out=l.get("trigger_out", True),
+                        )
                     )
-                )
-            if grounded_lines:
-                spec.lines = grounded_lines
-    except Exception as e:
-        print(f"[Grounding Warning] Failed to ground scene geometry: {e}")
+                if grounded_lines:
+                    spec.lines = grounded_lines
+        except Exception as e:
+            print(f"[Grounding Warning] Failed to ground scene geometry: {e}")
 
     # Execute runtime
     output_video_rel = f"output_{spec.id}_{int(time.time())}.mp4"

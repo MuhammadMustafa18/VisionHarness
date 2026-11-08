@@ -82,6 +82,13 @@ export default function VisionHarnessApp() {
   const [selectedToolMode, setSelectedToolMode] = useState("Workspace Write");
   const [runningStepIndex, setRunningStepIndex] = useState(0);
   const [expandedToolCalls, setExpandedToolCalls] = useState<{ [msgId: string]: boolean }>({});
+  const [workspaceState, setWorkspaceState] = useState<{
+    video_path?: string;
+    video_url?: string;
+    video_name?: string;
+    spec?: any;
+    last_stats?: any;
+  }>({});
   const [systemHardware, setSystemHardware] = useState<any>(null);
   const [estimatedSeconds, setEstimatedSeconds] = useState<number | null>(null);
   const [pipelineElapsed, setPipelineElapsed] = useState<number>(0);
@@ -330,18 +337,48 @@ Capabilities:
     if (e) e.preventDefault();
     if (!prompt.trim() || isPlanning) return;
 
-    // Attach active file directly to the user message if one is selected in prompt bar
-    const currentVideoFile = videoFile;
-    const currentVideoUrl = videoPreviewUrl;
+    const currentPrompt = prompt;
+    setPrompt("");
+    setIsPlanning(true);
+
+    let activeVideoPath = workspaceState.video_path;
+    let activeVideoUrl = workspaceState.video_url;
+    let activeVideoName = workspaceState.video_name;
+
+    // 1. Upload once if a new file is attached
+    if (videoFile && !activeVideoPath) {
+      try {
+        const uploadForm = new FormData();
+        uploadForm.append("video", videoFile);
+        const upRes = await fetch("http://localhost:8000/api/upload", {
+          method: "POST",
+          body: uploadForm
+        });
+        if (upRes.ok) {
+          const upData = await upRes.json();
+          activeVideoPath = upData.video_path;
+          activeVideoUrl = `http://localhost:8000${upData.video_url}`;
+          activeVideoName = upData.video_name;
+          setWorkspaceState(prev => ({
+            ...prev,
+            video_path: activeVideoPath,
+            video_url: activeVideoUrl,
+            video_name: activeVideoName
+          }));
+        }
+      } catch (err) {
+        console.error("Upload error:", err);
+      }
+    }
 
     const userMsg: Message = {
       id: Date.now().toString(),
       sender: "user",
-      text: prompt,
-      uploadedVideoUrl: currentVideoUrl || undefined,
-      uploadedVideoName: currentVideoFile ? currentVideoFile.name : undefined,
-      activeVideoFile: currentVideoFile || undefined,
-      uploadDone: !!currentVideoFile,
+      text: currentPrompt,
+      uploadedVideoUrl: activeVideoUrl,
+      uploadedVideoName: activeVideoName,
+      activeVideoFile: videoFile || undefined,
+      uploadDone: !!activeVideoPath,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
@@ -352,85 +389,178 @@ Capabilities:
       body: JSON.stringify(userMsg)
     }).catch(() => {});
 
-    const currentPrompt = prompt;
-    setPrompt("");
-    setIsPlanning(true);
+    // Create an assistant message placeholder to stream into
+    const assistantMsgId = (Date.now() + 1).toString();
+    const assistantMsg: Message = {
+      id: assistantMsgId,
+      sender: "bot",
+      text: "",
+      thoughts: "",
+      toolCalls: [],
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    setMessages(prev => [...prev, assistantMsg]);
 
-    // If the user attached a new video with this message, trigger VLM Scene Grounding directly!
-    if (currentVideoFile) {
-      setIsPlanning(false);
-      handleRunGrounding(
-        {
-          id: `wf_${Date.now()}`,
-          name: "Custom Vision Pipeline",
-          description: currentPrompt,
-          detector: { model: "yolov8n.pt", classes: ["person", "car"], confidence: 0.35 },
-          tracker: { tracker_type: "bytetrack", track_buffer: 30 },
-          lines: [{ name: "detection_line", start: { x: 0.1, y: 0.5 }, end: { x: 0.9, y: 0.5 }, trigger_in: true, trigger_out: true }]
-        },
-        currentVideoFile
-      );
-      return;
-    }
-
-    // Check if the current workspace already has an uploaded or active video and prior stats
-    const lastVideoMsg = [...messages, userMsg].reverse().find(m => m.uploadedVideoUrl || m.uploadedVideoName);
-    const lastStatsMsg = [...messages].reverse().find(m => m.stats);
-    const activeVideoName = lastVideoMsg?.uploadedVideoName || (currentVideoFile ? currentVideoFile.name : null);
-    const hasVideo = !!activeVideoName;
+    const currentWorkspace = {
+      ...workspaceState,
+      video_path: activeVideoPath,
+      video_url: activeVideoUrl,
+      video_name: activeVideoName,
+    };
 
     try {
-      const res = await fetch("http://localhost:8000/api/plan", {
+      const response = await fetch("http://localhost:8000/api/agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: currentPrompt,
           session_id: activeSessionId,
-          auth_mode: "auto",
-          context_has_video: hasVideo,
-          last_video_name: activeVideoName,
-          last_inference_stats: lastStatsMsg ? lastStatsMsg.stats : null,
+          prompt: currentPrompt,
+          workspace: currentWorkspace
         })
       });
-      const data = await res.json();
-      
-      const botMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        sender: "bot",
-        text: data.plan_text || "Workflow generated successfully.",
-        thoughts: data.spec
-          ? `Analyzed vision objective. Decomposed into ${data.spec?.detector?.model || 'YOLOv8'} detector and ByteTrack persistent tracker.`
-          : `Retrieved prior inference results from workspace context to answer question directly.`,
-        spec: data.spec,
-        uploadedVideoUrl: lastVideoMsg?.uploadedVideoUrl,
-        uploadedVideoName: activeVideoName || undefined,
-        uploadDone: hasVideo,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-      setMessages(prev => [...prev, botMsg]);
-      fetch(`http://localhost:8000/api/sessions/${activeSessionId}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(botMsg)
-      }).catch(() => {});
-    } catch (err) {
-      setMessages(prev => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          sender: "bot",
-          text: `I have architected a vision workflow for: "${currentPrompt}" using YOLO11 Nano and ByteTrack.`,
-          thoughts: "Decomposed prompt. Identified object detection and multi-object tracking requirements.",
-          spec: {
-            id: `wf_${Date.now()}`,
-            name: "Custom Vision Pipeline",
-            detector: { model: "yolo11n", classes: ["person", "car"], confidence: 0.40 },
-            tracker: { tracker_type: "bytetrack", track_buffer: 30 },
-            lines: [{ name: "detection_line", trigger_in: true, trigger_out: true }]
-          },
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+      if (!response.ok || !response.body) {
+        throw new Error(`Server returned status ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let streamBuffer = "";
+      let accumulatedText = "";
+      let accumulatedThinking = "";
+      let activeToolCalls: ToolCall[] = [];
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        streamBuffer += decoder.decode(value, { stream: true });
+        const lines = streamBuffer.split("\n");
+        streamBuffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const dataStr = line.slice(6).trim();
+          if (!dataStr) continue;
+
+          try {
+            const chunk = JSON.parse(dataStr);
+
+            if (chunk.type === "thinking" && chunk.delta) {
+              accumulatedThinking += chunk.delta;
+              setMessages(prev =>
+                prev.map(m =>
+                  m.id === assistantMsgId ? { ...m, thoughts: accumulatedThinking } : m
+                )
+              );
+            } else if (chunk.type === "text" && chunk.delta) {
+              accumulatedText += chunk.delta;
+              setMessages(prev =>
+                prev.map(m =>
+                  m.id === assistantMsgId ? { ...m, text: accumulatedText } : m
+                )
+              );
+            } else if (chunk.type === "tool_call") {
+              const newTc: ToolCall = {
+                name: chunk.name,
+                args: chunk.input,
+                status: "calling"
+              };
+              activeToolCalls = [...activeToolCalls, newTc];
+              setMessages(prev =>
+                prev.map(m =>
+                  m.id === assistantMsgId ? { ...m, toolCalls: [...activeToolCalls] } : m
+                )
+              );
+            } else if (chunk.type === "tool_result") {
+              activeToolCalls = activeToolCalls.map(tc =>
+                tc.name === chunk.name
+                  ? { ...tc, output: chunk.output, status: "completed" }
+                  : tc
+              );
+
+              // If tool produced stats or grounded geometry, update workspace and message
+              if (chunk.output && (chunk.output.zones || chunk.output.lines)) {
+                setWorkspaceState(prev => ({
+                  ...prev,
+                  spec: {
+                    ...(prev.spec || {}),
+                    zones: chunk.output.zones,
+                    lines: chunk.output.lines,
+                    geometry_type: chunk.output.geometry_type
+                  }
+                }));
+              }
+              if (chunk.output && chunk.output.processed_frames) {
+                setWorkspaceState(prev => ({
+                  ...prev,
+                  last_stats: chunk.output
+                }));
+              }
+
+              setMessages(prev =>
+                prev.map(m =>
+                  m.id === assistantMsgId ? { ...m, toolCalls: [...activeToolCalls] } : m
+                )
+              );
+            } else if (chunk.type === "done" && chunk.workspace) {
+              setWorkspaceState(chunk.workspace);
+            }
+          } catch (e) {}
         }
-      ]);
+      }
+
+      // Check if text contains a workflow spec JSON block
+      let parsedSpec = null;
+      if (accumulatedText.includes("```json")) {
+        try {
+          const jsonStr = accumulatedText.split("```json")[1].split("```")[0].trim();
+          parsedSpec = JSON.parse(jsonStr);
+        } catch (e) {}
+      }
+
+      // Finalize assistant message
+      setMessages(prev =>
+        prev.map(m => {
+          if (m.id !== assistantMsgId) return m;
+          const cleanText = accumulatedText
+            .replace(/```json[\s\S]*?```/g, "")
+            .replace(/### GEOMETRY[\s\S]*?### CONFIRMATION/g, "")
+            .trim();
+
+          const finalized: Message = {
+            ...m,
+            text: cleanText || accumulatedText || "Analysis complete.",
+            thoughts: accumulatedThinking || m.thoughts,
+            spec: parsedSpec || m.spec || (currentWorkspace.spec ? currentWorkspace.spec : undefined),
+            toolCalls: activeToolCalls,
+            uploadedVideoUrl: activeVideoUrl,
+            uploadedVideoName: activeVideoName,
+            uploadDone: !!activeVideoPath
+          };
+
+          fetch(`http://localhost:8000/api/sessions/${activeSessionId}/messages`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(finalized)
+          }).catch(() => {});
+
+          return finalized;
+        })
+      );
+    } catch (err: any) {
+      console.error("Agent error:", err);
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === assistantMsgId
+            ? {
+                ...m,
+                text: `Agent encountered an error: ${err.message || "Failed to complete ReAct loop."}`,
+                thoughts: `Error during ReAct execution: ${err.message}`
+              }
+            : m
+        )
+      );
     } finally {
       setIsPlanning(false);
     }
