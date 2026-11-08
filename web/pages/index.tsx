@@ -316,18 +316,19 @@ Capabilities:
   };
 
   const handleRunInference = async (spec: any, fileOverride?: File) => {
+    const activeFile = fileOverride || videoFile;
+    if (!activeFile) {
+      alert("Please upload a video file to run tracking.");
+      return;
+    }
+
     setIsRunning(true);
     setUploadProgress(null);
     setUploadDone(false);
     const formData = new FormData();
     formData.append("workflow_id", spec.id || "wf_store_people_counter");
     formData.append("spec_json", JSON.stringify(spec));
-    const activeFile = fileOverride || videoFile;
-    if (activeFile) {
-      formData.append("video", activeFile);
-    } else {
-      formData.append("video_path", "tests/synthetic_test.mp4");
-    }
+    formData.append("video", activeFile);
 
     try {
       const stats = await new Promise<any>((resolve, reject) => {
@@ -673,15 +674,6 @@ Capabilities:
                           >
                             <Upload className="w-3.5 h-3.5" />
                             {msg.uploadedVideoName ? `Replace Video (${msg.uploadedVideoName.slice(0, 16)})` : "Upload Video to Label & Track"}
-                          </button>
-
-                          <button
-                            onClick={() => handleRunInference(msg.spec)}
-                            disabled={isRunning}
-                            className="px-3.5 py-2.5 rounded-xl bg-[#272932] hover:bg-[#343642] text-white font-medium text-xs flex items-center gap-1.5 transition-colors border-0 disabled:opacity-50"
-                          >
-                            <Play className="w-3.5 h-3.5 fill-current" />
-                            {isRunning ? "Processing Video..." : "Run Reference Video"}
                           </button>
                         </div>
 
