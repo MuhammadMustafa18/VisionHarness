@@ -13,9 +13,10 @@ from visionharness.core.spec import WorkflowSpec
 
 
 SYSTEM_INSTRUCTIONS = """You are VisionHarness, a conversational AI Computer Vision Architect.
-When a user asks for a computer vision task (e.g. "I want to track cars at the intersection", "count people in a store", "detect helmets"):
-1. Respond naturally and conversationally, acknowledging their request in 1-2 friendly sentences:
-   e.g. "Got it! I've planned the detection and tracking pipeline for your task. Send the video in your next message (or click the attach button below) and I'll label and track the objects for you."
+When a user asks for a computer vision task (e.g. "I want to track cars at the intersection", "count people in a store", "how many guns in the video"):
+1. Respond naturally and conversationally, acknowledging their request in 1-2 friendly sentences.
+   - If a video is already in context or was previously uploaded in the workspace: acknowledge it! e.g. "Got it! I've updated the pipeline to detect and count guns on your active video. Click Run (or re-run) below and I'll analyze it."
+   - If no video has been uploaded yet: politely ask them to upload the footage or send it in their next message.
 2. Also plan the technical architecture behind the scenes and include a valid JSON code block ```json ... ``` with the WorkflowSpec:
    {
      "id": "wf_<timestamp>",
@@ -23,7 +24,7 @@ When a user asks for a computer vision task (e.g. "I want to track cars at the i
      "description": "Short description",
      "detector": {
        "model": "yolov8n.pt",
-       "classes": ["car", "person", etc],
+       "classes": ["car", "person", "gun", etc],
        "confidence": 0.35
      },
      "tracker": {
@@ -35,10 +36,10 @@ When a user asks for a computer vision task (e.g. "I want to track cars at the i
      ]
    }
 
-Be friendly, concise, and clear. Always invite them to send the video in their next message."""
+Be friendly, concise, and clear."""
 
 
-async def plan_workflow_anthropic(prompt: str) -> str:
+async def plan_workflow_anthropic(prompt: str, context_has_video: bool = False, last_video_name: str | None = None) -> str:
     """Invoke Anthropic / MiMo endpoint."""
     base_url = os.getenv("ANTHROPIC_BASE_URL", "").rstrip("/")
     auth_token = os.getenv("ANTHROPIC_AUTH_TOKEN", "")
@@ -47,11 +48,15 @@ async def plan_workflow_anthropic(prompt: str) -> str:
     if not base_url or not auth_token:
         raise ValueError("ANTHROPIC_BASE_URL or ANTHROPIC_AUTH_TOKEN not configured.")
 
+    system_prompt = SYSTEM_INSTRUCTIONS
+    if context_has_video:
+        system_prompt += f"\n\nCURRENT CONTEXT: The user already uploaded and is actively working with a video in this workspace ('{last_video_name or 'active_video.mp4'}'). Do NOT tell them to upload a video again unless they want to replace it. Acknowledge the existing video and state that you're ready to run on it!"
+
     url = f"{base_url}/v1/messages"
     payload = {
         "model": model,
         "max_tokens": 2000,
-        "system": SYSTEM_INSTRUCTIONS,
+        "system": system_prompt,
         "messages": [
             {"role": "user", "content": prompt}
         ]
@@ -83,11 +88,18 @@ async def plan_workflow_anthropic(prompt: str) -> str:
     return full_text
 
 
-async def plan_workflow(prompt: str, api_key: str | None = None) -> str:
+async def plan_workflow(
+    prompt: str,
+    api_key: str | None = None,
+    context_has_video: bool = False,
+    last_video_name: str | None = None,
+) -> str:
     """Run prompt against Anthropic / MiMo endpoint, falling back to Antigravity SDK if needed."""
     if os.getenv("ANTHROPIC_BASE_URL") and os.getenv("ANTHROPIC_AUTH_TOKEN"):
         try:
-            return await plan_workflow_anthropic(prompt)
+            return await plan_workflow_anthropic(
+                prompt, context_has_video=context_has_video, last_video_name=last_video_name
+            )
         except Exception as e:
             print(f"[Planner] Anthropic call failed: {e}")
 

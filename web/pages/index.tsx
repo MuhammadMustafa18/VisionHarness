@@ -290,11 +290,22 @@ Capabilities:
     setPrompt("");
     setIsPlanning(true);
 
+    // Check if the current workspace already has an uploaded or active video
+    const lastVideoMsg = [...messages].reverse().find(m => m.uploadedVideoUrl || m.uploadedVideoName);
+    const activeVideoName = lastVideoMsg?.uploadedVideoName || (videoFile ? videoFile.name : null);
+    const hasVideo = !!activeVideoName;
+
     try {
       const res = await fetch("http://localhost:8000/api/plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: currentPrompt, session_id: activeSessionId, auth_mode: "auto" })
+        body: JSON.stringify({
+          prompt: currentPrompt,
+          session_id: activeSessionId,
+          auth_mode: "auto",
+          context_has_video: hasVideo,
+          last_video_name: activeVideoName
+        })
       });
       const data = await res.json();
       
@@ -304,6 +315,9 @@ Capabilities:
         text: data.plan_text || "Workflow generated successfully.",
         thoughts: `Analyzed vision objective. Decomposed into ${data.spec?.detector?.model || 'YOLO11'} detector and ByteTrack persistent tracker. Configured line crossing rules.`,
         spec: data.spec,
+        uploadedVideoUrl: lastVideoMsg?.uploadedVideoUrl,
+        uploadedVideoName: activeVideoName || undefined,
+        uploadDone: hasVideo,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, botMsg]);
@@ -688,12 +702,23 @@ Capabilities:
                       {/* Execution Action Row */}
                       <div className="flex flex-col gap-3 pt-1">
                         <div className="flex items-center gap-3">
+                          {msg.uploadedVideoName ? (
+                            <button
+                              onClick={() => handleRunInference(msg.spec)}
+                              disabled={isRunning}
+                              className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs flex items-center gap-2 transition-all shadow-md active:scale-[0.98] disabled:opacity-50"
+                            >
+                              <Play className="w-3.5 h-3.5 fill-current" />
+                              Run on {msg.uploadedVideoName.slice(0, 18)}
+                            </button>
+                          ) : null}
+
                           <button
                             onClick={() => fileInputRef.current?.click()}
-                            className="px-4 py-2.5 rounded-xl bg-white hover:bg-neutral-200 text-black font-semibold text-xs flex items-center gap-2 transition-all shadow-md active:scale-[0.98]"
+                            className="px-4 py-2.5 rounded-xl bg-[#2a2c35] hover:bg-[#343742] text-zinc-200 font-semibold text-xs flex items-center gap-2 transition-all shadow-md active:scale-[0.98]"
                           >
                             <Upload className="w-3.5 h-3.5" />
-                            {msg.uploadedVideoName ? `Replace Video (${msg.uploadedVideoName.slice(0, 16)})` : "Upload Video to Label & Track"}
+                            {msg.uploadedVideoName ? `Replace Video` : "Upload Video to Label & Track"}
                           </button>
                         </div>
 

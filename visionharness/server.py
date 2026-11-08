@@ -64,6 +64,8 @@ class PlanRequest(BaseModel):
     prompt: str
     session_id: Optional[str] = "wf_store_people_counter"
     auth_mode: Optional[str] = "auto"  # 'google_account', 'api_key', 'auto'
+    context_has_video: Optional[bool] = False
+    last_video_name: Optional[str] = None
 
 
 @app.get("/api/sessions")
@@ -115,7 +117,11 @@ async def plan_pipeline(req: PlanRequest):
         raise HTTPException(status_code=400, detail="Prompt cannot be empty.")
 
     try:
-        raw_res = await plan_workflow(prompt)
+        raw_res = await plan_workflow(
+            prompt,
+            context_has_video=req.context_has_video or False,
+            last_video_name=req.last_video_name,
+        )
         clean_res = raw_res
         spec_obj = None
 
