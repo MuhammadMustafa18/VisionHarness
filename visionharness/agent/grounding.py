@@ -170,13 +170,17 @@ def stream_ground_scene_with_vlm(video_path: str, user_intent: str):
                 event = json.loads(data_str)
                 delta = event.get("delta", {})
 
-                if "thinking" in delta:
-                    th = delta["thinking"]
+                # Anthropic API format: delta has {"type": "thinking_delta", "thinking": "..."}
+                # or {"type": "text_delta", "text": "..."}
+                delta_type = delta.get("type", "")
+
+                if delta_type == "thinking_delta" or "thinking" in delta:
+                    th = delta.get("thinking", "")
                     full_thinking += th
                     yield {"type": "thinking", "delta": th}
 
-                if "text" in delta:
-                    tx = delta["text"]
+                elif delta_type == "text_delta" or ("text" in delta and delta_type != "thinking_delta"):
+                    tx = delta.get("text", "")
                     full_text += tx
                     yield {"type": "text", "delta": tx}
 
