@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Edit2, Check, RotateCcw, Split, Square, Trash2, Plus } from "lucide-react";
+import { Edit2, Check, RotateCcw, Split, Square, Play, Pause, Maximize2, Minimize2 } from "lucide-react";
 
 export interface Point {
   x: number;
@@ -78,10 +78,47 @@ export const GeometryEditor: React.FC<GeometryEditorProps> = ({
     endpoint?: "start" | "end";
   } | null>(null);
 
+  // Playback & Fullscreen state
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const activeDragRef = useRef<typeof dragState>(null);
   activeDragRef.current = dragState;
+
+  // Track fullscreen changes from ESC or native events
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    if (!containerRef.current) return;
+    try {
+      if (!document.fullscreenElement) {
+        await containerRef.current.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.warn("Fullscreen request error:", err);
+    }
+  };
+
+  const togglePlay = () => {
+    if (!videoRef.current) return;
+    if (videoRef.current.paused) {
+      videoRef.current.play().catch(() => {});
+      setIsPlaying(true);
+    } else {
+      videoRef.current.pause();
+      setIsPlaying(false);
+    }
+  };
 
   // Sync when props change
   useEffect(() => {
@@ -337,16 +374,20 @@ export const GeometryEditor: React.FC<GeometryEditorProps> = ({
       {/* Video Container with Interactive SVG Canvas Overlay */}
       <div
         ref={containerRef}
-        className={`relative w-80 h-44 rounded-xl overflow-hidden bg-black shadow-xl select-none group border touch-none ${
-          isEditing ? "border-emerald-500/60 ring-2 ring-emerald-500/20 cursor-crosshair" : "border-white/10"
-        }`}
+        className={`relative rounded-xl overflow-hidden bg-black shadow-xl select-none group border touch-none transition-all ${
+          isFullscreen ? "w-full h-full max-h-screen" : "w-80 h-48"
+        } ${isEditing ? "border-emerald-500/60 ring-2 ring-emerald-500/20 cursor-crosshair" : "border-white/10"}`}
       >
         <video
           ref={videoRef}
           src={videoUrl}
-          controls={!isEditing}
+          autoPlay
+          loop
+          muted
           playsInline
-          preload="metadata"
+          preload="auto"
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
           className="w-full h-full object-cover select-none pointer-events-none"
         />
 
@@ -505,6 +546,27 @@ export const GeometryEditor: React.FC<GeometryEditorProps> = ({
             {mode === "polygon" ? activeZone.name || "active_zone" : activeLine.name || "crossing_line"}
           </span>
           {isEditing && <span className="text-white/60 text-[9px]">(Editing)</span>}
+        </div>
+
+        {/* Video HUD Controls Overlay (Play/Pause, Fullscreen toggle) */}
+        <div className="absolute bottom-2 right-2 flex items-center gap-1.5 z-20">
+          <button
+            type="button"
+            onClick={togglePlay}
+            title={isPlaying ? "Pause video" : "Play video"}
+            className="p-1.5 rounded-lg bg-black/70 hover:bg-black/90 backdrop-blur-sm text-zinc-300 hover:text-white border border-white/10 transition-colors pointer-events-auto"
+          >
+            {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+          </button>
+
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Editor"}
+            className="p-1.5 rounded-lg bg-black/70 hover:bg-black/90 backdrop-blur-sm text-zinc-300 hover:text-white border border-white/10 transition-colors pointer-events-auto"
+          >
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+          </button>
         </div>
       </div>
     </div>
