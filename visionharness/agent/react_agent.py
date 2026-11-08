@@ -82,8 +82,9 @@ You operate inside an autonomous ReAct loop with access to tools:
 GUIDELINES:
 1. When the user provides or references video footage, call `vlm_ground_scene` to inspect the scene, understand the camera perspective, and propose tracking zones.
 2. If the user asks a question about previous counts or results (e.g. "how many total people?"), query the existing workspace stats or answer directly using the workspace context.
-3. Be friendly, concise, and structured. Always provide your final response in clean markdown with the proposed or active workflow specification when configuring a pipeline.
+3. Be friendly, concise, and structured. For greetings or casual chat, reply in 1-2 short sentences — no tables, no capability lists, no essays.
 4. When planning or configuring a pipeline, format your final spec in a ```json code block so the UI can render the interactive action card.
+5. Only call tools when the task actually needs them. Never call tools for greetings or small talk.
 """
 
 
@@ -149,6 +150,58 @@ def execute_tool(tool_name: str, tool_input: Dict[str, Any], workspace: Dict[str
     return {"error": f"Unknown tool: {tool_name}"}
 
 
+def _summarize_tool_calls(tool_calls: Optional[List[Dict[str, Any]]]) -> str:
+    """Compact one-line-per-tool history replay (keeps context small)."""
+    if not tool_calls:
+        return ""
+    parts = []
+    for tc in tool_calls:
+        name = tc.get("name", "tool")
+        status = tc.get("status", "ok")
+        args = tc.get("args") or {}
+        output = tc.get("output") or {}
+
+        # Keep only high-signal args
+        arg_bits = []
+        for k in ("goal", "query", "category", "video_path"):
+            if args.get(k):
+                v = str(args[k])
+                if len(v) > 80:
+                    v = v[:77] + "..."
+                arg_bits.append(f"{k}={v}")
+        arg_s = (", ".join(arg_bits)) if arg_bits else ""
+
+        # Keep only high-signal outputs (never dump full VLM markdown)
+        out_bits = []
+        if isinstance(output, dict):
+            if "error" in output:
+                out_bits.append(f"error={str(output['error'])[:100]}")
+            if output.get("status") == "no_prior_inference":
+                out_bits.append("no_prior_inference")
+            for k in (
+                "unique_tracks", "max_zone_occupancy", "in_count", "out_count",
+                "processed_frames", "processed_fps", "video_url",
+                "geometry_type",
+            ):
+                if k in output and output[k] is not None:
+                    out_bits.append(f"{k}={output[k]}")
+            if output.get("zones"):
+                out_bits.append(f"zones={len(output['zones'])}")
+            if output.get("lines"):
+                out_bits.append(f"lines={len(output['lines'])}")
+            if output.get("components") is not None:
+                out_bits.append(f"components={len(output.get('components') or [])}")
+            if output.get("formatted_text"):
+                out_bits.append("scene_grounded=yes")
+        out_s = (", ".join(out_bits)) if out_bits else ""
+
+        piece = f"{name}({arg_s}) → {status}"
+        if out_s:
+            piece += f" | {out_s}"
+        parts.append(piece)
+    return "[tools]\n" + "\n".join(f"- {p}" for p in parts)
+
+
 async def stream_react_agent(
     session_id: str,
     user_prompt: str,
@@ -183,6 +236,27 @@ async def stream_react_agent(
     # Load recent conversation history from session store
     past_messages = SessionStore.get_messages(session_id)[-8:]
 
+    # Recover video information from session history if client workspace didn't pass it
+    if not workspace.get("video_path"):
+        for pm in reversed(past_messages):
+            vpath = pm.get("uploadedVideoPath")
+            vname = pm.get("uploadedVideoName")
+            vurl = pm.get("uploadedVideoUrl")
+            if vpath and os.path.exists(vpath):
+                workspace["video_path"] = vpath
+                workspace["video_name"] = vname or os.path.basename(vpath)
+                workspace["video_url"] = vurl
+                break
+            elif vurl and not vpath:
+                # Recover from url filename
+                fname = vurl.split("/")[-1]
+                local_p = os.path.join("./uploads", fname)
+                if os.path.exists(local_p):
+                    workspace["video_path"] = local_p
+                    workspace["video_name"] = vname or fname
+                    workspace["video_url"] = vurl
+                    break
+
     # Recover last inference stats from history if the client workspace lost them
     if not workspace.get("last_stats"):
         for pm in reversed(past_messages):
@@ -190,23 +264,56 @@ async def stream_react_agent(
                 workspace["last_stats"] = pm["stats"]
                 break
 
+    # Re-evaluate active video note after history recovery
+    active_video = workspace.get("video_path") or workspace.get("video_name")
+    video_context_note = ""
+    if active_video and os.path.exists(workspace.get("video_path", "")):
+        video_context_note = f"\nIMPORTANT: Video footage is available at '{workspace.get('video_path')}' (filename: '{workspace.get('video_name')}'). Call `vlm_ground_scene` with video_path='{workspace.get('video_path')}' to inspect the scene, detect entities and propose zones/lines."
+
+    stats_note = ""
+    if workspace.get("last_stats"):
+        stats_note = (
+            "\nPRIOR INFERENCE RESULTS: A pipeline has already run. "
+            f"Use these exact numbers for follow-up questions: "
+            f"{json.dumps(workspace['last_stats'])}"
+        )
+
+    sys_prompt = SYSTEM_PROMPT + f"\n\nACTIVE WORKSPACE STATE:\n{json.dumps(workspace, indent=2)}{stats_note}{video_context_note}"
+
     messages_payload: List[Dict[str, Any]] = []
 
     for pm in past_messages:
         role = "user" if pm.get("sender") == "user" else "assistant"
         txt = pm.get("text", "")
+
+        # Replay prior tool calls so the model remembers what it already did
+        tool_summary = _summarize_tool_calls(pm.get("toolCalls")) if role == "assistant" else ""
+        if role == "assistant" and pm.get("stats") and not tool_summary:
+            # Fallback stats line when toolCalls were not persisted
+            s = pm["stats"]
+            tool_summary = (
+                "[Prior run results] "
+                f"unique_tracks={s.get('unique_tracks')}, "
+                f"max_zone_occupancy={s.get('max_zone_occupancy')}, "
+                f"in_count={s.get('in_count')}, out_count={s.get('out_count')}, "
+                f"processed_frames={s.get('processed_frames')}, "
+                f"processed_fps={s.get('processed_fps')}"
+            )
+
+        if tool_summary:
+            txt = (txt + "\n" + tool_summary).strip() if txt else tool_summary
+        elif role == "assistant" and pm.get("stats") and txt:
+            s = pm["stats"]
+            txt += (
+                "\n\n[Prior run results] "
+                f"unique_tracks={s.get('unique_tracks')}, "
+                f"max_zone_occupancy={s.get('max_zone_occupancy')}, "
+                f"in_count={s.get('in_count')}, out_count={s.get('out_count')}, "
+                f"processed_frames={s.get('processed_frames')}, "
+                f"processed_fps={s.get('processed_fps')}"
+            )
+
         if txt:
-            # Surface prior run numbers in-band so the model can't miss them
-            if role == "assistant" and pm.get("stats"):
-                s = pm["stats"]
-                txt += (
-                    "\n\n[Prior run results] "
-                    f"unique_tracks={s.get('unique_tracks')}, "
-                    f"max_zone_occupancy={s.get('max_zone_occupancy')}, "
-                    f"in_count={s.get('in_count')}, out_count={s.get('out_count')}, "
-                    f"processed_frames={s.get('processed_frames')}, "
-                    f"processed_fps={s.get('processed_fps')}"
-                )
             messages_payload.append({"role": role, "content": txt})
 
     # Append current user prompt
@@ -218,46 +325,164 @@ async def stream_react_agent(
 
         payload = {
             "model": model,
-            "max_tokens": 3000,
+            "max_tokens": 1024,
+            "stream": True,
             "system": sys_prompt,
             "tools": AGENT_TOOLS,
             "messages": messages_payload
         }
 
-        req = urllib.request.Request(
-            f"{base_url}/v1/messages",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "x-api-key": auth_token,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json"
-            }
-        )
-
+        # Stream the LLM so first token shows immediately (was: wait for full body)
         try:
-            loop_res = urllib.request.urlopen(req)
-            data = json.loads(loop_res.read().decode("utf-8"))
+            import requests as _req
+            http = _req.post(
+                f"{base_url}/v1/messages",
+                headers={
+                    "x-api-key": auth_token,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json=payload,
+                stream=True,
+                timeout=(10, 120),
+            )
+            http.raise_for_status()
         except Exception as e:
             yield {"type": "error", "message": f"LLM API Error: {str(e)}"}
             return
 
-        content = data.get("content", [])
-        tool_calls_to_execute = []
-        assistant_text_chunks = []
+        content: List[Dict[str, Any]] = []
+        tool_calls_to_execute: List[Dict[str, Any]] = []
+        # index of content block currently being streamed
+        open_block_idx: Optional[int] = None
 
-        for item in content:
-            item_type = item.get("type")
-            if item_type == "thinking":
-                th = item.get("thinking", "")
-                if th:
-                    yield {"type": "thinking", "delta": th}
-            elif item_type == "text":
-                txt = item.get("text", "")
-                if txt:
-                    assistant_text_chunks.append(txt)
-                    yield {"type": "text", "delta": txt}
-            elif item_type == "tool_use":
-                tool_calls_to_execute.append(item)
+        def _ensure_block(idx: int, btype: str) -> Dict[str, Any]:
+            while len(content) <= idx:
+                content.append({})
+            block = content[idx]
+            if not block:
+                if btype == "text":
+                    content[idx] = {"type": "text", "text": ""}
+                elif btype == "thinking":
+                    content[idx] = {"type": "thinking", "thinking": ""}
+                elif btype == "tool_use":
+                    content[idx] = {"type": "tool_use", "id": "", "name": "", "input": {}}
+            return content[idx]
+
+        try:
+            for raw_line in http.iter_lines():
+                if not raw_line:
+                    continue
+                line = raw_line.decode("utf-8") if isinstance(raw_line, bytes) else raw_line
+                if not line.startswith("data: "):
+                    continue
+                data_str = line[6:]
+                if data_str == "[DONE]":
+                    break
+                try:
+                    event = json.loads(data_str)
+                except Exception:
+                    continue
+
+                et = event.get("type")
+                if et == "content_block_start":
+                    idx = event.get("index", 0)
+                    cb = event.get("content_block") or {}
+                    btype = cb.get("type")
+                    if btype == "text":
+                        content.append({"type": "text", "text": cb.get("text", "")})
+                        # fix if append misaligned — ensure index
+                        while len(content) < idx + 1:
+                            content.append({"type": "text", "text": ""})
+                        content[idx] = {"type": "text", "text": cb.get("text", "")}
+                        open_block_idx = idx
+                    elif btype == "thinking":
+                        while len(content) < idx + 1:
+                            content.append({"type": "thinking", "thinking": ""})
+                        content[idx] = {"type": "thinking", "thinking": cb.get("thinking", "")}
+                        open_block_idx = idx
+                    elif btype == "tool_use":
+                        while len(content) < idx + 1:
+                            content.append({"type": "tool_use", "id": "", "name": "", "input": {}})
+                        content[idx] = {
+                            "type": "tool_use",
+                            "id": cb.get("id", ""),
+                            "name": cb.get("name", ""),
+                            "input": cb.get("input") or {},
+                        }
+                        open_block_idx = idx
+
+                elif et == "content_block_delta":
+                    idx = event.get("index", 0)
+                    delta = event.get("delta") or {}
+                    dtype = delta.get("type")
+                    while len(content) <= idx:
+                        content.append({"type": "text", "text": ""})
+                    block = content[idx]
+
+                    if dtype == "text_delta":
+                        piece = delta.get("text", "")
+                        if block.get("type") != "text":
+                            content[idx] = {"type": "text", "text": block.get("text", "") or ""}
+                            block = content[idx]
+                        block["text"] = (block.get("text") or "") + piece
+                        if piece:
+                            yield {"type": "text", "delta": piece}
+                    elif dtype == "thinking_delta":
+                        piece = delta.get("thinking", "")
+                        if block.get("type") != "thinking":
+                            content[idx] = {"type": "thinking", "thinking": block.get("thinking", "") or ""}
+                            block = content[idx]
+                        block["thinking"] = (block.get("thinking") or "") + piece
+                        if piece:
+                            yield {"type": "thinking", "delta": piece}
+                    elif dtype == "input_json_delta":
+                        # partial JSON for tool input — accumulate raw string
+                        if block.get("type") != "tool_use":
+                            content[idx] = {
+                                "type": "tool_use",
+                                "id": block.get("id") or "",
+                                "name": block.get("name") or "",
+                                "input": {},
+                                "_json": "",
+                            }
+                            block = content[idx]
+                        block["_json"] = (block.get("_json") or "") + (delta.get("partial_json") or "")
+
+                elif et == "content_block_stop":
+                    idx = event.get("index", 0)
+                    if 0 <= idx < len(content) and content[idx].get("type") == "tool_use":
+                        block = content[idx]
+                        raw_json = block.pop("_json", "")
+                        if raw_json:
+                            try:
+                                block["input"] = json.loads(raw_json)
+                            except Exception:
+                                block["input"] = block.get("input") or {}
+                        if block.get("id") and block.get("name"):
+                            tool_calls_to_execute.append(block)
+
+                elif et == "message_delta":
+                    # stop_reason etc — ignore
+                    pass
+                elif et == "error":
+                    err = event.get("error") or {}
+                    yield {"type": "error", "message": err.get("message", "stream error")}
+                    return
+        except Exception as e:
+            yield {"type": "error", "message": f"LLM stream error: {str(e)}"}
+            return
+
+        # Safety: if tool_use blocks never got content_block_stop handled
+        for block in content:
+            if block.get("type") == "tool_use" and block.get("name") and block.get("id"):
+                if block not in tool_calls_to_execute:
+                    if "_json" in block:
+                        try:
+                            block["input"] = json.loads(block.pop("_json") or "{}")
+                        except Exception:
+                            block.pop("_json", None)
+                    tool_calls_to_execute.append(block)
 
         # If no tool calls, model provided final answer!
         if not tool_calls_to_execute:

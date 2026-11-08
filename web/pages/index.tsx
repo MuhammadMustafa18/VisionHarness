@@ -365,6 +365,7 @@ Capabilities:
       uploadedVideoUrl: isNewUploadThisTurn ? activeVideoUrl : undefined,
       uploadedVideoName: isNewUploadThisTurn ? activeVideoName : undefined,
       activeVideoFile: isNewUploadThisTurn ? (stagedFile || undefined) : undefined,
+      uploadedVideoPath: activeVideoPath,
       uploadDone: !!activeVideoPath,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
@@ -541,6 +542,7 @@ Capabilities:
             videoUrl: m.videoUrl || (currentWorkspace.last_stats?.video_url ? `http://localhost:8000${currentWorkspace.last_stats.video_url}` : undefined),
             uploadedVideoUrl: activeVideoUrl,
             uploadedVideoName: activeVideoName,
+            uploadedVideoPath: activeVideoPath,
             uploadDone: !!activeVideoPath
           };
 
