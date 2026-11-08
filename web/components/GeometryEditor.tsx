@@ -120,8 +120,12 @@ export const GeometryEditor: React.FC<GeometryEditorProps> = ({
     }
   };
 
-  // Sync when props change
+  // Sync when initialZones or initialLines change, but only if not currently actively editing/dragging
+  const isEditingRef = useRef(isEditing);
+  isEditingRef.current = isEditing;
+
   useEffect(() => {
+    if (isEditingRef.current) return; // Don't wipe out user's active edits when props re-render
     if (initialZones.length > 0) {
       setZones(initialZones);
       setMode("polygon");
@@ -206,8 +210,34 @@ export const GeometryEditor: React.FC<GeometryEditorProps> = ({
     if (!isEditing) return;
     e.stopPropagation();
     e.preventDefault();
+    try {
+      (e.target as Element).setPointerCapture(e.pointerId);
+    } catch {}
     setDragState(target);
     activeDragRef.current = target;
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (activeDragRef.current) {
+      updateCoordinates(e.clientX, e.clientY);
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (activeDragRef.current) {
+      try {
+        (e.target as Element).releasePointerCapture(e.pointerId);
+      } catch {}
+      setDragState(null);
+      activeDragRef.current = null;
+      if (onSave) {
+        onSave({
+          geometry_type: mode,
+          zones: mode === "polygon" ? zones : [],
+          lines: mode === "line" ? lines : []
+        });
+      }
+    }
   };
 
   // Add vertex on segment click
@@ -374,6 +404,8 @@ export const GeometryEditor: React.FC<GeometryEditorProps> = ({
       {/* Video Container with Interactive SVG Canvas Overlay */}
       <div
         ref={containerRef}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
         className={`relative rounded-xl overflow-hidden bg-black shadow-xl select-none group border touch-none transition-all ${
           isFullscreen ? "w-full h-full max-h-screen" : "w-80 h-48"
         } ${isEditing ? "border-emerald-500/60 ring-2 ring-emerald-500/20 cursor-crosshair" : "border-white/10"}`}
