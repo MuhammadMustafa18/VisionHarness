@@ -75,7 +75,7 @@ def sample_representative_frame(video_path: str, max_dimension: int = 640) -> st
 
 VLM_GROUNDING_PROMPT = (
     "You are VisionHarness Visual Grounding Architect.\n"
-    "Look at this real camera footage frame. User vision goal: '{user_intent}'.\n\n"
+    "Look at this real camera footage frame. User vision goal: 'USER_INTENT_PLACEHOLDER'.\n\n"
     "Please analyze and return structured text with these exact sections:\n\n"
     "### SCENE OVERVIEW\n"
     "(1 concise paragraph explaining camera angle, wet pavement/lighting, weather, and general environment)\n\n"
@@ -133,7 +133,7 @@ def stream_ground_scene_with_vlm(video_path: str, user_intent: str):
                     },
                     {
                         "type": "text",
-                        "text": VLM_GROUNDING_PROMPT.format(user_intent=user_intent)
+                        "text": VLM_GROUNDING_PROMPT.replace("USER_INTENT_PLACEHOLDER", user_intent)
                     }
                 ]
             }
