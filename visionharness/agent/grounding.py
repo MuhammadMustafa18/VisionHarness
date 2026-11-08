@@ -2,7 +2,7 @@
 
 Samples representative footage frames and conducts pure visual understanding:
 - Explains the physical scene in conversational natural language
-- Details observed people, objects, weather, and actions
+- Details observed people, objects, coordinates, weather, and actions
 - Recommends spatial geometry (polygon zones or crossing lines) with technical reasoning
 - Emits normalized coordinates for verification before running heavy CV annotation.
 """
@@ -73,47 +73,31 @@ def sample_representative_frame(video_path: str, max_dimension: int = 640) -> st
     return base64.b64encode(buffer).decode("utf-8")
 
 
-VLM_GROUNDING_PROMPT = """You are VisionHarness Visual Grounding Architect.
-Look at this real camera footage frame and the user's vision request.
-User request: '{user_intent}'
-
-DO NOT run heavy video annotation yet.
-Your mission is to provide an in-depth visual scene grounding response to understand the context completely:
-1. Explain the scene in natural conversational language: camera angle, lighting, environment, weather, and context.
-2. Identify the rough locations/bounding coordinates of visible objects of interest (e.g. people, vehicles, umbrellas, landmarks) in normalized (0.0 to 1.0) coordinates.
-3. Formulate and explain the exact proposed tracking plan to fulfill the user request.
-4. Recommend what spatial geometry (polygon zones or crossing lines) should be created and WHY, providing their exact normalized coordinates.
-5. Provide a direct, polite question asking the user if this proposed plan and zone placement looks correct to proceed with pipeline execution.
-
-Return a JSON with:
-{{
-  "scene_overview": "Conversational paragraph describing the scene, camera view, lighting, environment, and weather",
-  "objects_observed": [
-    {{
-      "label": "person / umbrella / car / stall / etc",
-      "location_description": "e.g. Foreground right walking towards camera without umbrella",
-      "approx_box": {{"x1": 0.65, "y1": 0.40, "x2": 0.85, "y2": 0.90}}
-    }}
-  ],
-  "proposed_plan": "Step-by-step pipeline plan for detection, tracking, and metric calculation",
-  "geometry_type": "polygon" or "line",
-  "spatial_logic_reasoning": "Technical explanation of why polygon zone or line was chosen and how the boundaries isolate the activity",
-  "zones": [
-    {{
-      "name": "zone_name",
-      "polygon": [{{"x": float, "y": float}}, ...]
-    }}
-  ],
-  "lines": [
-    {{
-      "name": "line_name",
-      "start": {{"x": float, "y": float}},
-      "end": {{"x": float, "y": float}}
-    }}
-  ],
-  "confirmation_prompt": "Does this plan and zone setup look good to proceed with pipeline execution?"
-}}
-Return ONLY valid JSON matching this schema."""
+VLM_GROUNDING_PROMPT = (
+    "You are VisionHarness Visual Grounding Architect.\n"
+    "Look at this real camera footage frame. User vision goal: '{user_intent}'.\n\n"
+    "Please analyze and return structured text with these exact sections:\n\n"
+    "### SCENE OVERVIEW\n"
+    "(1 concise paragraph explaining camera angle, wet pavement/lighting, weather, and general environment)\n\n"
+    "### OBJECTS OBSERVED\n"
+    "(Bulleted list of detected people, their positions, vehicles, umbrellas, or landmarks of interest)\n\n"
+    "### PROPOSED TRACKING PLAN\n"
+    "(Concise step-by-step strategy for detecting, tracking, and answering the user's question)\n\n"
+    "### SPATIAL BOUNDARY LOGIC\n"
+    "(Explain why polygon zone or directional line is chosen and how it isolates the area)\n\n"
+    "### GEOMETRY\n"
+    "```json\n"
+    "{\n"
+    '  "geometry_type": "polygon",\n'
+    '  "zones": [\n'
+    '    {"name": "active_zone", "polygon": [{"x": 0.1, "y": 0.25}, {"x": 0.95, "y": 0.25}, {"x": 0.95, "y": 0.98}, {"x": 0.1, "y": 0.98}]}\n'
+    "  ],\n"
+    '  "lines": []\n'
+    "}\n"
+    "```\n\n"
+    "### CONFIRMATION\n"
+    "Does this plan and zone setup look good to proceed with pipeline execution?"
+)
 
 
 def ground_scene_with_vlm(video_path: str, user_intent: str) -> Dict[str, Any]:
@@ -127,20 +111,16 @@ def ground_scene_with_vlm(video_path: str, user_intent: str) -> Dict[str, Any]:
     if not base_url or not auth_token:
         # Fallback if VLM credentials are not available
         return {
-            "scene_overview": "Default visual grounding applied to footage.",
-            "objects_observed": [],
-            "proposed_plan": "Count entities using standard boundary zones.",
+            "formatted_text": "Default visual grounding applied to footage.\n\n**Proposed Tracking Plan:** Count entities using standard boundary zones.\n\n**Would you like to run inference with this setup?**",
             "geometry_type": "line",
-            "spatial_logic_reasoning": "Standard central line crossing applied.",
             "lines": [{"name": "detection_line", "start": {"x": 0.1, "y": 0.5}, "end": {"x": 0.9, "y": 0.5}}],
-            "zones": [],
-            "confirmation_prompt": "Would you like to run inference with this setup?"
+            "zones": []
         }
 
     url = f"{base_url}/v1/messages"
     payload = {
         "model": model,
-        "max_tokens": 1500,
+        "max_tokens": 3500,
         "messages": [
             {
                 "role": "user",
@@ -171,7 +151,7 @@ def ground_scene_with_vlm(video_path: str, user_intent: str) -> Dict[str, Any]:
                 "content-type": "application/json"
             },
             json=payload,
-            timeout=35
+            timeout=50
         )
         data = res.json()
 
@@ -180,24 +160,47 @@ def ground_scene_with_vlm(video_path: str, user_intent: str) -> Dict[str, Any]:
             if item.get("type") == "text":
                 text += item.get("text", "")
 
-        # Extract JSON
-        clean_json = text
-        if "```json" in clean_json:
-            clean_json = clean_json.split("```json")[1].split("```")[0].strip()
-        elif "```" in clean_json:
-            clean_json = clean_json.split("```")[1].split("```")[0].strip()
+        # Extract Geometry JSON block
+        geometry_type = "line"
+        zones = []
+        lines = []
 
-        parsed = json.loads(clean_json)
-        return parsed
+        if "```json" in text:
+            geom_str = text.split("```json")[1].split("```")[0].strip()
+            try:
+                geom = json.loads(geom_str)
+                geometry_type = geom.get("geometry_type", "polygon")
+                zones = geom.get("zones", [])
+                lines = geom.get("lines", [])
+            except Exception as e:
+                print(f"[Grounding] Could not parse geometry JSON: {e}")
+
+        # Strip the technical JSON code fence from the user-facing text
+        clean_text = text
+        if "### GEOMETRY" in clean_text:
+            parts = clean_text.split("### GEOMETRY")
+            before_geom = parts[0].strip()
+            after_geom = ""
+            if "### CONFIRMATION" in parts[1]:
+                after_geom = "\n\n### CONFIRMATION\n" + parts[1].split("### CONFIRMATION")[1].strip()
+            clean_text = f"{before_geom}{after_geom}"
+
+        return {
+            "formatted_text": clean_text.strip(),
+            "geometry_type": geometry_type,
+            "zones": zones,
+            "lines": lines
+        }
     except Exception as e:
         print(f"[Grounding] VLM scene inspection error: {e}")
         return {
-            "scene_overview": "Visual scene inspected with camera perspective captured. Grounding ready.",
-            "objects_observed": [],
-            "proposed_plan": "Apply spatial boundaries across primary movement corridors.",
+            "formatted_text": (
+                "Visual scene inspected with camera perspective captured.\n\n"
+                "**Proposed Tracking Plan:** Apply spatial boundaries across primary movement corridors.\n\n"
+                "**Spatial Boundary Logic (Directional Lines):** Central trigger plane placed to measure ingress and egress.\n\n"
+                "**Would you like to run inference with this setup?**"
+            ),
             "geometry_type": "line",
-            "spatial_logic_reasoning": "Central trigger plane placed to measure ingress and egress.",
             "lines": [{"name": "detection_line", "start": {"x": 0.1, "y": 0.5}, "end": {"x": 0.9, "y": 0.5}}],
-            "zones": [],
-            "confirmation_prompt": "Would you like to run inference with this setup?"
+            "zones": []
         }

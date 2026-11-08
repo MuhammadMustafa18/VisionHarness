@@ -405,23 +405,12 @@ Capabilities:
       });
 
       // Construct comprehensive conversational response from the VLM
-      const overview = grounding.scene_overview || grounding.nlp_explanation || "Visual scene inspected.";
-      const plan = grounding.proposed_plan || grounding.strategy || "";
-      const reasoning = grounding.spatial_logic_reasoning || "";
-      const confirmPrompt = grounding.confirmation_prompt || "Does this proposed tracking plan look good to proceed with pipeline execution?";
-
-      let observedText = "";
-      if (grounding.objects_observed && grounding.objects_observed.length > 0) {
-        observedText = "\n\n**Objects of Interest Identified:**\n" + 
-          grounding.objects_observed.map((o: any) => `• **${o.label}**: ${o.location_description}`).join("\n");
-      }
-
-      const formattedResponse = `${overview}${observedText}\n\n**Proposed Tracking Plan:**\n${plan}\n\n**Spatial Boundary Logic (${grounding.geometry_type === 'polygon' ? 'Polygon Zones' : 'Directional Lines'}):**\n${reasoning}\n\n**${confirmPrompt}**`;
+      const fullResponse = grounding.formatted_text || grounding.nlp_explanation || "Visual scene inspected.";
 
       const resultMsg: Message = {
         id: Date.now().toString(),
         sender: "bot" as const,
-        text: formattedResponse,
+        text: fullResponse,
         thoughts: `Analyzed camera perspective and extracted spatial geometry. Recommends ${grounding.geometry_type === 'polygon' ? 'Polygon Zone' : 'Directional Line'}. Awaiting user confirmation.`,
         toolCalls: [
           {
@@ -429,7 +418,6 @@ Capabilities:
             args: { model: "mimo-v2.6-flash", prompt: spec.description || spec.name },
             output: {
               geometry_type: grounding.geometry_type,
-              objects_observed: grounding.objects_observed || [],
               zones: grounding.zones || [],
               lines: grounding.lines || []
             },
