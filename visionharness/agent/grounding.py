@@ -77,19 +77,27 @@ VLM_GROUNDING_PROMPT = """You are VisionHarness Visual Grounding Architect.
 Look at this real camera footage frame and the user's vision request.
 User request: '{user_intent}'
 
-First, DO NOT run heavy video annotation yet.
-Your job is to provide an in-depth visual scene grounding response:
-1. Explain the scene in clear, natural conversational language: camera perspective, environment, detected people, their movement, and whether umbrellas/objects are visible or needed.
-2. Explain the overall tracking and detection strategy for answering the user request.
-3. Recommend what spatial geometry (polygon zones or crossing lines) should be created and WHY.
-4. Provide the exact normalized coordinates (between 0.0 and 1.0) for the polygon zone(s) or line(s).
+DO NOT run heavy video annotation yet.
+Your mission is to provide an in-depth visual scene grounding response to understand the context completely:
+1. Explain the scene in natural conversational language: camera angle, lighting, environment, weather, and context.
+2. Identify the rough locations/bounding coordinates of visible objects of interest (e.g. people, vehicles, umbrellas, landmarks) in normalized (0.0 to 1.0) coordinates.
+3. Formulate and explain the exact proposed tracking plan to fulfill the user request.
+4. Recommend what spatial geometry (polygon zones or crossing lines) should be created and WHY, providing their exact normalized coordinates.
+5. Provide a direct, polite question asking the user if this proposed plan and zone placement looks correct to proceed with pipeline execution.
 
 Return a JSON with:
 {{
-  "nlp_explanation": "Detailed paragraph explaining the scene overview, observed people, objects, and environment",
-  "strategy": "The step-by-step logic to answer the user query",
+  "scene_overview": "Conversational paragraph describing the scene, camera view, lighting, environment, and weather",
+  "objects_observed": [
+    {{
+      "label": "person / umbrella / car / stall / etc",
+      "location_description": "e.g. Foreground right walking towards camera without umbrella",
+      "approx_box": {{"x1": 0.65, "y1": 0.40, "x2": 0.85, "y2": 0.90}}
+    }}
+  ],
+  "proposed_plan": "Step-by-step pipeline plan for detection, tracking, and metric calculation",
   "geometry_type": "polygon" or "line",
-  "spatial_logic_reasoning": "Why polygon zone or line was chosen, explaining the boundary placement",
+  "spatial_logic_reasoning": "Technical explanation of why polygon zone or line was chosen and how the boundaries isolate the activity",
   "zones": [
     {{
       "name": "zone_name",
@@ -102,7 +110,8 @@ Return a JSON with:
       "start": {{"x": float, "y": float}},
       "end": {{"x": float, "y": float}}
     }}
-  ]
+  ],
+  "confirmation_prompt": "Does this plan and zone setup look good to proceed with pipeline execution?"
 }}
 Return ONLY valid JSON matching this schema."""
 
@@ -118,12 +127,14 @@ def ground_scene_with_vlm(video_path: str, user_intent: str) -> Dict[str, Any]:
     if not base_url or not auth_token:
         # Fallback if VLM credentials are not available
         return {
-            "nlp_explanation": "Default visual grounding applied to footage.",
-            "strategy": "Count entities using standard boundary zones.",
+            "scene_overview": "Default visual grounding applied to footage.",
+            "objects_observed": [],
+            "proposed_plan": "Count entities using standard boundary zones.",
             "geometry_type": "line",
             "spatial_logic_reasoning": "Standard central line crossing applied.",
             "lines": [{"name": "detection_line", "start": {"x": 0.1, "y": 0.5}, "end": {"x": 0.9, "y": 0.5}}],
-            "zones": []
+            "zones": [],
+            "confirmation_prompt": "Would you like to run inference with this setup?"
         }
 
     url = f"{base_url}/v1/messages"
@@ -181,10 +192,12 @@ def ground_scene_with_vlm(video_path: str, user_intent: str) -> Dict[str, Any]:
     except Exception as e:
         print(f"[Grounding] VLM scene inspection error: {e}")
         return {
-            "nlp_explanation": "Visual scene inspected with camera perspective captured. Grounding ready.",
-            "strategy": "Apply spatial boundaries across primary movement corridors.",
+            "scene_overview": "Visual scene inspected with camera perspective captured. Grounding ready.",
+            "objects_observed": [],
+            "proposed_plan": "Apply spatial boundaries across primary movement corridors.",
             "geometry_type": "line",
             "spatial_logic_reasoning": "Central trigger plane placed to measure ingress and egress.",
             "lines": [{"name": "detection_line", "start": {"x": 0.1, "y": 0.5}, "end": {"x": 0.9, "y": 0.5}}],
-            "zones": []
+            "zones": [],
+            "confirmation_prompt": "Would you like to run inference with this setup?"
         }

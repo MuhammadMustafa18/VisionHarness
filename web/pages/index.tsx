@@ -404,22 +404,32 @@ Capabilities:
         xhr.send(formData);
       });
 
-      // Construct conversational NLP response from the VLM
-      const nlpText = grounding.nlp_explanation || "Visual scene inspected.";
-      const strategyText = grounding.strategy ? `\n\n**Strategy:** ${grounding.strategy}` : "";
-      const reasonText = grounding.spatial_logic_reasoning ? `\n\n**Spatial Boundary Logic:** ${grounding.spatial_logic_reasoning}` : "";
+      // Construct comprehensive conversational response from the VLM
+      const overview = grounding.scene_overview || grounding.nlp_explanation || "Visual scene inspected.";
+      const plan = grounding.proposed_plan || grounding.strategy || "";
+      const reasoning = grounding.spatial_logic_reasoning || "";
+      const confirmPrompt = grounding.confirmation_prompt || "Does this proposed tracking plan look good to proceed with pipeline execution?";
+
+      let observedText = "";
+      if (grounding.objects_observed && grounding.objects_observed.length > 0) {
+        observedText = "\n\n**Objects of Interest Identified:**\n" + 
+          grounding.objects_observed.map((o: any) => `• **${o.label}**: ${o.location_description}`).join("\n");
+      }
+
+      const formattedResponse = `${overview}${observedText}\n\n**Proposed Tracking Plan:**\n${plan}\n\n**Spatial Boundary Logic (${grounding.geometry_type === 'polygon' ? 'Polygon Zones' : 'Directional Lines'}):**\n${reasoning}\n\n**${confirmPrompt}**`;
 
       const resultMsg: Message = {
         id: Date.now().toString(),
         sender: "bot" as const,
-        text: `${nlpText}${strategyText}${reasonText}`,
-        thoughts: `Analyzed camera perspective and extracted spatial geometry. Recommends ${grounding.geometry_type === 'polygon' ? 'Polygon Zone' : 'Directional Line'}.`,
+        text: formattedResponse,
+        thoughts: `Analyzed camera perspective and extracted spatial geometry. Recommends ${grounding.geometry_type === 'polygon' ? 'Polygon Zone' : 'Directional Line'}. Awaiting user confirmation.`,
         toolCalls: [
           {
             name: "vlm_scene_grounder",
             args: { model: "mimo-v2.6-flash", prompt: spec.description || spec.name },
             output: {
               geometry_type: grounding.geometry_type,
+              objects_observed: grounding.objects_observed || [],
               zones: grounding.zones || [],
               lines: grounding.lines || []
             },
@@ -826,7 +836,7 @@ Capabilities:
                               className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs flex items-center gap-2 transition-all shadow-md active:scale-[0.98] disabled:opacity-50"
                             >
                               <Play className="w-3.5 h-3.5 fill-current" />
-                              Run on {msg.uploadedVideoName.slice(0, 18)}
+                              Confirm & Run Pipeline on {msg.uploadedVideoName.slice(0, 18)}
                             </button>
                           ) : null}
 
@@ -835,7 +845,7 @@ Capabilities:
                             className="px-4 py-2.5 rounded-xl bg-[#2a2c35] hover:bg-[#343742] text-zinc-200 font-semibold text-xs flex items-center gap-2 transition-all shadow-md active:scale-[0.98]"
                           >
                             <Upload className="w-3.5 h-3.5" />
-                            {msg.uploadedVideoName ? `Replace Video` : "Upload Video to Label & Track"}
+                            {msg.uploadedVideoName ? `Replace Video` : "Upload Video to Ground Scene"}
                           </button>
                         </div>
 
