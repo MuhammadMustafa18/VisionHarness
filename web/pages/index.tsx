@@ -28,7 +28,8 @@ import {
   LayoutGrid,
   Command,
   Sun,
-  Moon
+  Moon,
+  StopCircle
 } from "lucide-react";
 
 interface WorkflowSession {
@@ -97,6 +98,26 @@ export default function VisionHarnessApp() {
   const [estimatedSeconds, setEstimatedSeconds] = useState<number | null>(null);
   const [pipelineElapsed, setPipelineElapsed] = useState<number>(0);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+
+  // Abort handles for in-flight agent / ground / run requests
+  const agentAbortRef = useRef<AbortController | null>(null);
+  const groundAbortRef = useRef<AbortController | null>(null);
+  const runXhrRef = useRef<XMLHttpRequest | null>(null);
+
+  const isBusy = isPlanning || isRunning || isGrounding;
+
+  const handleStop = () => {
+    agentAbortRef.current?.abort();
+    groundAbortRef.current?.abort();
+    runXhrRef.current?.abort();
+    agentAbortRef.current = null;
+    groundAbortRef.current = null;
+    runXhrRef.current = null;
+    setIsPlanning(false);
+    setIsRunning(false);
+    setIsGrounding(false);
+    setUploadProgress(null);
+  };
 
   // Apply theme to document + persist preference
   useEffect(() => {
@@ -401,6 +422,8 @@ Capabilities:
     };
 
     try {
+      const agentCtl = new AbortController();
+      agentAbortRef.current = agentCtl;
       const response = await fetch("http://localhost:8000/api/agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -408,7 +431,8 @@ Capabilities:
           session_id: activeSessionId,
           prompt: currentPrompt,
           workspace: currentWorkspace
-        })
+        }),
+        signal: agentCtl.signal
       });
 
       if (!response.ok || !response.body) {
@@ -556,19 +580,38 @@ Capabilities:
         })
       );
     } catch (err: any) {
-      console.error("Agent error:", err);
-      setMessages(prev =>
-        prev.map(m =>
-          m.id === assistantMsgId
-            ? {
-                ...m,
-                text: `Agent encountered an error: ${err.message || "Failed to complete ReAct loop."}`,
-                thoughts: `Error during ReAct execution: ${err.message}`
-              }
-            : m
-        )
-      );
+      const aborted = err?.name === "AbortError" || agentAbortRef.current?.signal.aborted;
+      if (aborted) {
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === assistantMsgId
+              ? {
+                  ...m,
+                  text: (m.text || "").trim() || "⏹ Stopped.",
+                  thoughts: "Cancelled by user.",
+                  toolCalls: (m.toolCalls || []).map(tc =>
+                    tc.status === "calling" ? { ...tc, status: "error" as const, output: { error: "stopped" } } : tc
+                  )
+                }
+              : m
+          )
+        );
+      } else {
+        console.error("Agent error:", err);
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === assistantMsgId
+              ? {
+                  ...m,
+                  text: `Agent encountered an error: ${err.message || "Failed to complete ReAct loop."}`,
+                  thoughts: `Error during ReAct execution: ${err.message}`
+                }
+              : m
+          )
+        );
+      }
     } finally {
+      agentAbortRef.current = null;
       setIsPlanning(false);
     }
   };
@@ -614,9 +657,12 @@ Capabilities:
     formData.append("video", activeFile);
 
     try {
+      const groundCtl = new AbortController();
+      groundAbortRef.current = groundCtl;
       const response = await fetch("http://localhost:8000/api/ground", {
         method: "POST",
-        body: formData
+        body: formData,
+        signal: groundCtl.signal
       });
 
       if (!response.ok || !response.body) {
@@ -740,27 +786,46 @@ Capabilities:
         })
       );
     } catch (err: any) {
-      console.error("Grounding stream error:", err);
-      setMessages(prev =>
-        prev.map(m =>
-          m.id === tempMsgId
-            ? {
-                ...m,
-                text: `VLM Grounding encounter: ${err.message || 'Error'}. Ready to proceed with default pipeline.`,
-                thoughts: `Grounding stream failed: ${err.message}`,
-                toolCalls: [
-                  {
-                    name: "vlm_scene_grounder",
-                    args: { model: "mimo-v2.6-flash" },
-                    output: { error: err.message },
-                    status: "error"
-                  }
-                ]
-              }
-            : m
-        )
-      );
+      const aborted = err?.name === "AbortError" || groundAbortRef.current?.signal.aborted;
+      if (aborted) {
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === tempMsgId
+              ? {
+                  ...m,
+                  text: (m.text || "").trim() || "⏹ Grounding stopped.",
+                  thoughts: "Cancelled by user.",
+                  toolCalls: (m.toolCalls || []).map(tc =>
+                    tc.status === "calling" ? { ...tc, status: "error" as const, output: { error: "stopped" } } : tc
+                  )
+                }
+              : m
+          )
+        );
+      } else {
+        console.error("Grounding stream error:", err);
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === tempMsgId
+              ? {
+                  ...m,
+                  text: `VLM Grounding encounter: ${err.message || 'Error'}. Ready to proceed with default pipeline.`,
+                  thoughts: `Grounding stream failed: ${err.message}`,
+                  toolCalls: [
+                    {
+                      name: "vlm_scene_grounder",
+                      args: { model: "mimo-v2.6-flash" },
+                      output: { error: err.message },
+                      status: "error"
+                    }
+                  ]
+                }
+              : m
+          )
+        );
+      }
     } finally {
+      groundAbortRef.current = null;
       setIsGrounding(false);
     }
   };
@@ -804,6 +869,7 @@ Capabilities:
     try {
       const stats = await new Promise<any>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
+        runXhrRef.current = xhr;
         xhr.open("POST", "http://localhost:8000/api/run");
 
         xhr.upload.onprogress = (event) => {
@@ -817,6 +883,7 @@ Capabilities:
         };
 
         xhr.onload = () => {
+          runXhrRef.current = null;
           setUploadProgress(null);
           setUploadDone(true);
           if (xhr.status >= 200 && xhr.status < 300) {
@@ -831,9 +898,18 @@ Capabilities:
         };
 
         xhr.onerror = () => {
+          runXhrRef.current = null;
           setUploadProgress(null);
           setUploadDone(false);
           reject(new Error("Network Error"));
+        };
+
+        xhr.onabort = () => {
+          runXhrRef.current = null;
+          setUploadProgress(null);
+          const abortErr: any = new Error("Stopped");
+          abortErr.name = "AbortError";
+          reject(abortErr);
         };
 
         xhr.send(formData);
@@ -876,31 +952,51 @@ Capabilities:
         body: JSON.stringify(resultMsg)
       }).catch(() => {});
     } catch (err: any) {
-      console.error("Execution error:", err);
-      const fallbackMsg: Message = {
-        id: Date.now().toString(),
-        sender: "bot" as const,
-        text: `Execution failed on uploaded footage: ${err.message || 'Server error'}. Using synthetic verification test.`,
-        thoughts: `Inference pipeline encountered an error: ${err.message || 'unknown'}. Fallback invoked.`,
-        toolCalls: [
-          {
-            name: "yolo_detector",
-            args: { model: spec.detector?.model || "yolov8n.pt" },
-            output: { error: err.message || "Pipeline error" },
-            status: "error"
-          }
-        ],
-        stats: { processed_frames: 30, processed_fps: 3.1, in_count: 2, out_count: 1 },
-        videoUrl: "http://localhost:8000/output/test_run.mp4",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-      setMessages(prev => [...prev, fallbackMsg]);
-      fetch(`http://localhost:8000/api/sessions/${activeSessionId}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(fallbackMsg)
-      }).catch(() => {});
+      if (err?.name === "AbortError") {
+        const stoppedMsg: Message = {
+          id: Date.now().toString(),
+          sender: "bot" as const,
+          text: "⏹ Pipeline stopped by user.",
+          thoughts: "Inference cancelled before completion.",
+          toolCalls: [
+            {
+              name: "yolo_detector",
+              args: { model: spec.detector?.model || "yolov8n.pt" },
+              output: { error: "stopped" },
+              status: "error"
+            }
+          ],
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        setMessages(prev => [...prev, stoppedMsg]);
+      } else {
+        console.error("Execution error:", err);
+        const fallbackMsg: Message = {
+          id: Date.now().toString(),
+          sender: "bot" as const,
+          text: `Execution failed on uploaded footage: ${err.message || 'Server error'}. Using synthetic verification test.`,
+          thoughts: `Inference pipeline encountered an error: ${err.message || 'unknown'}. Fallback invoked.`,
+          toolCalls: [
+            {
+              name: "yolo_detector",
+              args: { model: spec.detector?.model || "yolov8n.pt" },
+              output: { error: err.message || "Pipeline error" },
+              status: "error"
+            }
+          ],
+          stats: { processed_frames: 30, processed_fps: 3.1, in_count: 2, out_count: 1 },
+          videoUrl: "http://localhost:8000/output/test_run.mp4",
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        setMessages(prev => [...prev, fallbackMsg]);
+        fetch(`http://localhost:8000/api/sessions/${activeSessionId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(fallbackMsg)
+        }).catch(() => {});
+      }
     } finally {
+      runXhrRef.current = null;
       setIsRunning(false);
     }
   };
@@ -1160,6 +1256,14 @@ Capabilities:
                       <div className="flex items-center gap-2 text-xs text-neutral-400 font-mono py-1">
                         <Activity className="w-3.5 h-3.5 text-blue-400 animate-spin" />
                         <span>Generating response...</span>
+                        <button
+                          type="button"
+                          onClick={handleStop}
+                          className="ml-1 px-1.5 py-0.5 rounded bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 text-[10px] font-semibold flex items-center gap-1 transition-colors"
+                        >
+                          <StopCircle className="w-3 h-3" />
+                          Stop
+                        </button>
                       </div>
                     )
                   )}
@@ -1202,9 +1306,9 @@ Capabilities:
                           </button>
                         </div>
 
-                        {/* Video Thumbnail with Circular Progress Bar when uploading & Done Overlay */}
+                        {/* Video Thumbnail with Circular Progress Bar when uploading & Done Overlay, plus VLM Suggested Polygon HUD */}
                         {msg.uploadedVideoUrl && (
-                          <div className="relative w-64 h-36 rounded-xl overflow-hidden bg-black shadow-lg mt-1 group border-0">
+                          <div className="relative w-64 h-36 rounded-xl overflow-hidden bg-black shadow-lg mt-1 group border border-white/10">
                             <video
                               src={msg.uploadedVideoUrl}
                               controls={msg.uploadProgress === null}
@@ -1214,6 +1318,81 @@ Capabilities:
                                 msg.uploadProgress !== null && msg.uploadProgress !== undefined ? "blur-md scale-105 opacity-60" : "blur-0 opacity-100"
                               }`}
                             />
+
+                            {/* Live SVG HUD Polygon Overlay on the footage */}
+                            {msg.uploadProgress === null && (() => {
+                              const zones = msg.spec?.zones || msg.spec?.workflow?.zones || (msg.toolCalls?.find(tc => tc.output?.zones)?.output?.zones) || [];
+                              const lines = msg.spec?.lines || msg.spec?.workflow?.lines || (msg.toolCalls?.find(tc => tc.output?.lines)?.output?.lines) || [];
+                              if ((!zones || zones.length === 0) && (!lines || lines.length === 0)) return null;
+
+                              return (
+                                <svg
+                                  className="absolute inset-0 w-full h-full pointer-events-none"
+                                  viewBox="0 0 100 100"
+                                  preserveAspectRatio="none"
+                                >
+                                  {zones.map((z: any, zIdx: number) => {
+                                    const poly = z.polygon || [];
+                                    if (poly.length < 3) return null;
+                                    const pointsStr = poly.map((pt: any) => `${pt.x * 100},${pt.y * 100}`).join(" ");
+                                    const colors = ["#10b981", "#f59e0b", "#3b82f6", "#ec4899"];
+                                    const c = colors[zIdx % colors.length];
+
+                                    return (
+                                      <g key={zIdx}>
+                                        <polygon
+                                          points={pointsStr}
+                                          fill={c}
+                                          fillOpacity="0.25"
+                                          stroke={c}
+                                          strokeWidth="1.8"
+                                          strokeLinejoin="round"
+                                        />
+                                        {poly.map((pt: any, pIdx: number) => (
+                                          <circle
+                                            key={pIdx}
+                                            cx={pt.x * 100}
+                                            cy={pt.y * 100}
+                                            r="1.2"
+                                            fill="#ffffff"
+                                            stroke={c}
+                                            strokeWidth="0.8"
+                                          />
+                                        ))}
+                                      </g>
+                                    );
+                                  })}
+
+                                  {lines.map((l: any, lIdx: number) => {
+                                    if (!l.start || !l.end) return null;
+                                    return (
+                                      <line
+                                        key={lIdx}
+                                        x1={l.start.x * 100}
+                                        y1={l.start.y * 100}
+                                        x2={l.end.x * 100}
+                                        y2={l.end.y * 100}
+                                        stroke="#f59e0b"
+                                        strokeWidth="2"
+                                        strokeDasharray="3 2"
+                                      />
+                                    );
+                                  })}
+                                </svg>
+                              );
+                            })()}
+
+                            {/* Zone Label Badge if zones exist */}
+                            {(() => {
+                              const zones = msg.spec?.zones || msg.spec?.workflow?.zones || (msg.toolCalls?.find(tc => tc.output?.zones)?.output?.zones) || [];
+                              if (!zones || zones.length === 0) return null;
+                              return (
+                                <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/80 backdrop-blur-sm text-[10px] text-emerald-400 font-mono font-medium flex items-center gap-1 border border-emerald-500/30">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                  <span>{zones[0].name || "active_zone"}</span>
+                                </div>
+                              );
+                            })()}
 
                             {/* Upload Progress Overlay (Blurred Background + Circular Progress Ring) */}
                             {msg.uploadProgress !== null && msg.uploadProgress !== undefined && (
@@ -1401,6 +1580,14 @@ Capabilities:
               <div className="flex items-center gap-2 text-xs text-neutral-300 bg-[var(--bg-subtle)] px-4 py-2.5 rounded-2xl border border-zinc-800/80 shadow-md">
                 <Activity className="w-3.5 h-3.5 text-blue-400 animate-spin" />
                 <span className="font-mono">Processing with mimo-v2.6-flash...</span>
+                <button
+                  type="button"
+                  onClick={handleStop}
+                  className="ml-2 px-2 py-0.5 rounded-md bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 text-[10px] font-semibold flex items-center gap-1 transition-colors"
+                >
+                  <StopCircle className="w-3 h-3" />
+                  Stop
+                </button>
               </div>
             </div>
           )}
@@ -1419,7 +1606,15 @@ Capabilities:
               <div className="flex flex-col gap-2 bg-[var(--bg-subtle)] px-4 py-3 rounded-2xl border border-zinc-800/80 shadow-md w-full">
                 <div className="flex items-center gap-2 text-xs text-neutral-200">
                   <Activity className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
-                  <span className="font-mono">{runningSteps[runningStepIndex]}</span>
+                  <span className="font-mono flex-1">{runningSteps[runningStepIndex]}</span>
+                  <button
+                    type="button"
+                    onClick={handleStop}
+                    className="px-2 py-0.5 rounded-md bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 text-[10px] font-semibold flex items-center gap-1 transition-colors shrink-0"
+                  >
+                    <StopCircle className="w-3 h-3" />
+                    Stop
+                  </button>
                 </div>
                 {isRunning && (
                   <div className="flex items-center justify-between text-[11px] font-mono text-neutral-400 pt-1.5 border-t border-neutral-800/60">
@@ -1534,17 +1729,24 @@ Capabilities:
                   {selectedModel}
                 </span>
 
-                <button
-                  type="submit"
-                  disabled={!prompt.trim() || isPlanning}
-                  className="w-8 h-8 rounded-lg bg-[var(--accent-send)] hover:bg-[var(--accent-send-hover)] text-[var(--fg-on-accent)] flex items-center justify-center transition-all disabled:opacity-40 shadow"
-                >
-                  {isPlanning ? (
-                    <Activity className="w-4 h-4 animate-spin text-[var(--fg-on-accent)]" />
-                  ) : (
+                {isBusy ? (
+                  <button
+                    type="button"
+                    onClick={handleStop}
+                    title="Stop"
+                    className="w-8 h-8 rounded-lg bg-rose-500 hover:bg-rose-400 text-white flex items-center justify-center transition-all shadow active:scale-[0.98]"
+                  >
+                    <StopCircle className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={!prompt.trim() || isPlanning}
+                    className="w-8 h-8 rounded-lg bg-[var(--accent-send)] hover:bg-[var(--accent-send-hover)] text-[var(--fg-on-accent)] flex items-center justify-center transition-all disabled:opacity-40 shadow"
+                  >
                     <ArrowUp className="w-4 h-4 text-[var(--fg-on-accent)] stroke-[2.5]" />
-                  )}
-                </button>
+                  </button>
+                )}
               </div>
             </div>
           </form>
