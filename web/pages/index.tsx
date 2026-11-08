@@ -1047,9 +1047,18 @@ Capabilities:
                   )}
 
                   {/* Clean conversational response */}
-                  <div className="text-sm text-neutral-200 leading-relaxed whitespace-pre-line font-normal">
-                    {msg.text}
-                  </div>
+                  {msg.text ? (
+                    <div className="text-sm text-neutral-200 leading-relaxed whitespace-pre-line font-normal">
+                      {msg.text}
+                    </div>
+                  ) : (
+                    isPlanning && (
+                      <div className="flex items-center gap-2 text-xs text-neutral-400 font-mono py-1">
+                        <Activity className="w-3.5 h-3.5 text-blue-400 animate-spin" />
+                        <span>Generating response...</span>
+                      </div>
+                    )
+                  )}
 
                   {/* Clean Single Pipeline Spec Card with Upload & Run Action */}
                   {msg.spec && (
