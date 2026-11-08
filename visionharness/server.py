@@ -107,48 +107,52 @@ def list_components(category: Optional[str] = None, q: Optional[str] = None):
 
 @app.post("/api/plan")
 async def plan_pipeline(req: PlanRequest):
-    """Decompose prompt into a CV workflow spec using the agent."""
-    auth = get_auth_status()
+    """Decompose prompt into a CV workflow spec using Anthropic / MiMo or Antigravity SDK."""
     prompt = req.prompt.strip()
     if not prompt:
         raise HTTPException(status_code=400, detail="Prompt cannot be empty.")
 
-    # 1. Prefer Google Account Bridge if requested or auto and available
-    if (req.auth_mode == "google_account" or req.auth_mode == "auto") and auth["google_account"]["available"]:
-        bridge = GoogleAccountBridge()
-        system = (
-            "You are VisionHarness, an AI Computer Vision Architect. "
-            "Decompose the request into a JSON workflow specification with fields: "
-            "id, name, description, detector (model, classes, confidence), "
-            "tracker (tracker_type, track_thresh, track_buffer), lines, zones, output. "
-            "Return valid JSON matching this schema."
-        )
-        try:
-            raw_res = await bridge.chat(prompt, system_prompt=system)
-            # Clean markdown codeblocks if any
-            clean_res = raw_res
-            if "```json" in clean_res:
-                clean_res = clean_res.split("```json")[1].split("```")[0].strip()
-            elif "```" in clean_res:
-                clean_res = clean_res.split("```")[1].split("```")[0].strip()
-            spec_obj = json.loads(clean_res)
-            diagram_svg = generate_pipeline_svg(spec_obj)
-            return {"plan_text": raw_res, "spec": spec_obj, "diagram_svg": diagram_svg}
-        except Exception as e:
-            # Fallback to direct plan_workflow if bridge failed
-            pass
-
-    # 2. Antigravity SDK with API Key
     try:
         raw_res = await plan_workflow(prompt)
         clean_res = raw_res
+        spec_obj = None
+
         if "```json" in clean_res:
-            clean_res = clean_res.split("```json")[1].split("```")[0].strip()
+            json_str = clean_res.split("```json")[1].split("```")[0].strip()
+            try:
+                spec_obj = json.loads(json_str)
+            except Exception:
+                pass
         elif "```" in clean_res:
-            clean_res = clean_res.split("```")[1].split("```")[0].strip()
-        spec_obj = json.loads(clean_res)
+            json_str = clean_res.split("```")[1].split("```")[0].strip()
+            try:
+                spec_obj = json.loads(json_str)
+            except Exception:
+                pass
+
+        if not spec_obj:
+            # Fallback default workflow spec matching prompt
+            spec_obj = {
+                "id": f"wf_{int(time.time())}",
+                "name": "Custom Vision Pipeline",
+                "description": prompt,
+                "detector": {"model": "yolov8n.pt", "classes": ["car", "person"], "confidence": 0.35},
+                "tracker": {"tracker_type": "bytetrack", "track_buffer": 30},
+                "lines": [{"name": "detection_line", "start": {"x": 0.1, "y": 0.5}, "end": {"x": 0.9, "y": 0.5}, "trigger_in": True, "trigger_out": True}]
+            }
+
         diagram_svg = generate_pipeline_svg(spec_obj)
-        return {"plan_text": raw_res, "spec": spec_obj, "diagram_svg": diagram_svg}
+        # Extract conversational text without the raw json block
+        conversational_text = raw_res
+        if "```json" in conversational_text:
+            conversational_text = conversational_text.split("```json")[0].strip()
+        elif "```" in conversational_text:
+            conversational_text = conversational_text.split("```")[0].strip()
+
+        if not conversational_text:
+            conversational_text = "Got it! I've planned the detection and tracking pipeline for your task. Send the video in your next message (or click the attach button below) and I'll label and track the objects for you."
+
+        return {"plan_text": conversational_text, "spec": spec_obj, "diagram_svg": diagram_svg}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -76,7 +76,7 @@ export default function VisionHarnessApp() {
   const [isRunning, setIsRunning] = useState(false);
   const [showThoughts, setShowThoughts] = useState(true);
 
-  const [selectedModel, setSelectedModel] = useState("Gemini-3.8-Flash (Pro)");
+  const [selectedModel, setSelectedModel] = useState("mimo-v2.6-flash");
   const [selectedToolMode, setSelectedToolMode] = useState("Workspace Write");
 
   const [messages, setMessages] = useState<Message[]>([
@@ -644,121 +644,44 @@ Capabilities:
                     </div>
                   )}
 
-                  {/* Clean text explanation */}
-                  {(!msg.spec || !msg.text.includes('"id":')) ? (
-                    <div className="text-sm text-neutral-200 leading-relaxed whitespace-pre-line font-normal">
-                      {msg.text}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-neutral-300 leading-relaxed">
-                      I have analyzed your request and architected the <strong>{msg.spec.name}</strong> pipeline. It detects <em>{msg.spec.detector?.classes?.join(", ") || "vehicles"}</em> using <strong>{msg.spec.detector?.model || "YOLO"}</strong>, maintains persistent tracking via <strong>{msg.spec.tracker?.tracker_type || "ByteTrack"}</strong>, and sets up directional boundary crossing triggers.
-                    </div>
-                  )}
+                  {/* Clean conversational response */}
+                  <div className="text-sm text-neutral-200 leading-relaxed whitespace-pre-line font-normal">
+                    {msg.text}
+                  </div>
 
-                  {/* Generated Pipeline Spec Box - Pure Zinc Elevation */}
+                  {/* Clean Single Pipeline Spec Card with Upload & Run Action */}
                   {msg.spec && (
                     <div 
                       style={{ backgroundColor: "#1e1f26" }} 
-                      className="mt-4 rounded-2xl p-5 space-y-4 shadow-xl border-0"
+                      className="mt-3 rounded-2xl p-5 space-y-4 shadow-xl border border-zinc-800/60"
                     >
                       <div className="flex items-center justify-between pb-1">
                         <div className="text-xs font-semibold text-zinc-300">
-                          <span>{msg.spec.name || "Generated Vision Pipeline"}</span>
+                          <span>{msg.spec.name || "Planned Vision Workflow"}</span>
+                        </div>
+                        <div className="text-[11px] font-mono text-zinc-400">
+                          {msg.spec.detector?.model || "yolov8n.pt"} · {msg.spec.tracker?.tracker_type || "bytetrack"}
                         </div>
                       </div>
 
-                      {/* Component Metric Cards */}
-                      <div className="grid grid-cols-3 gap-3 text-xs">
-                        {/* Detector Card */}
-                        <div 
-                          style={{ backgroundColor: "#272932" }} 
-                          className="relative overflow-hidden p-4 rounded-2xl flex flex-col justify-between min-h-[7.5rem] transition-all group shadow-none border-0 hover:brightness-110"
-                        >
-                          <div className="relative z-10">
-                            <span className="text-zinc-400 text-xs font-medium block mb-1.5">Detector</span>
-                            <span className="text-xl font-bold tracking-tight text-white block break-words leading-tight">
-                              {msg.spec.detector?.model || "yolov8n.pt"}
-                            </span>
-                          </div>
-                          {/* Bottom Right Icon - Larger with perspective tilt in other direction */}
-                          <div className="self-end flex items-center justify-center pt-2">
-                            <Eye 
-                              style={{ transform: "perspective(600px) rotateX(16deg) rotateY(18deg) rotateZ(8deg)" }}
-                              className="w-10 h-10 text-white opacity-20 group-hover:opacity-35 transition-all duration-300" 
-                            />
-                          </div>
-                        </div>
-
-                        {/* Tracker Card */}
-                        <div 
-                          style={{ backgroundColor: "#272932" }} 
-                          className="relative overflow-hidden p-4 rounded-2xl flex flex-col justify-between min-h-[7.5rem] transition-all group shadow-none border-0 hover:brightness-110"
-                        >
-                          <div className="relative z-10">
-                            <span className="text-zinc-400 text-xs font-medium block mb-1.5">Tracker</span>
-                            <span className="text-xl font-bold tracking-tight text-white block break-words leading-tight">
-                              {msg.spec.tracker?.tracker_type || "bytetrack"}
-                            </span>
-                          </div>
-                          {/* Bottom Right Icon - Larger with perspective tilt in other direction */}
-                          <div className="self-end flex items-center justify-center pt-2">
-                            <Activity 
-                              style={{ transform: "perspective(600px) rotateX(16deg) rotateY(18deg) rotateZ(8deg)" }}
-                              className="w-10 h-10 text-white opacity-20 group-hover:opacity-35 transition-all duration-300" 
-                            />
-                          </div>
-                        </div>
-
-                        {/* Spatial Logic Card */}
-                        <div 
-                          style={{ backgroundColor: "#272932" }} 
-                          className="relative overflow-hidden p-4 rounded-2xl flex flex-col justify-between min-h-[7.5rem] transition-all group shadow-none border-0 hover:brightness-110"
-                        >
-                          <div className="relative z-10">
-                            <span className="text-zinc-400 text-xs font-medium block mb-1.5">Spatial logic</span>
-                            <span className="text-base font-bold tracking-tight text-white block break-words leading-tight">
-                              Line Crossing Trigger
-                            </span>
-                          </div>
-                          {/* Bottom Right Icon - Larger with perspective tilt in other direction */}
-                          <div className="self-end flex items-center justify-center pt-2">
-                            <SlidersHorizontal 
-                              style={{ transform: "perspective(600px) rotateX(16deg) rotateY(18deg) rotateZ(8deg)" }}
-                              className="w-10 h-10 text-white opacity-20 group-hover:opacity-35 transition-all duration-300" 
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Editorial Pipeline Diagram (cathrynlavery/diagram-design) */}
-                      {msg.diagramSvg && (
-                        <div 
-                          className="w-full overflow-hidden rounded-xl mt-2 select-none"
-                          dangerouslySetInnerHTML={{ __html: msg.diagramSvg }}
-                        />
-                      )}
-
-                      {/* Execution Action Row & Video Preview */}
-                      <div className="flex flex-col gap-3 pt-2">
+                      {/* Execution Action Row */}
+                      <div className="flex flex-col gap-3 pt-1">
                         <div className="flex items-center gap-3">
                           <button
-                            onClick={() => handleRunInference(msg.spec)}
-                            disabled={isRunning}
-                            className="px-4 py-2.5 rounded-xl bg-white hover:bg-neutral-100 text-black font-semibold text-xs flex items-center gap-2 transition-all disabled:opacity-50 shadow-md"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="px-4 py-2.5 rounded-xl bg-white hover:bg-neutral-200 text-black font-semibold text-xs flex items-center gap-2 transition-all shadow-md active:scale-[0.98]"
                           >
-                            <Play className="w-3.5 h-3.5 fill-current" />
-                            {isRunning 
-                              ? (uploadProgress !== null ? `Uploading ${uploadProgress}%...` : "Running CV Pipeline...") 
-                              : (videoFile ? `Run on ${videoFile.name.slice(0, 16)}` : "Run Reference Footage")}
+                            <Upload className="w-3.5 h-3.5" />
+                            {msg.uploadedVideoName ? `Replace Video (${msg.uploadedVideoName.slice(0, 16)})` : "Upload Video to Label & Track"}
                           </button>
 
                           <button
-                            onClick={() => fileInputRef.current?.click()}
-                            style={{ backgroundColor: "#272932" }}
-                            className="px-3.5 py-2.5 rounded-xl hover:brightness-110 text-white font-medium text-xs flex items-center gap-1.5 transition-colors border-0"
+                            onClick={() => handleRunInference(msg.spec)}
+                            disabled={isRunning}
+                            className="px-3.5 py-2.5 rounded-xl bg-[#272932] hover:bg-[#343642] text-white font-medium text-xs flex items-center gap-1.5 transition-colors border-0 disabled:opacity-50"
                           >
-                            <Upload className="w-3.5 h-3.5" />
-                            {videoFile ? videoFile.name.slice(0, 18) : "Upload Video / RTSP"}
+                            <Play className="w-3.5 h-3.5 fill-current" />
+                            {isRunning ? "Processing Video..." : "Run Reference Video"}
                           </button>
                         </div>
 
