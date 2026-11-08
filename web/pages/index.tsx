@@ -26,7 +26,9 @@ import {
   BarChart3,
   Inbox,
   LayoutGrid,
-  Command
+  Command,
+  Sun,
+  Moon
 } from "lucide-react";
 
 interface WorkflowSession {
@@ -94,6 +96,23 @@ export default function VisionHarnessApp() {
   const [systemHardware, setSystemHardware] = useState<any>(null);
   const [estimatedSeconds, setEstimatedSeconds] = useState<number | null>(null);
   const [pipelineElapsed, setPipelineElapsed] = useState<number>(0);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+
+  // Apply theme to document + persist preference
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    try {
+      localStorage.setItem("vh_theme", theme);
+    } catch {}
+  }, [theme]);
+
+  // Hydrate saved theme once on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("vh_theme");
+      if (saved === "light" || saved === "dark") setTheme(saved);
+    } catch {}
+  }, []);
 
   useEffect(() => {
     fetch("http://localhost:8000/api/status")
@@ -176,6 +195,12 @@ Capabilities:
       .catch(() => {});
   }, []);
 
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredSessions = sessions.filter(s =>
+    (s.name || s.id).toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   useEffect(() => {
     if (!activeSessionId) return;
     fetch(`http://localhost:8000/api/sessions/${activeSessionId}/messages`)
@@ -200,6 +225,23 @@ Capabilities:
             };
           });
           setMessages(normalized);
+
+          // Restore workspace state from existing conversation if available
+          const lastWithVideo = [...normalized].reverse().find(m => m.uploadedVideoUrl || m.uploadedVideoPath);
+          const lastWithStats = [...normalized].reverse().find(m => m.stats);
+          const lastWithSpec = [...normalized].reverse().find(m => m.spec);
+          if (lastWithVideo || lastWithStats || lastWithSpec) {
+            setWorkspaceState(prev => ({
+              ...prev,
+              ...(lastWithVideo ? {
+                video_url: lastWithVideo.uploadedVideoUrl,
+                video_name: lastWithVideo.uploadedVideoName,
+                video_path: lastWithVideo.uploadedVideoPath || (lastWithVideo.uploadedVideoName ? `./uploads/${lastWithVideo.uploadedVideoName}` : undefined)
+              } : {}),
+              ...(lastWithStats?.stats ? { last_stats: lastWithStats.stats } : {}),
+              ...(lastWithSpec?.spec ? { spec: lastWithSpec.spec } : {})
+            }));
+          }
         }
       })
       .catch(() => {});
@@ -886,66 +928,72 @@ Capabilities:
           {/* Search Box with Pill Shortcut */}
           <div className="px-4 py-2">
             <div className="w-full py-2 px-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-input)] flex items-center justify-between text-neutral-400 text-xs">
-              <div className="flex items-center gap-2">
-                <Search className="w-3.5 h-3.5 text-neutral-500" />
-                <span>Search</span>
+              <div className="flex items-center gap-2 flex-1">
+                <Search className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Search chats..."
+                  className="bg-transparent border-none outline-none text-xs text-[var(--fg)] placeholder-neutral-500 w-full"
+                />
               </div>
-              <div className="flex items-center gap-1 text-[10px] font-mono bg-[var(--bg-chip)] px-1.5 py-0.5 rounded text-neutral-400 border border-[var(--border-kbd)]">
-                <span>⌘</span>
-                <span>K</span>
-              </div>
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="text-neutral-500 hover:text-neutral-300 text-xs ml-1"
+                >
+                  ✕
+                </button>
+              ) : (
+                <div className="flex items-center gap-1 text-[10px] font-mono bg-[var(--bg-chip)] px-1.5 py-0.5 rounded text-neutral-400 border border-[var(--border-kbd)]">
+                  <span>⌘</span>
+                  <span>K</span>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Navigation Section */}
-          <div className="px-5 pt-6 pb-2 text-[11px] font-medium tracking-normal text-neutral-500">
-            Navigation
+          {/* Chat Workspaces Section Header */}
+          <div className="px-5 pt-4 pb-2 flex items-center justify-between text-[11px] font-medium tracking-normal text-neutral-500">
+            <span>Workspaces & Chats</span>
+            <span className="font-mono text-[10px] text-neutral-500">{filteredSessions.length}</span>
           </div>
 
-          <div className="px-3 space-y-1">
-            <button
-              onClick={() => setActiveSessionId("wf_store_people_counter")}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${
-                activeSessionId === "wf_store_people_counter"
-                  ? "bg-[var(--bg-hover)] text-[var(--fg)] shadow-inner font-semibold border border-[var(--border-nav)]"
-                  : "text-neutral-400 hover:text-[var(--fg)] hover:bg-[var(--bg-surface)]"
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <LayoutGrid className="w-4 h-4 text-neutral-400" />
-                <span>Overview</span>
+          {/* Dynamic Scrollable Chat Sessions List */}
+          <div className="px-3 space-y-1 overflow-y-auto max-h-[calc(100vh-340px)] pr-1">
+            {filteredSessions.map(s => {
+              const isActive = activeSessionId === s.id;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => {
+                    setActiveSessionId(s.id);
+                    setVideoFile(null);
+                    setVideoPreviewUrl(null);
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all group text-left ${
+                    isActive
+                      ? "bg-[var(--bg-hover)] text-[var(--fg)] shadow-inner font-semibold border border-[var(--border-nav)]"
+                      : "text-neutral-400 hover:text-[var(--fg)] hover:bg-[var(--bg-surface)]"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 truncate min-w-0 pr-2">
+                    <Folder className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-[var(--accent-glow)]" : "text-neutral-500 group-hover:text-neutral-400"}`} />
+                    <span className="truncate">{s.name || s.id}</span>
+                  </div>
+                  {s.count !== undefined && (
+                    <span className="text-[10px] text-neutral-500 font-mono shrink-0">{s.count}</span>
+                  )}
+                </button>
+              );
+            })}
+            {filteredSessions.length === 0 && (
+              <div className="px-3 py-4 text-center text-xs text-neutral-500">
+                No chats found
               </div>
-            </button>
-
-            <button
-              onClick={() => setActiveSessionId("wf_traffic_flow")}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${
-                activeSessionId === "wf_traffic_flow"
-                  ? "bg-[var(--bg-hover)] text-[var(--fg)] shadow-inner font-semibold border border-[var(--border-nav)]"
-                  : "text-neutral-400 hover:text-[var(--fg)] hover:bg-[var(--bg-surface)]"
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Inbox className="w-4 h-4 text-neutral-400" />
-                <span>Traffic Feeds</span>
-              </div>
-              <span className="text-[11px] text-neutral-500 font-mono">12</span>
-            </button>
-
-            <button className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium text-neutral-400 hover:text-[var(--fg)] hover:bg-[var(--bg-surface)] transition-all">
-              <div className="flex items-center gap-2.5">
-                <Layers className="w-4 h-4 text-neutral-400" />
-                <span>CV Projects</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-neutral-600 rotate-90" />
-            </button>
-
-            <button className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium text-neutral-400 hover:text-[var(--fg)] hover:bg-[var(--bg-surface)] transition-all">
-              <div className="flex items-center gap-2.5">
-                <BarChart3 className="w-4 h-4 text-neutral-400" />
-                <span>Analytics / Reports</span>
-              </div>
-            </button>
+            )}
           </div>
 
           {/* Model Engines / Tiers Section */}
@@ -984,7 +1032,7 @@ Capabilities:
         {/* User Footer Profile */}
         <div className="p-4 border-t border-[var(--border-app)] flex items-center justify-between text-xs text-neutral-400">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-neutral-700 to-neutral-900 border border-neutral-700 flex items-center justify-center text-[var(--fg)] font-semibold text-xs shadow">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-neutral-700 to-neutral-900 border border-neutral-700 flex items-center justify-center text-white font-semibold text-xs shadow">
               M
             </div>
             <div className="flex flex-col">
@@ -995,7 +1043,17 @@ Capabilities:
               </span>
             </div>
           </div>
-          <Settings className="w-4 h-4 text-neutral-500 hover:text-[var(--fg)] cursor-pointer transition-colors" />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setTheme(t => (t === "dark" ? "light" : "dark"))}
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              className="p-1.5 rounded-lg hover:bg-[var(--bg-hover)] text-neutral-500 hover:text-[var(--fg)] transition-colors"
+            >
+              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+            <Settings className="w-4 h-4 text-neutral-500 hover:text-[var(--fg)] cursor-pointer transition-colors" />
+          </div>
         </div>
       </aside>
 
@@ -1466,9 +1524,9 @@ Capabilities:
                   className="w-8 h-8 rounded-lg bg-[var(--accent-send)] hover:bg-[var(--accent-send-hover)] text-[var(--fg-on-accent)] flex items-center justify-center transition-all disabled:opacity-40 shadow"
                 >
                   {isPlanning ? (
-                    <Activity className="w-4 h-4 animate-spin text-black" />
+                    <Activity className="w-4 h-4 animate-spin text-[var(--fg-on-accent)]" />
                   ) : (
-                    <ArrowUp className="w-4 h-4 text-black stroke-[2.5]" />
+                    <ArrowUp className="w-4 h-4 text-[var(--fg-on-accent)] stroke-[2.5]" />
                   )}
                 </button>
               </div>
