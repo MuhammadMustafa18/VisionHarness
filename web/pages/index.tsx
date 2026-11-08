@@ -248,89 +248,10 @@ Capabilities:
   };
 
   const handleFileUpload = (file: File) => {
-    // Save to global state so subsequent turns always have the active file
+    // Only stage the file in state and prompt bar — do NOT post a chat message yet!
     setVideoFile(file);
     const fileUrl = URL.createObjectURL(file);
     setVideoPreviewUrl(fileUrl);
-
-    // If there is an existing pipeline card (spec), attach to it.
-    // Otherwise, create a visible user upload card in chat!
-    setMessages(prev => {
-      const targetIdx = [...prev].reverse().findIndex(m => m.spec);
-      if (targetIdx !== -1) {
-        const realIdx = prev.length - 1 - targetIdx;
-        const updated = [...prev];
-        updated[realIdx] = {
-          ...updated[realIdx],
-          uploadedVideoUrl: fileUrl,
-          uploadedVideoName: file.name,
-          activeVideoFile: file,
-          isUploading: true,
-          uploadProgress: 0,
-          uploadDone: false
-        };
-        return updated;
-      }
-
-      // No spec card yet — create a clean user video attachment bubble
-      const attachmentMsg: Message = {
-        id: Date.now().toString(),
-        sender: "user",
-        text: `Attached video: ${file.name}`,
-        uploadedVideoUrl: fileUrl,
-        uploadedVideoName: file.name,
-        activeVideoFile: file,
-        isUploading: true,
-        uploadProgress: 0,
-        uploadDone: false,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-      return [...prev, attachmentMsg];
-    });
-
-    let current = 0;
-    const interval = setInterval(() => {
-      current += 20;
-      if (current >= 100) {
-        clearInterval(interval);
-        setMessages(prev => {
-          // If attached to a spec message
-          const targetIdx = [...prev].reverse().findIndex(m => m.spec);
-          if (targetIdx !== -1) {
-            const realIdx = prev.length - 1 - targetIdx;
-            const updated = [...prev];
-            const targetMsg = updated[realIdx];
-            updated[realIdx] = {
-              ...targetMsg,
-              isUploading: false,
-              uploadProgress: null,
-              uploadDone: true
-            };
-            if (targetMsg.spec) {
-              setTimeout(() => {
-                handleRunGrounding(targetMsg.spec, file);
-              }, 300);
-            }
-            return updated;
-          }
-
-          // Otherwise mark the standalone user attachment message as done
-          return prev.map(m =>
-            m.activeVideoFile === file
-              ? { ...m, isUploading: false, uploadProgress: null, uploadDone: true }
-              : m
-          );
-        });
-      } else {
-        setMessages(prev => {
-          return prev.map(m =>
-            m.activeVideoFile === file
-              ? { ...m, uploadProgress: current }
-              : m
-          );
-        });
-      }
-    }, 80);
   };
 
   const handleSendPrompt = async (e?: React.FormEvent) => {
