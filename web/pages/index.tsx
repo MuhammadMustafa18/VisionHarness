@@ -1400,7 +1400,8 @@ Capabilities:
           </div>
         ) : (
           /* Chat / Reasoning Canvas */
-          <div className="flex-1 overflow-y-auto px-8 md:px-14 lg:px-20 py-6 space-y-6 select-text max-w-5xl mx-auto w-full">
+          <div className="flex-1 overflow-y-auto px-4 py-6 select-text w-full">
+            <div className="max-w-4xl mx-auto space-y-6">
             {/* Zero Messages Empty State (Claude/ChatGPT Style Greeting) */}
             {messages.length === 0 && !isBusy && (
               <div className="flex flex-col items-center justify-center min-h-[55vh] max-w-xl mx-auto text-center space-y-8 animate-in fade-in duration-500">
@@ -1996,8 +1997,9 @@ Capabilities:
             </div>
           )}
 
-          <div ref={chatEndRef} />
-        </div>
+            <div ref={chatEndRef} />
+            </div>
+          </div>
         )}
 
         {/* Minimalist Floating Prompt Box */}
