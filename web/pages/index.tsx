@@ -1417,47 +1417,52 @@ Capabilities:
                 <div className="w-full space-y-3 pt-2">
                   <button
                     onClick={() => setPrompt("Show me the keyboard shortcuts and CV pipeline capabilities")}
-                    className="w-full flex items-center gap-4 p-3.5 rounded-2xl bg-neutral-900/90 hover:bg-neutral-800/90 border border-neutral-800/80 hover:border-neutral-700/80 transition-all text-left group shadow-lg active:scale-[0.99]"
+                    className="w-full flex items-center gap-4 p-3 rounded-2xl bg-[#28292b] hover:bg-[#323437] border border-[#383a3e] transition-all text-left group shadow-md active:scale-[0.99]"
                   >
-                    <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 group-hover:scale-105 transition-transform">
+                    <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0 group-hover:scale-105 transition-transform flex items-center justify-center">
                       <img
                         src="/icon-keyboard.png"
                         alt="Keyboard Shortcuts"
-                        className="w-full h-full object-cover rounded-xl"
+                        className="w-full h-full object-contain"
                       />
                     </div>
-                    <span className="text-sm font-medium text-neutral-200 group-hover:text-white transition-colors">
+                    <span className="text-sm font-medium text-neutral-100 group-hover:text-white transition-colors">
                       Show me the keyboard shortcuts
                     </span>
                   </button>
 
                   <button
                     onClick={() => setPrompt("How do I get started with tracking objects and counting people?")}
-                    className="w-full flex items-center gap-4 p-3.5 rounded-2xl bg-neutral-900/90 hover:bg-neutral-800/90 border border-neutral-800/80 hover:border-neutral-700/80 transition-all text-left group shadow-lg active:scale-[0.99]"
+                    className="w-full flex items-center gap-4 p-3 rounded-2xl bg-[#28292b] hover:bg-[#323437] border border-[#383a3e] transition-all text-left group shadow-md active:scale-[0.99]"
                   >
-                    <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 group-hover:scale-105 transition-transform">
+                    <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0 group-hover:scale-105 transition-transform flex items-center justify-center">
                       <img
                         src="/icon-plant.png"
                         alt="How do I get started"
-                        className="w-full h-full object-cover rounded-xl"
+                        className="w-full h-full object-contain"
                       />
                     </div>
-                    <span className="text-sm font-medium text-neutral-200 group-hover:text-white transition-colors">
+                    <span className="text-sm font-medium text-neutral-100 group-hover:text-white transition-colors">
                       How do I get started?
                     </span>
                   </button>
 
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-full flex items-center gap-4 p-3.5 rounded-2xl bg-neutral-900/90 hover:bg-neutral-800/90 border border-neutral-800/80 hover:border-neutral-700/80 transition-all text-left group shadow-lg active:scale-[0.99]"
+                    className="w-full flex items-center gap-4 p-3 rounded-2xl bg-[#28292b] hover:bg-[#323437] border border-[#383a3e] transition-all text-left group shadow-md active:scale-[0.99]"
                   >
-                    <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 group-hover:scale-105 transition-transform">
+                    <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0 group-hover:scale-105 transition-transform flex items-center justify-center">
                       <img
                         src="/icon-moodboard.png"
                         alt="Build a visual moodboard"
-                        className="w-full h-full object-cover rounded-xl"
+                        className="w-full h-full object-contain"
                       />
                     </div>
+                    <span className="text-sm font-medium text-neutral-100 group-hover:text-white transition-colors">
+                      Build a visual moodboard / ground footage
+                    </span>
+                  </button>
+                </div>
                     <span className="text-sm font-medium text-neutral-200 group-hover:text-white transition-colors">
                       Build a visual moodboard / ground footage
                     </span>
