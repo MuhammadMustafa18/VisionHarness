@@ -40,6 +40,7 @@ class SessionMetadata(BaseModel):
     name: str
     domain: str = "general_vision"
     folder: str = "Default workspace"
+    thumbnail_url: Optional[str] = None
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)
 
@@ -55,14 +56,33 @@ class SessionStore:
 
     @classmethod
     def list_sessions(cls) -> List[Dict[str, Any]]:
-        """Lists all saved sessions with metadata."""
+        """Lists all saved sessions with metadata and auto-discovered media thumbnail."""
         sessions = []
         for s_id in os.listdir(SESSIONS_DIR):
             meta_path = os.path.join(SESSIONS_DIR, s_id, "session.json")
             if os.path.exists(meta_path):
                 try:
                     with open(meta_path, "r", encoding="utf-8") as f:
-                        sessions.append(json.load(f))
+                        s_data = json.load(f)
+                    
+                    # If thumbnail not stored, find media in session messages
+                    if not s_data.get("thumbnail_url"):
+                        msg_file = os.path.join(SESSIONS_DIR, s_id, "messages.jsonl")
+                        if os.path.exists(msg_file):
+                            with open(msg_file, "r", encoding="utf-8") as mf:
+                                for line in mf:
+                                    if line.strip():
+                                        try:
+                                            m = json.loads(line)
+                                            thumb = m.get("uploadedVideoUrl") or m.get("videoUrl") or (m.get("stats") and m["stats"].get("video_url"))
+                                            if thumb:
+                                                if thumb.startswith("/"):
+                                                    thumb = f"http://localhost:8000{thumb}"
+                                                s_data["thumbnail_url"] = thumb
+                                                break
+                                        except Exception:
+                                            pass
+                    sessions.append(s_data)
                 except Exception:
                     pass
         # Sort by updated_at descending

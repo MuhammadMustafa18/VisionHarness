@@ -39,6 +39,7 @@ interface WorkflowSession {
   name: string;
   domain: string;
   folder: string;
+  thumbnail_url?: string;
   count?: number;
 }
 
@@ -373,27 +374,13 @@ Capabilities:
     // CRITICAL: wipe workspace so old stats/video/spec never leak into a new chat
     setWorkspaceState({});
 
-    const initialBotMsg: Message = {
-      id: (Date.now() + 1).toString(),
-      sender: "bot",
-      text: "Started new vision workflow workspace. Describe what objects, cameras, or crossing lines you want to track.",
-      thoughts: "Initialized fresh session context. Ready for new CV prompt and footage.",
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-
-    setMessages([initialBotMsg]);
+    setMessages([]);
 
     // Save to disk session store
     fetch("http://localhost:8000/api/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(newSession)
-    }).catch(() => {});
-
-    fetch(`http://localhost:8000/api/sessions/${newId}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(initialBotMsg)
     }).catch(() => {});
   };
 
@@ -1198,7 +1185,27 @@ Capabilities:
                   }`}
                 >
                   <div className="flex items-center gap-3 truncate min-w-0 pr-2">
-                    <Folder className={`w-4 h-4 shrink-0 ${isActive ? "text-[var(--accent-glow)]" : "text-neutral-400 group-hover:text-neutral-300"}`} />
+                    {s.thumbnail_url ? (
+                      <div className="w-5 h-5 rounded-md overflow-hidden bg-neutral-900 border border-neutral-700/60 shrink-0 relative flex items-center justify-center">
+                        {s.thumbnail_url.endsWith(".mp4") ? (
+                          <video
+                            src={s.thumbnail_url}
+                            className="w-full h-full object-cover pointer-events-none"
+                            muted
+                            playsInline
+                            preload="metadata"
+                          />
+                        ) : (
+                          <img
+                            src={s.thumbnail_url}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      <Folder className={`w-4 h-4 shrink-0 ${isActive ? "text-[var(--accent-glow)]" : "text-neutral-400 group-hover:text-neutral-300"}`} />
+                    )}
                     <span className="truncate">{s.name || s.id}</span>
                   </div>
                   {s.count !== undefined && (
@@ -1393,7 +1400,59 @@ Capabilities:
           </div>
         ) : (
           /* Chat / Reasoning Canvas */
-          <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6 select-text">
+          <div className="flex-1 overflow-y-auto px-8 md:px-14 lg:px-20 py-6 space-y-6 select-text max-w-5xl mx-auto w-full">
+            {/* Zero Messages Empty State (Claude/ChatGPT Style Greeting) */}
+            {messages.length === 0 && !isBusy && (
+              <div className="flex flex-col items-center justify-center min-h-[55vh] max-w-xl mx-auto text-center space-y-8 animate-in fade-in duration-500">
+                <div className="space-y-2">
+                  <h1 className="text-2xl md:text-3xl font-medium tracking-tight text-neutral-400">
+                    Hi Muhammad
+                  </h1>
+                  <h2 className="text-3xl md:text-4xl font-semibold tracking-tight text-white/95">
+                    What would you like to create?
+                  </h2>
+                </div>
+
+                <div className="w-full space-y-3 pt-2">
+                  <button
+                    onClick={() => setPrompt("Show me the keyboard shortcuts and CV pipeline capabilities")}
+                    className="w-full flex items-center gap-4 p-4 rounded-2xl bg-neutral-900/90 hover:bg-neutral-800/90 border border-neutral-800/80 hover:border-neutral-700/80 transition-all text-left group shadow-lg active:scale-[0.99]"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/20 to-sky-600/30 border border-blue-500/30 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition-transform">
+                      ⌨️
+                    </div>
+                    <span className="text-sm font-medium text-neutral-200 group-hover:text-white transition-colors">
+                      Show me the keyboard shortcuts
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setPrompt("How do I get started with tracking objects and counting people?")}
+                    className="w-full flex items-center gap-4 p-4 rounded-2xl bg-neutral-900/90 hover:bg-neutral-800/90 border border-neutral-800/80 hover:border-neutral-700/80 transition-all text-left group shadow-lg active:scale-[0.99]"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-600/30 border border-emerald-500/30 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition-transform">
+                      🌱
+                    </div>
+                    <span className="text-sm font-medium text-neutral-200 group-hover:text-white transition-colors">
+                      How do I get started?
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full flex items-center gap-4 p-4 rounded-2xl bg-neutral-900/90 hover:bg-neutral-800/90 border border-neutral-800/80 hover:border-neutral-700/80 transition-all text-left group shadow-lg active:scale-[0.99]"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-600/30 border border-purple-500/30 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition-transform">
+                      🎥
+                    </div>
+                    <span className="text-sm font-medium text-neutral-200 group-hover:text-white transition-colors">
+                      Upload footage to ground a scene & track
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {messages.map(msg => (
             <div
               key={msg.id}
@@ -1930,10 +1989,10 @@ Capabilities:
         )}
 
         {/* Minimalist Floating Prompt Box */}
-        <footer className="p-6">
+        <footer className="p-6 max-w-5xl mx-auto w-full">
           <form
             onSubmit={handleSendPrompt}
-            className="max-w-3xl mx-auto bg-[var(--bg-surface)] border border-[var(--border-card)] rounded-2xl p-3 space-y-3 shadow-2xl focus-within:border-neutral-500 transition-colors"
+            className="w-full bg-[var(--bg-surface)] border border-[var(--border-card)] rounded-2xl p-3 space-y-3 shadow-2xl focus-within:border-neutral-500 transition-colors"
           >
             <input
               type="file"
