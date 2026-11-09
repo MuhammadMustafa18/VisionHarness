@@ -92,7 +92,9 @@ You operate inside an autonomous ReAct loop with access to tools:
 
 GUIDELINES:
 1. When the user provides or references video footage, call `vlm_ground_scene` to inspect the scene, understand the camera perspective, and propose tracking zones. If the scene has already been grounded in this session and the user has custom-edited their polygon, do NOT re-call `vlm_ground_scene` unless they explicitly ask to reset or re-ground the footage.
-2. When the user in natural language asks to edit, adjust, draw, customize, reshape, or crop the zone or line (e.g., "let me edit the polygon", "open geometry editor", "adjust line"), call the `open_geometry_editor` tool. This presents the interactive editor card to the user so they can adjust the handles directly.
+2. When the user in natural language asks to edit, adjust, draw, customize, reshape, or crop the zone or line (e.g., "let me edit the polygon", "open geometry editor", "adjust line"):
+   - If there is NO video attached in ACTIVE WORKSPACE STATE, politely inform them that they need to upload or provide a video first. Do NOT call `open_geometry_editor` with hallucinated paths!
+   - If a video IS attached in the workspace, call `open_geometry_editor`.
 3. If the user asks for your opinion on their custom polygon (e.g., "what do you think about what I drew?"), evaluate it directly based on the scene context and their tracking goal (e.g., sidewalk vs road coverage, excluding background foliage/buildings, occlusion considerations). Answer directly without calling unnecessary tools.
 4. If the user asks a question about previous counts or results (e.g. "how many total people?"), query the existing workspace stats or answer directly using the workspace context.
 5. Be friendly, concise, and structured. For greetings or casual chat, reply in 1-2 short sentences — no tables, no capability lists, no essays.
@@ -138,13 +140,23 @@ def execute_tool(tool_name: str, tool_input: Dict[str, Any], workspace: Dict[str
 
     elif tool_name == "open_geometry_editor":
         video_path = tool_input.get("video_path") or workspace.get("video_path")
+        if not video_path or not os.path.exists(video_path):
+            return {
+                "error": "No video footage attached to this workspace. Please upload or stage a video first before opening the geometry editor."
+            }
         g_type = tool_input.get("geometry_type") or "polygon"
         current_zones = workspace.get("spec", {}).get("zones") or []
         current_lines = workspace.get("spec", {}).get("lines") or []
+        video_url = workspace.get("video_url")
+        if not video_url and video_path:
+            fname = os.path.basename(video_path)
+            video_url = f"/uploads/{fname}"
         return {
             "status": "editor_opened",
             "message": "Interactive geometry editor card activated in UI.",
             "video_path": video_path,
+            "video_url": video_url,
+            "video_name": workspace.get("video_name") or os.path.basename(video_path),
             "geometry_type": g_type,
             "zones": current_zones,
             "lines": current_lines
@@ -249,22 +261,6 @@ def stream_react_agent(
         yield {"type": "error", "message": "ANTHROPIC_BASE_URL or ANTHROPIC_AUTH_TOKEN not configured."}
         return
 
-    # Prepare system context with workspace state
-    active_video = workspace.get("video_path") or workspace.get("video_name")
-    video_context_note = ""
-    if active_video:
-        video_context_note = f"\nIMPORTANT: The user has attached/uploaded video footage: '{workspace.get('video_path')}' (filename: '{workspace.get('video_name')}'). You SHOULD immediately call `vlm_ground_scene` with video_path='{workspace.get('video_path')}' to inspect the scene, understand objects and camera angle, and extract zones/lines for the user!"
-
-    stats_note = ""
-    if workspace.get("last_stats"):
-        stats_note = (
-            "\nPRIOR INFERENCE RESULTS: A pipeline has already run. "
-            f"Use these exact numbers for follow-up questions: "
-            f"{json.dumps(workspace['last_stats'])}"
-        )
-
-    sys_prompt = SYSTEM_PROMPT + f"\n\nACTIVE WORKSPACE STATE:\n{json.dumps(workspace, indent=2)}{stats_note}{video_context_note}"
-
     # Load recent conversation history from session store
     past_messages = SessionStore.get_messages(session_id)[-8:]
 
@@ -300,7 +296,9 @@ def stream_react_agent(
     active_video = workspace.get("video_path") or workspace.get("video_name")
     video_context_note = ""
     if active_video and os.path.exists(workspace.get("video_path", "")):
-        video_context_note = f"\nIMPORTANT: Video footage is available at '{workspace.get('video_path')}' (filename: '{workspace.get('video_name')}'). Call `vlm_ground_scene` with video_path='{workspace.get('video_path')}' to inspect the scene, detect entities and propose zones/lines."
+        video_context_note = f"\nIMPORTANT: Video footage is available at '{workspace.get('video_path')}' (filename: '{workspace.get('video_name')}')."
+    else:
+        video_context_note = "\nNOTE: There is currently NO video footage uploaded or attached to this workspace. If the user asks to ground, inspect, track, or edit geometry/polygon, politely tell them to upload a video file first. Do NOT invent or hallucinate any file paths."
 
     stats_note = ""
     if workspace.get("last_stats"):

@@ -584,18 +584,25 @@ Capabilities:
             .replace(/### GEOMETRY[\s\S]*?### CONFIRMATION/g, "")
             .trim();
 
+          const isEditorToolActive = activeToolCalls.some(tc => tc.name === "open_geometry_editor" && tc.status === "completed");
+          const openEditorOutput = activeToolCalls.find(tc => tc.name === "open_geometry_editor" && tc.status === "completed")?.output;
+
+          const editorVideoUrl = openEditorOutput?.video_url
+            ? (openEditorOutput.video_url.startsWith("http") ? openEditorOutput.video_url : `http://localhost:8000${openEditorOutput.video_url}`)
+            : (activeVideoUrl || undefined);
+
           const finalized: Message = {
             ...m,
             text: cleanText || accumulatedText || "Analysis complete.",
             thoughts: accumulatedThinking || m.thoughts,
-            spec: parsedSpec || m.spec || undefined,
+            spec: parsedSpec || m.spec || (isEditorToolActive ? (currentWorkspace.spec || { name: "Custom Geometry", detector: { model: "yolov8n.pt" } }) : undefined),
             toolCalls: activeToolCalls,
             stats: m.stats || (currentWorkspace.last_stats ? currentWorkspace.last_stats : undefined),
             videoUrl: m.videoUrl || (currentWorkspace.last_stats?.video_url ? `http://localhost:8000${currentWorkspace.last_stats.video_url}` : undefined),
-            uploadedVideoUrl: parsedSpec ? activeVideoUrl : undefined,
-            uploadedVideoName: parsedSpec ? activeVideoName : undefined,
-            uploadedVideoPath: activeVideoPath,
-            uploadDone: !!activeVideoPath
+            uploadedVideoUrl: (parsedSpec || isEditorToolActive) ? editorVideoUrl : undefined,
+            uploadedVideoName: (parsedSpec || isEditorToolActive) ? (openEditorOutput?.video_name || activeVideoName) : undefined,
+            uploadedVideoPath: openEditorOutput?.video_path || activeVideoPath,
+            uploadDone: !!(openEditorOutput?.video_path || activeVideoPath)
           };
 
           fetch(`http://localhost:8000/api/sessions/${activeSessionId}/messages`, {
