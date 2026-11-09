@@ -80,6 +80,11 @@ htmlcov/
 *.log
 logs/
 
+# WhatsApp Baileys Credentials
+**/auth_info_baileys/
+auth_info_baileys/
+services/whatsapp-bridge/auth_info_baileys/
+
 # Runtime / local junk
 sessions/
 images/
