@@ -1,15 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  turbopack: {
-    rules: {
-      "*.css": {
-        loaders: ["@tailwindcss/turbopack"],
-        as: "*.css",
-      },
-    },
-  },
+  /* Tauri loads a static bundle, so the app must export to ./out */
+  output: "export",
+  trailingSlash: true,
+  images: { unoptimized: true },
   reactStrictMode: true,
 };
 
