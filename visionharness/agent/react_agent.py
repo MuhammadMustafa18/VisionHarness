@@ -107,6 +107,7 @@ GUIDELINES:
 2. When the user in natural language asks to edit, adjust, draw, customize, reshape, or crop the zone or line (e.g., "let me edit the polygon", "open geometry editor", "adjust line"):
    - If there is NO video attached in ACTIVE WORKSPACE STATE, politely inform them that they need to upload or provide a video first. Do NOT call `open_geometry_editor` with hallucinated paths!
    - If a video IS attached in the workspace, call `open_geometry_editor`.
+   - IMPORTANT: If the user is just asking a question about the geometry (e.g., "will you be using my polygon/line?", "do you have my line?"), DO NOT call `open_geometry_editor`. Answer their question directly in text affirming that you will use their exact custom coordinates!
 3. When the user says they are done editing or asks what you think of their drawing (e.g. "i am done editing", "what do you think about what i drew?", "how does my zone look?"):
    - Inspect the `[GEOMETRY AUDIT DIFF: ...]` in conversation history and compare `ORIGINAL_PROPOSAL` vs `USER_EDITED`.
    - Provide a thoughtful CV commentary explaining what changed (e.g., how the user tightened the boundaries, excluded background/traffic, or refocused on the main pedestrian pathway).
