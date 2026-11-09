@@ -1486,7 +1486,7 @@ Capabilities:
                           </button>
                         </div>
 
-                        {/* Video Preview or Interactive Visual Geometry Editor when requested */}
+                        {/* Video Preview or Interactive Visual Geometry Editor */}
                         {msg.uploadedVideoUrl && (() => {
                           // Check if an active open_geometry_editor tool call was triggered on this message or workspace
                           const isEditorRequested = msg.toolCalls?.some(tc => tc.name === "open_geometry_editor" && tc.status === "completed");
@@ -1525,13 +1525,24 @@ Capabilities:
 
                           const extractedLines = msg.spec?.lines || msg.spec?.workflow?.lines || (msg.toolCalls?.find(tc => tc.output?.lines)?.output?.lines) || [];
 
-                          // If the user requested the editor via NLP, render the full interactive GeometryEditor
-                          if (isEditorRequested) {
+                          // Check if this card has an active geometry editor open in state
+                          const isCardEditorOpen = isEditorRequested || (activeEditorMessageId === msg.id);
+
+                          // If the editor is activated (by tool or manual click), render GeometryEditor
+                          if (isCardEditorOpen) {
                             return (
                               <div className="mt-2 space-y-2">
-                                <div className="flex items-center gap-2 text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg">
-                                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                                  <span>Visual Geometry Editor Activated</span>
+                                <div className="flex items-center justify-between text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg">
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                    <span>Visual Geometry Editor Activated</span>
+                                  </div>
+                                  <button
+                                    onClick={() => setActiveEditorMessageId(null)}
+                                    className="text-[11px] text-zinc-400 hover:text-zinc-200 transition-colors"
+                                  >
+                                    Done Editing
+                                  </button>
                                 </div>
                                 <GeometryEditor
                                   videoUrl={msg.uploadedVideoUrl}
@@ -1601,9 +1612,12 @@ Capabilities:
                             );
                           }
 
-                          // Otherwise, render a clean video preview with an option to request editing
+                          // Otherwise, render live video with SVG polygon/line overlay + "Edit Geometry" button
+                          const hasPolygon = normalizedZones.length > 0 && normalizedZones[0].polygon.length >= 3;
+                          const hasLine = extractedLines.length > 0 && extractedLines[0].start && extractedLines[0].end;
+
                           return (
-                            <div className="relative w-80 h-44 rounded-xl overflow-hidden bg-black shadow-lg border border-white/10 group mt-1">
+                            <div className="relative w-full max-w-lg aspect-video rounded-xl overflow-hidden bg-black shadow-lg border border-white/10 group mt-1">
                               <video
                                 src={msg.uploadedVideoUrl}
                                 autoPlay
@@ -1612,10 +1626,66 @@ Capabilities:
                                 playsInline
                                 className="w-full h-full object-cover"
                               />
-                              <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/80 backdrop-blur-sm text-[10px] font-mono text-zinc-300 border border-white/10 flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                                <span>{msg.uploadedVideoName || "Footage Preview"}</span>
+
+                              {/* SVG Overlay of Proposed Geometry */}
+                              <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                {hasPolygon && normalizedZones.map((z, zi) => {
+                                  const pointsStr = z.polygon.map((p: any) => `${p.x * 100},${p.y * 100}`).join(" ");
+                                  return (
+                                    <g key={zi}>
+                                      <polygon
+                                        points={pointsStr}
+                                        fill="rgba(16, 185, 129, 0.22)"
+                                        stroke="#10b981"
+                                        strokeWidth="1.2"
+                                        strokeDasharray="2.5 1.5"
+                                      />
+                                      {z.polygon.map((p: any, pi: number) => (
+                                        <circle
+                                          key={pi}
+                                          cx={p.x * 100}
+                                          cy={p.y * 100}
+                                          r="1.4"
+                                          fill="#10b981"
+                                          stroke="#ffffff"
+                                          strokeWidth="0.5"
+                                        />
+                                      ))}
+                                    </g>
+                                  );
+                                })}
+
+                                {hasLine && extractedLines.map((l: any, li: number) => (
+                                  <g key={li}>
+                                    <line
+                                      x1={l.start.x * 100}
+                                      y1={l.start.y * 100}
+                                      x2={l.end.x * 100}
+                                      y2={l.end.y * 100}
+                                      stroke="#38bdf8"
+                                      strokeWidth="1.5"
+                                      strokeDasharray="3 2"
+                                    />
+                                    <circle cx={l.start.x * 100} cy={l.start.y * 100} r="1.5" fill="#38bdf8" stroke="#fff" strokeWidth="0.5" />
+                                    <circle cx={l.end.x * 100} cy={l.end.y * 100} r="1.5" fill="#f43f5e" stroke="#fff" strokeWidth="0.5" />
+                                  </g>
+                                ))}
+                              </svg>
+
+                              {/* Top Bar Indicator */}
+                              <div className="absolute top-2 left-2 px-2.5 py-1 rounded-md bg-black/80 backdrop-blur-md text-[10px] font-mono text-zinc-300 border border-white/10 flex items-center gap-2">
+                                <span className={`w-2 h-2 rounded-full ${hasPolygon || hasLine ? "bg-emerald-400" : "bg-blue-400"}`} />
+                                <span>{hasPolygon ? "Proposed Polygon Active" : hasLine ? "Proposed Crossing Line Active" : (msg.uploadedVideoName || "Footage Preview")}</span>
                               </div>
+
+                              {/* Edit Geometry Overlay Action Button */}
+                              <button
+                                onClick={() => setActiveEditorMessageId(msg.id)}
+                                className="absolute bottom-2 right-2 px-3 py-1.5 rounded-lg bg-emerald-500/90 hover:bg-emerald-400 text-black font-semibold text-xs flex items-center gap-1.5 shadow-lg backdrop-blur-sm transition-all transform active:scale-95"
+                              >
+                                <Sliders className="w-3.5 h-3.5" />
+                                Edit Geometry
+                              </button>
                             </div>
                           );
                         })()}
