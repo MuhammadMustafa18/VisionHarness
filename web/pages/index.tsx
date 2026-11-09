@@ -125,6 +125,18 @@ export default function VisionHarnessApp() {
   const [pipelineElapsed, setPipelineElapsed] = useState<number>(0);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
 
+  // Vision engines registry
+  const [components, setComponents] = useState<any[]>([]);
+  const [enginesOpen, setEnginesOpen] = useState(true);
+  const [selectedComponent, setSelectedComponent] = useState<any | null>(null);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/components`)
+      .then(res => res.json())
+      .then(data => { if (Array.isArray(data)) setComponents(data); })
+      .catch(() => {});
+  }, []);
+
   // Abort handles for in-flight agent / ground / run requests
   const agentAbortRef = useRef<AbortController | null>(null);
   const groundAbortRef = useRef<AbortController | null>(null);
@@ -1143,36 +1155,52 @@ Capabilities:
             )}
           </div>
 
-          {/* Model Engines / Tiers Section */}
-          <div className="px-5 pt-4 pb-2 text-[11px] font-medium tracking-normal text-neutral-500 shrink-0">
-            Vision engines
-          </div>
+          {/* Vision Engines — collapsible registry */}
+          <button
+            type="button"
+            onClick={() => setEnginesOpen(o => !o)}
+            className="w-full px-5 pt-4 pb-2 flex items-center justify-between text-[11px] font-medium tracking-normal text-neutral-500 shrink-0 hover:text-neutral-300 transition-colors"
+          >
+            <span>Vision engines</span>
+            <ChevronRight
+              className={`w-3 h-3 transition-transform duration-200 ${enginesOpen ? "rotate-90" : ""}`}
+            />
+          </button>
 
-          <div className="px-3 pb-3 space-y-1 shrink-0">
-            <div className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs text-neutral-400">
-              <div className="flex items-center gap-2.5">
-                <span className="w-2 h-2 rounded-full bg-[#f59e0b] shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
-                <span>YOLO11 Ultra</span>
-              </div>
-              <span className="text-neutral-500 font-mono text-[11px]">18</span>
+          {enginesOpen && (
+            <div className="px-3 pb-3 space-y-1 shrink-0 max-h-48 overflow-y-auto pr-1">
+              {components.map(c => {
+                const isActive = selectedComponent?.id === c.id;
+                const dot =
+                  c.category === "detector" ? "bg-[#f59e0b]" :
+                  c.category === "tracker" ? "bg-[#10b981]" :
+                  "bg-[#3b82f6]";
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setSelectedComponent(c)}
+                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs transition-all text-left ${
+                      isActive
+                        ? "bg-[var(--bg-active)] text-[var(--fg)]"
+                        : "text-neutral-400 hover:text-[var(--fg)] hover:bg-[var(--bg-hover)]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
+                      <span className="truncate">{c.name}</span>
+                    </div>
+                    <span className="text-neutral-500 font-mono text-[10px] shrink-0 ml-2">
+                      {c.category}
+                    </span>
+                  </button>
+                );
+              })}
+              {components.length === 0 && (
+                <div className="px-3 py-2 text-[11px] text-neutral-500">Loading…</div>
+              )}
             </div>
-
-            <div className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs text-neutral-400">
-              <div className="flex items-center gap-2.5">
-                <span className="w-2 h-2 rounded-full bg-[#10b981] shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                <span>ByteTrack Pro</span>
-              </div>
-              <span className="text-neutral-500 font-mono text-[11px]">64</span>
-            </div>
-
-            <div className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs text-neutral-400">
-              <div className="flex items-center gap-2.5">
-                <span className="w-2 h-2 rounded-full bg-[#3b82f6] shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-                <span>Google Pro CLI</span>
-              </div>
-              <span className="text-neutral-500 font-mono text-[11px]">210</span>
-            </div>
-          </div>
+          )}
 
         </div>
 
@@ -1212,17 +1240,101 @@ Capabilities:
           <div className="flex items-center gap-3">
             <LayoutGrid className="w-4 h-4 text-neutral-400" />
             <h1 className="text-xl font-semibold tracking-tight text-[var(--fg)]">
-              {activeSession.name}
+              {selectedComponent ? selectedComponent.name : activeSession.name}
             </h1>
           </div>
           <div className="flex items-center gap-2 text-neutral-400 text-xs">
+            {selectedComponent && (
+              <button
+                type="button"
+                onClick={() => setSelectedComponent(null)}
+                className="px-3 py-1.5 rounded-lg bg-[var(--bg-secondary)] hover:bg-[var(--bg-secondary-hover)] text-[var(--fg)] text-xs font-medium transition-colors"
+              >
+                ← Back to chat
+              </button>
+            )}
             <span className="font-mono text-neutral-500">Vision Workspace</span>
           </div>
         </header>
 
-        {/* Chat / Reasoning Canvas */}
-        <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6 select-text">
-          {messages.map(msg => (
+        {/* Component Detail View */}
+        {selectedComponent ? (
+          <div className="flex-1 overflow-y-auto px-8 py-10 select-text">
+            <div className="max-w-2xl mx-auto space-y-8">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-xs font-mono text-neutral-500 uppercase tracking-wider">
+                  <span className={`w-2 h-2 rounded-full ${
+                    selectedComponent.category === "detector" ? "bg-[#f59e0b]" :
+                    selectedComponent.category === "tracker" ? "bg-[#10b981]" :
+                    "bg-[#3b82f6]"
+                  }`} />
+                  {selectedComponent.category}
+                </div>
+                <h2 className="text-3xl font-semibold tracking-tight text-[var(--fg)]">
+                  {selectedComponent.name}
+                </h2>
+                <p className="text-sm text-neutral-400 leading-relaxed">
+                  {selectedComponent.description}
+                </p>
+              </div>
+
+              {selectedComponent.strengths?.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Strengths</h3>
+                  <ul className="space-y-2">
+                    {selectedComponent.strengths.map((s: string) => (
+                      <li key={s} className="flex items-start gap-2.5 text-sm text-[var(--fg)]">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                        {s}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {selectedComponent.supported_classes?.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Supported classes</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedComponent.supported_classes.map((cls: string) => (
+                      <span
+                        key={cls}
+                        className="px-2.5 py-1 rounded-lg bg-[var(--bg-chip)] border border-[var(--border-chip)] text-xs font-mono text-neutral-300"
+                      >
+                        {cls}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedComponent.default_parameters && Object.keys(selectedComponent.default_parameters).length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Default parameters</h3>
+                  <div className="rounded-xl border border-[var(--border-card)] bg-[var(--bg-surface)] p-4">
+                    <table className="w-full text-sm">
+                      <tbody>
+                        {Object.entries(selectedComponent.default_parameters).map(([k, v]) => (
+                          <tr key={k} className="border-b border-[var(--border-app)] last:border-0">
+                            <td className="py-2 pr-4 text-neutral-500 font-mono text-xs">{k}</td>
+                            <td className="py-2 text-[var(--fg)] font-mono text-xs">{String(v)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-2">
+                <span className="text-[11px] font-mono text-neutral-600">id: {selectedComponent.id}</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Chat / Reasoning Canvas */
+          <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6 select-text">
+            {messages.map(msg => (
             <div
               key={msg.id}
               className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}
@@ -1665,6 +1777,7 @@ Capabilities:
 
           <div ref={chatEndRef} />
         </div>
+        )}
 
         {/* Minimalist Floating Prompt Box */}
         <footer className="p-6">
