@@ -155,7 +155,8 @@ export default function VisionHarnessApp() {
   } | null>(null);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [activeMediaFilter, setActiveMediaFilter] = useState<"all" | "live" | "videos" | "models">("all");
+  const [activeMediaFilter, setActiveMediaFilter] = useState<"all" | "live" | "videos" | "models" | "alerts">("all");
+  const [activeTab, setActiveTab] = useState<"workspace" | "alerts">("workspace");
 
   // Live Mode State
   const isLiveWorkspace = activeSession?.domain === "live_cctv";
@@ -1374,11 +1375,12 @@ Capabilities:
             {/* All media / Workspaces Item */}
             <button
               onClick={() => {
+                setActiveTab("workspace");
                 setActiveMediaFilter("all");
                 setSelectedComponent(null);
               }}
               className={`w-full flex items-center gap-3.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${
-                activeMediaFilter === "all" && !selectedComponent
+                activeTab === "workspace" && activeMediaFilter === "all" && !selectedComponent
                   ? "bg-zinc-800/90 text-white shadow-sm"
                   : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
               }`}
@@ -1391,11 +1393,12 @@ Capabilities:
             {/* Videos / Live Feeds Item */}
             <button
               onClick={() => {
+                setActiveTab("workspace");
                 setActiveMediaFilter("videos");
                 handleNewLiveChat();
               }}
               className={`w-full flex items-center gap-3.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${
-                isLiveWorkspace
+                activeTab === "workspace" && isLiveWorkspace
                   ? "bg-zinc-800/90 text-white shadow-sm"
                   : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
               }`}
@@ -1408,11 +1411,12 @@ Capabilities:
             {/* Characters / Classes Item */}
             <button
               onClick={() => {
+                setActiveTab("workspace");
                 setActiveMediaFilter("models");
                 if (components.length > 0) setSelectedComponent(components[0]);
               }}
               className={`w-full flex items-center gap-3.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${
-                selectedComponent
+                activeTab === "workspace" && selectedComponent
                   ? "bg-zinc-800/90 text-white shadow-sm"
                   : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
               }`}
@@ -1425,6 +1429,7 @@ Capabilities:
             {/* Scenes Item */}
             <button
               onClick={() => {
+                setActiveTab("workspace");
                 handleNewChat();
               }}
               className="w-full flex items-center gap-3.5 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-900/60 transition-colors text-left"
@@ -1432,6 +1437,33 @@ Capabilities:
             >
               <Clapperboard className="w-4 h-4 shrink-0 text-zinc-300" />
               {!sidebarCollapsed && <span className="truncate">Scenes</span>}
+            </button>
+
+            {/* Alerts & Integrations Tab (WhatsApp / Webhooks) */}
+            <button
+              onClick={() => {
+                setActiveTab("alerts");
+                setSelectedComponent(null);
+              }}
+              className={`w-full flex items-center gap-3.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${
+                activeTab === "alerts"
+                  ? "bg-zinc-800/90 text-white shadow-sm"
+                  : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
+              }`}
+              title="Alerts & WhatsApp"
+            >
+              <div className="relative">
+                <Bell className="w-4 h-4 shrink-0 text-zinc-300" />
+                <span className={`absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full ${waConnected ? "bg-white" : "bg-zinc-600"}`} />
+              </div>
+              {!sidebarCollapsed && (
+                <div className="flex items-center justify-between flex-1 min-w-0">
+                  <span className="truncate">Alerts</span>
+                  <span className="text-[10px] font-mono text-zinc-400 uppercase bg-zinc-800/70 px-1 rounded">
+                    {waConnected ? "Active" : "WA"}
+                  </span>
+                </div>
+              )}
             </button>
           </div>
 
@@ -1604,13 +1636,29 @@ Capabilities:
         {/* Top Minimal Header */}
         <header className="h-16 border-b border-[var(--border-header)] flex items-center justify-between px-8">
           <div className="flex items-center gap-3">
-            <LayoutGrid className="w-4 h-4 text-neutral-400" />
+            {activeTab === "alerts" ? (
+              <Bell className="w-4 h-4 text-neutral-400" />
+            ) : (
+              <LayoutGrid className="w-4 h-4 text-neutral-400" />
+            )}
             <h1 className="text-xl font-semibold tracking-tight text-[var(--fg)]">
-              {selectedComponent ? selectedComponent.name : activeSession.name}
+              {activeTab === "alerts"
+                ? "Alerts & WhatsApp Notification Hub"
+                : selectedComponent
+                ? selectedComponent.name
+                : activeSession.name}
             </h1>
           </div>
           <div className="flex items-center gap-2 text-neutral-400 text-xs">
-            {selectedComponent && (
+            {activeTab === "alerts" ? (
+              <button
+                type="button"
+                onClick={() => setActiveTab("workspace")}
+                className="px-3 py-1.5 rounded-lg bg-[var(--bg-secondary)] hover:bg-[var(--bg-secondary-hover)] text-[var(--fg)] text-xs font-medium transition-colors"
+              >
+                ← Back to workspace
+              </button>
+            ) : selectedComponent ? (
               <button
                 type="button"
                 onClick={() => setSelectedComponent(null)}
@@ -1618,13 +1666,182 @@ Capabilities:
               >
                 ← Back to chat
               </button>
-            )}
-            <span className="font-mono text-neutral-500">Vision Workspace</span>
+            ) : null}
+            <span className="font-mono text-neutral-500">
+              {activeTab === "alerts" ? "Integrations" : "Vision Workspace"}
+            </span>
           </div>
         </header>
 
-        {/* Component Detail View */}
-        {selectedComponent ? (
+        {/* Component Detail View, Alerts View, or Live/Canvas Studio */}
+        {activeTab === "alerts" ? (
+          /* =========================================================================
+             ALERTS & WHATSAPP INTEGRATION TAB VIEW (Dedicated Full-Screen Hub)
+             ========================================================================= */
+          <div className="flex-1 overflow-y-auto px-8 py-10 select-text bg-[var(--bg-app)]">
+            <div className="max-w-3xl mx-auto space-y-8">
+              
+              {/* Header Title */}
+              <div>
+                <div className="flex items-center gap-2 text-xs font-mono text-zinc-500 uppercase tracking-wider mb-1">
+                  <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                  Real-Time Notification Gateways
+                </div>
+                <h2 className="text-2xl font-semibold text-white tracking-tight">WhatsApp CCTV Alert Center</h2>
+                <p className="text-sm text-zinc-400 mt-1">
+                  Connect your personal WhatsApp using Baileys multi-device protocol. Receive instant camera alerts and snapshot frames directly to your phone when intrusion or breach events trigger.
+                </p>
+              </div>
+
+              {/* Main Connection Card */}
+              <div className="rounded-2xl border border-zinc-800 bg-[#121316] p-6 shadow-xl space-y-6">
+                
+                <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-lg">
+                      💬
+                    </div>
+                    <div>
+                      <h3 className="text-base font-semibold text-white">WhatsApp Account Status</h3>
+                      <p className="text-xs text-zinc-400 font-mono">
+                        {waConnected ? `Linked as +${waPhone || ""} (${waName || "User"})` : "Not connected · Pair with QR code"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {waConnected ? (
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-xs font-medium text-white flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-white" />
+                        Connected
+                      </span>
+                      <button
+                        onClick={handleWaLogout}
+                        className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-xs font-medium transition-colors flex items-center gap-1.5"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>Logout</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-medium text-zinc-400">
+                      Disconnected
+                    </span>
+                  )}
+                </div>
+
+                {/* Connected Settings or QR Scan View */}
+                {waConnected ? (
+                  <div className="space-y-6">
+                    <div className="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800/80 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-white">Message Yourself (Recommended)</p>
+                          <p className="text-xs text-zinc-400 mt-0.5">Send CCTV alerts directly to your personal "You" WhatsApp chat</p>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={waMessageSelf}
+                          onChange={e => setWaMessageSelf(e.target.checked)}
+                          className="accent-white w-4 h-4 cursor-pointer"
+                        />
+                      </div>
+
+                      {!waMessageSelf && (
+                        <div className="pt-3 border-t border-zinc-800 space-y-1.5">
+                          <label className="text-xs text-zinc-300 font-medium">Custom Recipient Phone / Group JID:</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. 923001234567 or group JID"
+                            value={waCustomRecipient}
+                            onChange={e => setWaCustomRecipient(e.target.value)}
+                            className="w-full bg-black border border-zinc-700 rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-600 outline-none font-mono"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {waTestSuccess && (
+                      <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-700 text-zinc-200 text-xs flex items-center gap-2.5">
+                        <Check className="w-4 h-4 text-white shrink-0" />
+                        <span>{waTestSuccess}</span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={handleSendTestWaAlert}
+                        disabled={waSendingTest}
+                        className="px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-semibold text-xs flex items-center gap-2 transition-all shadow disabled:opacity-50"
+                      >
+                        <Bell className="w-3.5 h-3.5" />
+                        <span>{waSendingTest ? "Sending Test..." : "Send Test WhatsApp Alert"}</span>
+                      </button>
+                      <button
+                        onClick={() => setActiveTab("workspace")}
+                        className="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium transition-colors"
+                      >
+                        Return to Video Stream
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col md:flex-row items-center gap-8 py-2">
+                    <div className="p-3 bg-white rounded-2xl shadow-2xl flex items-center justify-center shrink-0">
+                      {waQr ? (
+                        <img src={waQr} alt="WhatsApp Pairing QR" className="w-52 h-52 rounded-lg" />
+                      ) : (
+                        <div className="w-52 h-52 flex flex-col items-center justify-center bg-zinc-100 text-zinc-500 gap-2">
+                          <QrCode className="w-8 h-8 animate-pulse text-zinc-400" />
+                          <span className="text-xs font-mono">Generating QR...</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="text-sm font-semibold text-white">How to connect:</h4>
+                        <ol className="mt-2 space-y-2 text-xs text-zinc-400 list-decimal list-inside leading-relaxed">
+                          <li>Open <strong>WhatsApp</strong> on your mobile phone</li>
+                          <li>Go to <strong>Settings</strong> → <strong>Linked Devices</strong></li>
+                          <li>Tap <strong>Link a Device</strong> and point your phone camera at this QR code</li>
+                        </ol>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-[11px] text-zinc-400 font-mono">
+                        🔒 Credentials and tokens are saved locally in <code>auth_info_baileys/</code>. You can log out anytime with 1 click.
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Alert Triggers & Rules Overview */}
+              <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/30 p-6 space-y-4">
+                <h3 className="text-sm font-semibold text-white">Automatic Trigger Rules</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                  <div className="p-3 rounded-xl bg-black border border-zinc-800 space-y-1">
+                    <span className="font-semibold text-zinc-200">Restricted Zone Entry</span>
+                    <p className="text-zinc-500 text-[11px]">Fires an instant image snapshot whenever an object enters an active polygon zone.</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-black border border-zinc-800 space-y-1">
+                    <span className="font-semibold text-zinc-200">Tripwire Line Crossing</span>
+                    <p className="text-zinc-500 text-[11px]">Triggers when a track crosses a designated crossing line in either direction.</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-black border border-zinc-800 space-y-1">
+                    <span className="font-semibold text-zinc-200">Dwell Time Breach</span>
+                    <p className="text-zinc-500 text-[11px]">Sends an alert if a person lingers inside a zone longer than the configured threshold.</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-black border border-zinc-800 space-y-1">
+                    <span className="font-semibold text-zinc-200">Anti-Spam Throttling</span>
+                    <p className="text-zinc-500 text-[11px]">Automatic 45-second debounce window prevents flooding your WhatsApp chat.</p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        ) : selectedComponent ? (
           <div className="flex-1 overflow-y-auto px-8 py-10 select-text">
             <div className="max-w-2xl mx-auto space-y-8">
               <div className="space-y-2">
