@@ -147,6 +147,16 @@ class VisionRuntime:
         max_zone_occupancy = 0
         unique_track_ids = set()
 
+        # Modular zone analytics per polygon (footfall, dwell, peak)
+        zone_analytics: Dict[str, Dict[str, Any]] = {}
+        for z in (self.spec.zones or []):
+            zone_analytics[z.name] = {
+                "unique_visitors": set(),
+                "id_frames": {},      # track_id -> count of frames inside polygon
+                "dwell_times": {},    # track_id -> float seconds spent inside
+                "peak_occupancy": 0
+            }
+
         try:
             for frame in source.frames():
                 frame_count += 1
@@ -177,11 +187,29 @@ class VisionRuntime:
                 for lz in self.line_zones:
                     lz.trigger(detections=detections)
 
-                for pz in self.polygon_zones:
+                for i, (pz, z_spec) in enumerate(zip(self.polygon_zones, self.spec.zones or [])):
                     is_in_zone = pz.trigger(detections=detections)
                     occ = int(np.sum(is_in_zone)) if is_in_zone is not None else 0
                     if occ > max_zone_occupancy:
                         max_zone_occupancy = occ
+
+                    # Modular Layer 3: Zone Footfall & Dwell Tracking per ID
+                    z_data = zone_analytics.get(z_spec.name)
+                    if z_data is not None:
+                        if occ > z_data["peak_occupancy"]:
+                            z_data["peak_occupancy"] = occ
+
+                        if detections.tracker_id is not None and is_in_zone is not None:
+                            for inside, tid_val in zip(is_in_zone, detections.tracker_id):
+                                if inside:
+                                    tid = int(tid_val)
+                                    cur_f = z_data["id_frames"].get(tid, 0) + 1
+                                    z_data["id_frames"][tid] = cur_f
+                                    # Calculate dwell time in seconds (fps-based)
+                                    z_data["dwell_times"][tid] = round(cur_f / (fps or 30.0), 2)
+                                    # Noise filter: confirmed visitor after >= 5 frames in polygon (~0.2s)
+                                    if cur_f >= 5:
+                                        z_data["unique_visitors"].add(tid)
 
                 # 3. Rendering & Annotations
                 annotated_frame = frame.copy()
@@ -247,6 +275,22 @@ class VisionRuntime:
         total_in = sum(lz.in_count for lz in self.line_zones)
         total_out = sum(lz.out_count for lz in self.line_zones)
 
+        # Format modular zone analytics summary
+        formatted_zone_analytics: Dict[str, Dict[str, Any]] = {}
+        for z_name, z_d in zone_analytics.items():
+            dwell_vals = list(z_d["dwell_times"].values())
+            avg_dwell = round(sum(dwell_vals) / len(dwell_vals), 2) if dwell_vals else 0.0
+            max_dwell = round(max(dwell_vals), 2) if dwell_vals else 0.0
+            formatted_zone_analytics[z_name] = {
+                "total_entered": len(z_d["unique_visitors"]),
+                "peak_occupancy": z_d["peak_occupancy"],
+                "avg_dwell_seconds": avg_dwell,
+                "max_dwell_seconds": max_dwell
+            }
+
+        # If a single polygon zone was used, expose total_zone_entered at top level for easy retrieval
+        primary_zone_entered = next(iter(formatted_zone_analytics.values()))["total_entered"] if formatted_zone_analytics else 0
+
         return {
             "workflow_id": self.spec.id,
             "processed_frames": frame_count,
@@ -255,7 +299,9 @@ class VisionRuntime:
             "in_count": total_in,
             "out_count": total_out,
             "unique_tracks": len(unique_track_ids),
+            "total_zone_entered": primary_zone_entered,
             "max_zone_occupancy": max_zone_occupancy,
+            "zone_analytics": formatted_zone_analytics,
             "has_polygon_zones": len(self.polygon_zones) > 0,
             "output_video": output_video_path,
         }
