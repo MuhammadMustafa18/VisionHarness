@@ -172,6 +172,7 @@ export default function VisionHarnessApp() {
   const [components, setComponents] = useState<any[]>([]);
   const [enginesOpen, setEnginesOpen] = useState(true);
   const [chatsOpen, setChatsOpen] = useState(true);
+  const [liveChatsOpen, setLiveChatsOpen] = useState(true);
   const [selectedComponent, setSelectedComponent] = useState<any | null>(null);
   const [activeEditorMessageId, setActiveEditorMessageId] = useState<string | null>(null);
 
@@ -1275,7 +1276,24 @@ Capabilities:
       <aside className={`bg-black border-r border-zinc-900 flex flex-col justify-between select-none shrink-0 h-full transition-all duration-300 z-20 ${
         sidebarCollapsed ? "w-16" : "w-56"
       }`}>
-        <div className="flex flex-col min-h-0 flex-1 pt-4">
+        <div className="flex flex-col min-h-0 flex-1 pt-3.5">
+
+          {/* VisionOps Branding & Beta Tag */}
+          <div className="px-3.5 mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-6 h-6 rounded-lg bg-zinc-800 border border-zinc-700/60 flex items-center justify-center shrink-0">
+                <Activity className="w-3.5 h-3.5 text-zinc-200" />
+              </div>
+              {!sidebarCollapsed && (
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-sm font-semibold tracking-tight text-white truncate">VisionOps</span>
+                  <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded-md bg-zinc-800/80 text-zinc-400 border border-zinc-700/50 leading-none">
+                    beta
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Flow Category Navigation Items */}
           <div className="px-2.5 space-y-1">
@@ -1344,11 +1362,71 @@ Capabilities:
           </div>
 
           {/* Divider */}
-          <div className="my-3 mx-4 border-t border-zinc-900/90" />
+          <div className="my-2.5 mx-4 border-t border-zinc-900/90" />
 
-          {/* Library Section */}
+          {/* Live Workspaces Section (Similar to Library) */}
           <div className="px-2.5 space-y-1">
-            <div className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-zinc-400">
+            <div className="w-full flex items-center justify-between px-3 py-1.5 text-sm font-medium text-zinc-400">
+              <button
+                onClick={() => setLiveChatsOpen(o => !o)}
+                className="flex items-center gap-3.5 hover:text-white transition-colors truncate"
+              >
+                <Radio className="w-4 h-4 shrink-0 text-zinc-300" />
+                {!sidebarCollapsed && <span>Live Streams</span>}
+              </button>
+              {!sidebarCollapsed && (
+                <button
+                  onClick={handleNewLiveChat}
+                  title="New live camera stream"
+                  className="text-zinc-500 hover:text-white p-0.5 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Recent Live Workspaces */}
+            {!sidebarCollapsed && liveChatsOpen && (
+              <div className="pl-6 pr-1 space-y-0.5 max-h-36 overflow-y-auto">
+                {filteredSessions.filter(s => s.domain === "live_cctv").length === 0 ? (
+                  <button
+                    onClick={handleNewLiveChat}
+                    className="w-full text-left px-2.5 py-1 text-xs text-zinc-600 hover:text-zinc-400 italic"
+                  >
+                    + Connect camera stream
+                  </button>
+                ) : (
+                  filteredSessions.filter(s => s.domain === "live_cctv").slice(0, 6).map(s => {
+                    const isActive = activeSessionId === s.id;
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => {
+                          setActiveSessionId(s.id);
+                          setSelectedComponent(null);
+                        }}
+                        className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs truncate transition-colors text-left ${
+                          isActive
+                            ? "text-white font-medium bg-zinc-900/80"
+                            : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/40"
+                        }`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 shrink-0" />
+                        <span className="truncate">{s.name || s.id}</span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Divider */}
+          <div className="my-2.5 mx-4 border-t border-zinc-900/90" />
+
+          {/* Library Section (Saved Workspaces) */}
+          <div className="px-2.5 space-y-1">
+            <div className="w-full flex items-center justify-between px-3 py-1.5 text-sm font-medium text-zinc-400">
               <button
                 onClick={() => setChatsOpen(o => !o)}
                 className="flex items-center gap-3.5 hover:text-white transition-colors truncate"
@@ -1367,10 +1445,10 @@ Capabilities:
               )}
             </div>
 
-            {/* Recent Chats in Library */}
+            {/* Recent Chats in Library (Non-Live / All) */}
             {!sidebarCollapsed && chatsOpen && (
-              <div className="pl-6 pr-1 space-y-0.5 max-h-40 overflow-y-auto">
-                {filteredSessions.slice(0, 6).map(s => {
+              <div className="pl-6 pr-1 space-y-0.5 max-h-36 overflow-y-auto">
+                {filteredSessions.filter(s => s.domain !== "live_cctv").slice(0, 6).map(s => {
                   const isActive = activeSessionId === s.id;
                   return (
                     <button
@@ -1394,7 +1472,7 @@ Capabilities:
           </div>
 
           {/* Divider */}
-          <div className="my-3 mx-4 border-t border-zinc-900/90" />
+          <div className="my-2.5 mx-4 border-t border-zinc-900/90" />
 
           {/* Tools & Create Tool */}
           <div className="px-2.5 space-y-1">
