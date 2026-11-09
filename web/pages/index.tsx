@@ -299,7 +299,16 @@ Capabilities:
           // Restore workspace state from THIS conversation only
           const lastWithVideo = [...normalized].reverse().find(m => m.uploadedVideoUrl || m.uploadedVideoPath);
           const lastWithStats = [...normalized].reverse().find(m => m.stats);
-          const lastWithSpec = [...normalized].reverse().find(m => m.spec);
+          // Prefer spec that has actual geometry (zones or lines) over a bare spec
+          const lastWithGeometrySpec = [...normalized].reverse().find(m =>
+            m.spec && (
+              (m.spec.zones && m.spec.zones.length > 0) ||
+              (m.spec.lines && m.spec.lines.length > 0) ||
+              (m.spec.workflow?.zones && m.spec.workflow.zones.length > 0) ||
+              (m.spec.workflow?.lines && m.spec.workflow.lines.length > 0)
+            )
+          );
+          const lastWithSpec = lastWithGeometrySpec || [...normalized].reverse().find(m => m.spec);
           if (lastWithVideo || lastWithStats || lastWithSpec) {
             setWorkspaceState({
               ...(lastWithVideo ? {
@@ -614,7 +623,20 @@ Capabilities:
             ...m,
             text: cleanText || accumulatedText || "Analysis complete.",
             thoughts: accumulatedThinking || m.thoughts,
-            spec: parsedSpec || m.spec || (isEditorToolActive ? (currentWorkspace.spec || { name: "Custom Geometry", detector: { model: "yolov8n.pt" } }) : undefined),
+            // Merge spec carefully: preserve geometry (zones/lines) from workspace or previous spec
+            spec: (() => {
+              const prevSpec = m.spec || {};
+              const newSpec = parsedSpec || (isEditorToolActive ? (currentWorkspace.spec || { name: "Custom Geometry", detector: { model: "yolov8n.pt" } }) : undefined);
+              if (!newSpec) return prevSpec.name ? prevSpec : undefined;
+              // Keep geometry from whichever spec actually has it
+              const hasGeometry = (s: any) =>
+                s && ((s.zones && s.zones.length > 0) || (s.lines && s.lines.length > 0));
+              return {
+                ...newSpec,
+                zones: hasGeometry(newSpec) ? newSpec.zones : (hasGeometry(prevSpec) ? prevSpec.zones : (currentWorkspace.spec?.zones || newSpec.zones)),
+                lines: hasGeometry(newSpec) ? newSpec.lines : (hasGeometry(prevSpec) ? prevSpec.lines : (currentWorkspace.spec?.lines || newSpec.lines)),
+              };
+            })(),
             toolCalls: activeToolCalls,
             stats: m.stats || (currentWorkspace.last_stats ? currentWorkspace.last_stats : undefined),
             videoUrl: m.videoUrl || (currentWorkspace.last_stats?.video_url ? `http://localhost:8000${currentWorkspace.last_stats.video_url}` : undefined),
@@ -1760,9 +1782,15 @@ Capabilities:
                           <span>Video Inference Output</span>
                         </div>
                         <div className="flex items-center gap-4 text-xs text-neutral-300 font-mono">
-                          {msg.stats.unique_tracks !== undefined && msg.stats.unique_tracks !== null && (
-                            <span>Unique Entities: <strong className="text-emerald-400">{msg.stats.unique_tracks}</strong></span>
-                          )}
+                          {msg.stats.unique_tracks !== undefined && msg.stats.unique_tracks !== null && (() => {
+                            // Derive a human-readable label from the pipeline's target classes
+                            const classes: string[] = msg.spec?.detector?.classes || msg.spec?.workflow?.detector?.classes || msg.spec?.classes || [];
+                            const singleClass = classes.length === 1 ? classes[0] : null;
+                            const label = singleClass === "person" ? "Unique People" : singleClass ? `Unique ${singleClass.charAt(0).toUpperCase() + singleClass.slice(1)}s` : "Unique Tracks";
+                            return (
+                              <span>{label}: <strong className="text-emerald-400">{msg.stats.unique_tracks}</strong></span>
+                            );
+                          })()}
                           {msg.stats.has_polygon_zones ? (
                             <span>Zone Peak: <strong className="text-amber-400">{msg.stats.max_zone_occupancy ?? 0}</strong></span>
                           ) : (
