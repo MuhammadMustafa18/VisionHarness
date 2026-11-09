@@ -68,6 +68,16 @@ AGENT_TOOLS = [
         }
     },
     {
+        "name": "get_geometry_history",
+        "description": "Query the current geometry coordinates, original VLM proposal, and the full history diff of user edits (zones, lines, vertices changed) for the active video.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "target": {"type": "string", "description": "What to inspect: 'current_geometry', 'edit_diff', or 'full_history'"}
+            }
+        }
+    },
+    {
         "name": "run_pipeline",
         "description": "Execute YOLO detection + ByteTrack tracking on the full video footage using the confirmed workflow specification. Only call this when the user explicitly confirms or asks to run the pipeline.",
         "input_schema": {
@@ -86,8 +96,10 @@ You design, ground, and run real-world computer vision workflows across video st
 
 You operate inside an autonomous ReAct loop with access to tools:
 - `vlm_ground_scene`: Call this to visually inspect video footage, identify scene elements, and generate polygon zones or crossing lines.
+- `get_geometry_history`: Query current polygon/line geometry state, vertices, and the history of user modifications.
 - `query_inference_results`: Call this if the user asks questions about prior pipeline execution (counts, stats, occupants).
 - `search_components`: Search available CV modules.
+- `open_geometry_editor`: Open the interactive geometry editor card when requested.
 - `run_pipeline`: Execute the confirmed detection & tracking pipeline on the full video.
 
 GUIDELINES:
@@ -166,6 +178,21 @@ def execute_tool(tool_name: str, tool_input: Dict[str, Any], workspace: Dict[str
             "geometry_type": g_type,
             "zones": current_zones,
             "lines": current_lines
+        }
+
+    elif tool_name == "get_geometry_history":
+        spec = workspace.get("spec") or {}
+        zones = spec.get("zones") or []
+        lines = spec.get("lines") or []
+        g_type = spec.get("geometry_type") or ("polygon" if zones else "line" if lines else "polygon")
+
+        return {
+            "status": "success",
+            "geometry_type": g_type,
+            "current_zones": zones,
+            "current_lines": lines,
+            "has_custom_edits": bool(zones or lines),
+            "summary": f"Current geometry has {len(zones)} zone(s) with {len(zones[0].get('polygon', [])) if zones else 0} vertices and {len(lines)} line(s)."
         }
 
     elif tool_name == "run_pipeline":
