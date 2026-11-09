@@ -9,7 +9,10 @@ import time
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
 
-SESSIONS_DIR = "./sessions"
+SESSIONS_DIR = os.getenv(
+    "VISIONHARNESS_SESSIONS_DIR",
+    os.path.join(os.getenv("VISIONHARNESS_DATA_DIR", "."), "sessions"),
+)
 os.makedirs(SESSIONS_DIR, exist_ok=True)
 
 
@@ -26,6 +29,7 @@ class ChatMessage(BaseModel):
     uploadedVideoName: Optional[str] = None
     uploadedVideoPath: Optional[str] = None
     uploadDone: Optional[bool] = None
+    geometryEditEvent: Optional[Dict[str, Any]] = None
     toolCalls: Optional[List[Dict[str, Any]]] = None
     diagramSvg: Optional[str] = None
     timestamp: str = Field(default_factory=lambda: time.strftime("%I:%M %p"))

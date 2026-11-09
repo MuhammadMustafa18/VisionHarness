@@ -99,8 +99,12 @@ GUIDELINES:
 4. If the user asks a question about previous counts or results (e.g. "how many total people?"), query the existing workspace stats or answer directly using the workspace context.
 5. Be friendly, concise, and structured. For greetings or casual chat, reply in 1-2 short sentences — no tables, no capability lists, no essays.
 6. When planning or configuring a pipeline, format your final spec in a ```json code block so the UI can render the interactive action card.
-7. If the user has edited or drawn custom geometry (zones or lines in ACTIVE WORKSPACE STATE `workspace.spec.zones` or `workspace.spec.lines`), ALWAYS preserve and respect their exact edited coordinates when building or updating the pipeline spec! Do NOT regenerate or overwrite their polygon unless explicitly asked. In your text response, explicitly acknowledge their custom zone/line (e.g., "Using your adjusted active zone...").
-8. Only call tools when the task actually needs them. Never call tools for greetings or small talk.
+7. When the user says they are done editing or asks to proceed/build/run (e.g., "i am done editing", "run it", "proceed"):
+   - Do NOT call `vlm_ground_scene`. The user already finished editing the geometry!
+   - Immediately read their saved custom coordinates from ACTIVE WORKSPACE STATE (`workspace.spec.zones` or `workspace.spec.lines`) or the conversation history.
+   - Present the finalized pipeline spec JSON with their exact coordinates and ask to confirm execution, or call `run_pipeline` if they explicitly asked to run.
+8. If the user has edited or drawn custom geometry (zones or lines in ACTIVE WORKSPACE STATE `workspace.spec.zones` or `workspace.spec.lines`), ALWAYS preserve and respect their exact edited coordinates when building or updating the pipeline spec! Do NOT regenerate or overwrite their polygon unless explicitly asked. In your text response, explicitly acknowledge their custom zone/line (e.g., "Using your adjusted active zone...").
+9. Only call tools when the task actually needs them. Never call tools for greetings or small talk.
 """
 
 
@@ -315,6 +319,17 @@ def stream_react_agent(
     for pm in past_messages:
         role = "user" if pm.get("sender") == "user" else "assistant"
         txt = pm.get("text", "")
+
+        # Replay user geometry edits explicitly so the model knows the exact user-defined coordinates
+        if role == "user" and pm.get("geometryEditEvent"):
+            geo = pm["geometryEditEvent"]
+            coords_str = ""
+            if geo.get("zones") and len(geo["zones"]) > 0:
+                poly = geo["zones"][0].get("polygon", [])
+                coords_str = f" Zones: {json.dumps(poly)}"
+            elif geo.get("lines") and len(geo["lines"]) > 0:
+                coords_str = f" Lines: {json.dumps(geo['lines'])}"
+            txt = f"{txt}\n[USER CUSTOM GEOMETRY SAVED: type={geo.get('geometry_type')}{coords_str}]".strip()
 
         # Replay prior tool calls so the model remembers what it already did
         tool_summary = _summarize_tool_calls(pm.get("toolCalls")) if role == "assistant" else ""

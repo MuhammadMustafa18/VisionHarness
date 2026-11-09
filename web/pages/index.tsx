@@ -1454,6 +1454,11 @@ Capabilities:
                                       }
                                     };
                                     setMessages(prev => [...prev, historyEventMsg]);
+                                    fetch(`http://localhost:8000/api/sessions/${activeSessionId}/messages`, {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify(historyEventMsg)
+                                    }).catch(() => {});
                                   }}
                                 />
                               </div>

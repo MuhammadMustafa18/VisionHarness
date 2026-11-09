@@ -68,6 +68,11 @@ outputs/
 !assets/*.png
 !assets/*.jpg
 
+# Desktop build artifacts (generated)
+web/src-tauri/target/
+web/src-tauri/gen/
+web/src-tauri/binaries/
+
 # Testing & Logs
 .pytest_cache/
 .coverage
