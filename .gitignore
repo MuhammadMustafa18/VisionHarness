@@ -79,3 +79,9 @@ web/src-tauri/binaries/
 htmlcov/
 *.log
 logs/
+
+# Runtime / local junk
+sessions/
+images/
+bash.exe.stackdump
+*.stackdump
