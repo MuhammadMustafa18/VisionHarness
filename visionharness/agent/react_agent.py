@@ -141,6 +141,7 @@ GUIDELINES:
 7. When planning or configuring a pipeline, format your final spec in a ```json code block so the UI can render the interactive action card.
 8. When the user asks to proceed, build, or run the pipeline (e.g., "run it", "proceed", "build pipeline"):
    - Read their saved custom coordinates from ACTIVE WORKSPACE STATE (`workspace.spec.zones` or `workspace.spec.lines`) or the conversation history audit diff.
+   - For `detector.classes`, use semantic reasoning to map the user's objective to valid COCO target class names (e.g. "bottles", "water bottles" -> `["bottle"]`; "cars", "vehicles" -> `["car"]`; "people", "pedestrians", "visitors" -> `["person"]`). Supported standard classes include: `person`, `bottle`, `car`, `truck`, `bus`, `motorcycle`, `bicycle`, `backpack`, `chair`, etc.
    - Present the finalized pipeline spec JSON with their exact coordinates and ask to confirm execution, or call `run_pipeline` if they explicitly asked to run.
 9. If the user has edited or drawn custom geometry (zones or lines in ACTIVE WORKSPACE STATE `workspace.spec.zones` or `workspace.spec.lines`), ALWAYS preserve and respect their exact edited coordinates when building or updating the pipeline spec! Do NOT regenerate or overwrite their polygon unless explicitly asked. In your text response, explicitly acknowledge their custom zone/line (e.g., "Using your adjusted active zone...").
 10. Only call tools when the task actually needs them. Never call tools for greetings or small talk.
