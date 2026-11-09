@@ -63,6 +63,15 @@ for d in [WORKFLOWS_DIR, OUTPUTS_DIR, UPLOADS_DIR]:
 app.mount("/output", StaticFiles(directory=OUTPUTS_DIR), name="output")
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
+# Live pipeline progress for /api/run/progress/{workflow_id}
+ACTIVE_PIPELINE_PROGRESS: Dict[str, Any] = {}
+
+
+@app.get("/api/run/progress/{workflow_id}")
+def get_pipeline_progress(workflow_id: str):
+    """Pollable live progress endpoint for active pipeline execution."""
+    return ACTIVE_PIPELINE_PROGRESS.get(workflow_id, {"status": "idle", "progress_pct": 0})
+
 
 class PlanRequest(BaseModel):
     prompt: str
@@ -350,7 +359,6 @@ async def run_pipeline(
         else:
             raise HTTPException(status_code=400, detail="A valid video file or path is required.")
 
-    # Visual Scene Grounding with VLM (MiMo)
     # Only ground scene if spec does NOT already contain confirmed zones or lines
     scene_analysis_text = None
     geometry_type = None
@@ -394,9 +402,21 @@ async def run_pipeline(
 
     source = VideoSource(target_video)
     runtime = VisionRuntime(spec)
-    stats = runtime.process_video(
-        source, output_video_path=output_video_path, max_frames=max_frames
-    )
+
+    def on_progress(p: Dict[str, Any]):
+        p["status"] = "running"
+        ACTIVE_PIPELINE_PROGRESS[spec.id] = p
+
+    try:
+        stats = runtime.process_video(
+            source,
+            output_video_path=output_video_path,
+            max_frames=max_frames,
+            progress_callback=on_progress
+        )
+    finally:
+        ACTIVE_PIPELINE_PROGRESS.pop(spec.id, None)
+
     stats["video_url"] = f"/output/{output_video_rel}"
     stats["scene_analysis"] = scene_analysis_text
     stats["geometry_type"] = geometry_type

@@ -130,6 +130,13 @@ export default function VisionHarnessApp() {
   const [systemHardware, setSystemHardware] = useState<any>(null);
   const [estimatedSeconds, setEstimatedSeconds] = useState<number | null>(null);
   const [pipelineElapsed, setPipelineElapsed] = useState<number>(0);
+  const [livePipelineProgress, setLivePipelineProgress] = useState<{
+    frame?: number;
+    total_frames?: number;
+    progress_pct?: number;
+    fps?: number;
+    unique_tracks?: number;
+  } | null>(null);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
 
   // Vision engines registry
@@ -950,6 +957,20 @@ Capabilities:
     formData.append("spec_json", JSON.stringify(spec));
     formData.append("video", activeFile);
 
+    // Poll live backend progress every 600ms while running
+    const progressPollId = setInterval(async () => {
+      try {
+        const wfId = spec.id || "wf_store_people_counter";
+        const res = await fetch(`http://localhost:8000/api/run/progress/${wfId}`);
+        if (res.ok) {
+          const pData = await res.json();
+          if (pData && pData.status === "running") {
+            setLivePipelineProgress(pData);
+          }
+        }
+      } catch (e) {}
+    }, 600);
+
     try {
       const stats = await new Promise<any>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
@@ -998,6 +1019,8 @@ Capabilities:
 
         xhr.send(formData);
       });
+      clearInterval(progressPollId);
+      setLivePipelineProgress(null);
       
       const resultMsg: Message = {
         id: Date.now().toString(),
@@ -1036,6 +1059,8 @@ Capabilities:
         body: JSON.stringify(resultMsg)
       }).catch(() => {});
     } catch (err: any) {
+      clearInterval(progressPollId);
+      setLivePipelineProgress(null);
       if (err?.name === "AbortError") {
         const stoppedMsg: Message = {
           id: Date.now().toString(),
@@ -1533,17 +1558,6 @@ Capabilities:
               ) : (
                 /* Assistant Seamless Response (No Outer Card) */
                 <div className="max-w-3xl w-full space-y-4">
-                  
-                  {/* Pink Mascot Avatar & Brand */}
-                  <div className="flex items-center gap-2.5">
-                    <img
-                      src="/mascot.png"
-                      alt="VisionOps Mascot"
-                      className="w-5 h-5 object-contain"
-                    />
-                    <span className="text-xs font-semibold tracking-wide text-neutral-300">VisionOps</span>
-                  </div>
-
                   {/* Thoughts Accordion */}
                   {msg.thoughts && (
                     <div 
@@ -1959,14 +1973,6 @@ Capabilities:
           {/* Thinking / Working Indicator */}
           {isPlanning && !messages.some(m => m.sender === "bot" && (m.text || m.thoughts)) && (
             <div className="flex flex-col items-start space-y-3 max-w-xl">
-              <div className="flex items-center gap-2.5">
-                <img
-                  src="/mascot.png"
-                  alt="VisionOps Mascot"
-                  className="w-5 h-5 object-contain"
-                />
-                <span className="text-xs font-semibold tracking-wide text-neutral-300">VisionOps</span>
-              </div>
               <div className="flex items-center gap-2 text-xs text-neutral-300 bg-[var(--bg-subtle)] px-4 py-2.5 rounded-2xl border border-zinc-800/80 shadow-md">
                 <Activity className="w-3.5 h-3.5 text-blue-400 animate-spin" />
                 <span className="font-mono">Processing with mimo-v2.6-flash...</span>
@@ -1977,24 +1983,39 @@ Capabilities:
           {/* Running Inference or Grounding Dynamic Progress Indicator */}
           {(isRunning || isGrounding) && (
             <div className="flex flex-col items-start space-y-3 max-w-xl">
-              <div className="flex items-center gap-2.5">
-                <img
-                  src="/mascot.png"
-                  alt="VisionOps Mascot"
-                  className="w-5 h-5 object-contain"
-                />
-                <span className="text-xs font-semibold tracking-wide text-neutral-300">VisionOps</span>
-              </div>
-              <div className="flex flex-col gap-2 bg-[var(--bg-subtle)] px-4 py-3 rounded-2xl border border-zinc-800/80 shadow-md w-full">
-                <div className="flex items-center gap-2 text-xs text-neutral-200">
-                  <Activity className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
-                  <span className="font-mono">{runningSteps[runningStepIndex]}</span>
+              <div className="flex flex-col gap-2.5 bg-[var(--bg-subtle)] px-4 py-3 rounded-2xl border border-zinc-800/80 shadow-md w-full">
+                <div className="flex items-center justify-between text-xs text-neutral-200">
+                  <div className="flex items-center gap-2">
+                    <Activity className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
+                    <span className="font-mono font-medium">
+                      {livePipelineProgress?.progress_pct !== undefined
+                        ? `Tracking: Frame ${livePipelineProgress.frame} / ${livePipelineProgress.total_frames}`
+                        : runningSteps[runningStepIndex]}
+                    </span>
+                  </div>
+                  {livePipelineProgress?.progress_pct !== undefined && (
+                    <span className="font-mono text-emerald-400 font-semibold">{livePipelineProgress.progress_pct}%</span>
+                  )}
                 </div>
+
+                {/* Smooth Animated Progress Bar */}
+                {livePipelineProgress?.progress_pct !== undefined && (
+                  <div className="w-full bg-neutral-800/80 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="bg-emerald-400 h-full rounded-full transition-all duration-300 ease-out"
+                      style={{ width: `${Math.min(100, Math.max(2, livePipelineProgress.progress_pct))}%` }}
+                    />
+                  </div>
+                )}
+
                 {isRunning && (
-                  <div className="flex items-center justify-between text-[11px] font-mono text-neutral-400 pt-1.5 border-t border-neutral-800/60">
+                  <div className="flex items-center justify-between text-[11px] font-mono text-neutral-400 pt-1 border-t border-neutral-800/60">
                     <span className="flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                      <span>Elapsed: {pipelineElapsed}s</span>
+                      <span>{livePipelineProgress?.fps ? `${livePipelineProgress.fps} FPS` : `Elapsed: ${pipelineElapsed}s`}</span>
+                      {livePipelineProgress?.unique_tracks !== undefined && (
+                        <span className="text-neutral-500 ml-1">· {livePipelineProgress.unique_tracks} tracks active</span>
+                      )}
                     </span>
                     <span className="text-neutral-300">
                       Est. time: <strong className="text-amber-400">{estimatedSeconds ? `${Math.max(0, estimatedSeconds - pipelineElapsed)}s left` : "Calculating..."}</strong>

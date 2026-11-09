@@ -128,11 +128,13 @@ class VisionRuntime:
         source: VideoSource,
         output_video_path: Optional[str] = None,
         max_frames: Optional[int] = None,
+        progress_callback: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """Runs the complete vision pipeline, annotates frames, and tallies events."""
         source.open()
         info = source.get_info()
         w, h, fps = info.get("width", 640), info.get("height", 480), info.get("fps", 30.0)
+        total_frames = info.get("total_frames", 0)
 
         self._setup_spatial_geometry(w, h)
 
@@ -162,6 +164,19 @@ class VisionRuntime:
                 frame_count += 1
                 if max_frames and frame_count > max_frames:
                     break
+
+                # Progress feedback emission every 25 frames
+                if progress_callback and (frame_count % 25 == 0 or frame_count == total_frames):
+                    now_elapsed = time.time() - start_time
+                    cur_fps = round(frame_count / now_elapsed, 1) if now_elapsed > 0 else 0
+                    pct = round((frame_count / total_frames) * 100, 1) if total_frames > 0 else 0
+                    progress_callback({
+                        "frame": frame_count,
+                        "total_frames": total_frames,
+                        "progress_pct": pct,
+                        "fps": cur_fps,
+                        "unique_tracks": len(unique_track_ids)
+                    })
 
                 # 1. Inference and Tracking (ByteTrack)
                 tracker_cfg = "bytetrack.yaml"
