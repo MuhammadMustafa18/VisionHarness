@@ -183,12 +183,20 @@ class VisionRuntime:
                 if self.spec.tracker and self.spec.tracker.tracker_type == "botsort":
                     tracker_cfg = "botsort.yaml"
 
+                # Map configured class names to COCO IDs
+                class_ids = None
+                if self.spec.detector.classes:
+                    name_to_id = {v.lower(): k for k, v in self.model.names.items()}
+                    c_ids = [name_to_id[c.lower()] for c in self.spec.detector.classes if c.lower() in name_to_id]
+                    if c_ids:
+                        class_ids = c_ids
+
                 results = self.model.track(
                     frame,
                     persist=True,
                     tracker=tracker_cfg,
                     conf=self.spec.detector.confidence,
-                    classes=[0] if "person" in self.spec.detector.classes else None,
+                    classes=class_ids,
                     verbose=False,
                 )[0]
 
