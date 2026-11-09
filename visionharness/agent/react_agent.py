@@ -297,7 +297,48 @@ def execute_tool(tool_name: str, tool_input: Dict[str, Any], workspace: Dict[str
             return {"error": f"Video path '{video_path}' not found."}
 
         try:
-            spec = WorkflowSpec.model_validate(spec_dict)
+            # Normalize flexible LLM spec dictionary schemas into Pydantic WorkflowSpec
+            normalized = dict(spec_dict)
+            if "steps" in normalized and isinstance(normalized["steps"], list):
+                for step in normalized["steps"]:
+                    role = step.get("role")
+                    comp = step.get("component", "")
+                    params = step.get("params", {})
+                    if role == "detector" or "yolo" in comp:
+                        det = {"model": comp if comp.endswith(".pt") else f"{comp}.pt"}
+                        if "classes" in params:
+                            det["classes"] = params["classes"]
+                        elif "target_class" in params:
+                            det["classes"] = [params["target_class"]]
+                        if "confidence" in params:
+                            det["confidence"] = params["confidence"]
+                        normalized["detector"] = det
+                    elif role == "tracker" or "bytetrack" in comp or "botsort" in comp:
+                        normalized["tracker"] = {"tracker_type": "bytetrack" if "byte" in comp else "botsort"}
+
+            if "detector" in normalized and isinstance(normalized["detector"], dict):
+                det = normalized["detector"]
+                if "target_class" in det and "classes" not in det:
+                    det["classes"] = [det["target_class"]]
+                if "params" in det and isinstance(det["params"], dict):
+                    if "classes" in det["params"]:
+                        det["classes"] = det["params"]["classes"]
+                    if "confidence" in det["params"]:
+                        det["confidence"] = det["params"]["confidence"]
+
+            if "target_class" in normalized:
+                target_c = normalized["target_class"]
+                # Clean strings like "water bottle (clear plastic, blue cap)" -> "bottle"
+                if "bottle" in str(target_c).lower():
+                    target_c = "bottle"
+                elif "person" in str(target_c).lower():
+                    target_c = "person"
+                if "detector" not in normalized or not isinstance(normalized["detector"], dict):
+                    normalized["detector"] = {"classes": [target_c]}
+                elif "classes" not in normalized["detector"]:
+                    normalized["detector"]["classes"] = [target_c]
+
+            spec = WorkflowSpec.model_validate(normalized)
             output_video_rel = f"output_{spec.id}_{int(time.time())}.mp4"
             output_video_path = os.path.join("./output", output_video_rel)
             source = VideoSource(video_path)
