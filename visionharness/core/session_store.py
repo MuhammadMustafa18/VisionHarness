@@ -142,6 +142,31 @@ class SessionStore:
         return message.model_dump()
 
     @classmethod
+    def save_workspace(cls, session_id: str, workspace: Dict[str, Any]) -> None:
+        """Persist the active workspace state (spec, geometry, stats, video paths) for the session."""
+        s_dir = cls._get_session_dir(session_id)
+        ws_path = os.path.join(s_dir, "workspace.json")
+        try:
+            with open(ws_path, "w", encoding="utf-8") as f:
+                json.dump({"workspace": workspace, "saved_at": time.time()}, f, indent=2)
+        except Exception as e:
+            print(f"[SessionStore] Failed to save workspace: {e}")
+
+    @classmethod
+    def get_workspace(cls, session_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve the persisted workspace state for the session, if it exists."""
+        s_dir = cls._get_session_dir(session_id)
+        ws_path = os.path.join(s_dir, "workspace.json")
+        if os.path.exists(ws_path):
+            try:
+                with open(ws_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    return data.get("workspace")
+            except Exception as e:
+                print(f"[SessionStore] Failed to read workspace: {e}")
+        return None
+
+    @classmethod
     def save_scene_grounding(cls, session_id: str, grounding_data: Dict[str, Any]) -> None:
         """Saves scene grounding results (scene objects, proposed zones/lines, commentary) for the session."""
         s_dir = cls._get_session_dir(session_id)

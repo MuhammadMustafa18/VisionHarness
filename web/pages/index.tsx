@@ -279,50 +279,53 @@ Capabilities:
     if (!activeSessionId) return;
     // Clear workspace state immediately when switching to avoid stale footage / stats bleeding in
     setWorkspaceState({});
-    fetch(`http://localhost:8000/api/sessions/${activeSessionId}/messages`)
-      .then(res => res.json())
-      .then(msgs => {
-        if (msgs && msgs.length > 0) {
-          // Normalize video URLs, thumbnails, and state
-          const normalized = msgs.map((m: any) => {
-            return {
-              ...m,
-              videoUrl: m.videoUrl || m.video_url,
-              uploadedVideoUrl: m.uploadedVideoUrl,
-              uploadedVideoName: m.uploadedVideoName,
-              uploadDone: m.uploadDone,
-              diagramSvg: m.diagramSvg || m.diagram_svg
-            };
-          });
-          setMessages(normalized);
 
-          // Restore workspace state from THIS conversation only
-          const lastWithVideo = [...normalized].reverse().find(m => m.uploadedVideoUrl || m.uploadedVideoPath);
-          const lastWithStats = [...normalized].reverse().find(m => m.stats);
-          // Prefer spec that has actual geometry (zones or lines) over a bare spec
-          const lastWithGeometrySpec = [...normalized].reverse().find(m =>
-            m.spec && (
-              (m.spec.zones && m.spec.zones.length > 0) ||
-              (m.spec.lines && m.spec.lines.length > 0) ||
-              (m.spec.workflow?.zones && m.spec.workflow.zones.length > 0) ||
-              (m.spec.workflow?.lines && m.spec.workflow.lines.length > 0)
-            )
-          );
-          const lastWithSpec = lastWithGeometrySpec || [...normalized].reverse().find(m => m.spec);
-          if (lastWithVideo || lastWithStats || lastWithSpec) {
-            setWorkspaceState({
-              ...(lastWithVideo ? {
-                video_url: lastWithVideo.uploadedVideoUrl,
-                video_name: lastWithVideo.uploadedVideoName,
-                video_path: lastWithVideo.uploadedVideoPath || (lastWithVideo.uploadedVideoName ? `./uploads/${lastWithVideo.uploadedVideoName}` : undefined)
-              } : {}),
-              ...(lastWithStats?.stats ? { last_stats: lastWithStats.stats } : {}),
-              ...(lastWithSpec?.spec ? { spec: lastWithSpec.spec } : {})
-            });
-          }
-        }
-      })
-      .catch(() => {});
+    // Load messages AND the saved workspace state in parallel
+    Promise.all([
+      fetch(`http://localhost:8000/api/sessions/${activeSessionId}/messages`).then(r => r.json()).catch(() => []),
+      fetch(`http://localhost:8000/api/sessions/${activeSessionId}/workspace`).then(r => r.json()).catch(() => null)
+    ]).then(([msgs, savedWorkspace]) => {
+      if (msgs && msgs.length > 0) {
+        const normalized = msgs.map((m: any) => ({
+          ...m,
+          videoUrl: m.videoUrl || m.video_url,
+          uploadedVideoUrl: m.uploadedVideoUrl,
+          uploadedVideoName: m.uploadedVideoName,
+          uploadDone: m.uploadDone,
+          diagramSvg: m.diagramSvg || m.diagram_svg
+        }));
+        setMessages(normalized);
+      }
+
+      // Prefer the explicitly saved workspace — no guessing
+      if (savedWorkspace && Object.keys(savedWorkspace).length > 0) {
+        setWorkspaceState(savedWorkspace);
+      } else if (msgs && msgs.length > 0) {
+        // Fallback: reconstruct from messages (older sessions without workspace.json)
+        const normalized = msgs.map((m: any) => ({ ...m, videoUrl: m.videoUrl || m.video_url }));
+        const lastWithVideo = [...normalized].reverse().find((m: any) => m.uploadedVideoUrl || m.uploadedVideoPath);
+        const lastWithStats = [...normalized].reverse().find((m: any) => m.stats);
+        const lastWithGeometrySpec = [...normalized].reverse().find((m: any) =>
+          m.spec && (
+            (m.spec.zones && m.spec.zones.length > 0) ||
+            (m.spec.lines && m.spec.lines.length > 0) ||
+            (m.spec.workflow?.zones && m.spec.workflow.zones.length > 0) ||
+            (m.spec.workflow?.lines && m.spec.workflow.lines.length > 0)
+          )
+        );
+        const lastWithSpec = lastWithGeometrySpec || [...normalized].reverse().find((m: any) => m.spec);
+        const restoredWs = {
+          ...(lastWithVideo ? {
+            video_url: lastWithVideo.uploadedVideoUrl,
+            video_name: lastWithVideo.uploadedVideoName,
+            video_path: lastWithVideo.uploadedVideoPath || (lastWithVideo.uploadedVideoName ? `./uploads/${lastWithVideo.uploadedVideoName}` : undefined)
+          } : {}),
+          ...(lastWithStats?.stats ? { last_stats: lastWithStats.stats } : {}),
+          ...(lastWithSpec?.spec ? { spec: lastWithSpec.spec } : {})
+        };
+        if (Object.keys(restoredWs).length > 0) setWorkspaceState(restoredWs);
+      }
+    });
   }, [activeSessionId]);
 
   const prevMsgCountRef = useRef(messages.length);
@@ -333,6 +336,23 @@ Capabilities:
     }
     prevMsgCountRef.current = messages.length;
   }, [messages.length]);
+
+  // Auto-persist workspace state to backend whenever it changes (debounced 800ms)
+  const workspaceSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!activeSessionId || Object.keys(workspaceState).length === 0) return;
+    if (workspaceSaveTimerRef.current) clearTimeout(workspaceSaveTimerRef.current);
+    workspaceSaveTimerRef.current = setTimeout(() => {
+      fetch(`http://localhost:8000/api/sessions/${activeSessionId}/workspace`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(workspaceState)
+      }).catch(() => {});
+    }, 800);
+    return () => {
+      if (workspaceSaveTimerRef.current) clearTimeout(workspaceSaveTimerRef.current);
+    };
+  }, [workspaceState, activeSessionId]);
 
   const handleNewChat = () => {
     const newId = `wf_${Date.now()}`;

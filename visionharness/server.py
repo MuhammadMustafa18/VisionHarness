@@ -97,6 +97,22 @@ def append_message(session_id: str, message: ChatMessage):
     return SessionStore.append_message(session_id, message)
 
 
+@app.get("/api/sessions/{session_id}/workspace")
+def get_workspace(session_id: str):
+    """Retrieve the persisted active workspace state for a session."""
+    ws = SessionStore.get_workspace(session_id)
+    if ws is None:
+        return {}
+    return ws
+
+
+@app.put("/api/sessions/{session_id}/workspace")
+def save_workspace(session_id: str, body: Dict[str, Any]):
+    """Persist the active workspace state (spec, geometry, stats, video paths) for a session."""
+    SessionStore.save_workspace(session_id, body)
+    return {"status": "saved"}
+
+
 @app.get("/api/status")
 def status():
     """Return backend status and active auth mode."""
