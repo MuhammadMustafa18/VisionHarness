@@ -1666,11 +1666,35 @@ Capabilities:
                 <div className="relative w-full max-w-4xl max-h-[75vh] aspect-[16/9] rounded-2xl overflow-hidden bg-black border border-zinc-800 shadow-2xl flex items-center justify-center group">
                   
                   {/* CCTV Feed Image */}
-                  <img
-                    src="/live_demo_cctv.jpg"
-                    alt="Live CCTV Feed"
-                    className="w-full h-full object-cover select-none pointer-events-none"
-                  />
+                  {isLiveConnected ? (
+                    <img
+                      src={`http://localhost:8000/api/live/${activeSessionId}/feed`}
+                      alt="Live Stream Feed"
+                      className="w-full h-full object-cover select-none"
+                    />
+                  ) : liveSnapshotUrl ? (
+                    <img
+                      src={liveSnapshotUrl}
+                      alt="Camera Snapshot"
+                      className="w-full h-full object-cover select-none"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-950 text-zinc-500 gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400">
+                        <Camera className="w-6 h-6" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-zinc-300">Camera Not Connected</p>
+                        <p className="text-xs text-zinc-500 mt-0.5">Click "Change Stream" to connect an IP Webcam or RTSP feed</p>
+                      </div>
+                      <button
+                        onClick={() => setShowLiveConnectModal(true)}
+                        className="mt-2 px-3.5 py-1.5 rounded-lg bg-white text-black font-semibold text-xs hover:bg-zinc-200 transition-colors"
+                      >
+                        Connect Camera
+                      </button>
+                    </div>
+                  )}
 
                   {/* Top-Right CCTV Camera Time Overlay */}
                   <div className="absolute top-4 right-4 px-3 py-1.5 rounded-lg bg-black/80 backdrop-blur-md border border-white/10 font-mono text-xs text-white/90 font-medium tracking-wider select-none shadow">
