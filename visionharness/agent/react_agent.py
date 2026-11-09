@@ -186,13 +186,35 @@ def execute_tool(tool_name: str, tool_input: Dict[str, Any], workspace: Dict[str
         lines = spec.get("lines") or []
         g_type = spec.get("geometry_type") or ("polygon" if zones else "line" if lines else "polygon")
 
+        # Collect chronological audit trail from session store
+        session_id = workspace.get("session_id") or ""
+        history_events = []
+        if session_id:
+            all_msgs = SessionStore.get_messages(session_id)
+            for m in all_msgs:
+                if m.get("geometryEditEvent"):
+                    history_events.append(m["geometryEditEvent"])
+
+        user_edit_count = sum(1 for e in history_events if e.get("actor") == "user")
+        ai_proposal_count = 1 if (zones or lines) else 0
+
+        last_event = history_events[-1] if history_events else None
+        last_actor = last_event.get("actor", "ai" if (zones or lines) else "none") if last_event else ("ai" if (zones or lines) else "none")
+
         return {
             "status": "success",
             "geometry_type": g_type,
             "current_zones": zones,
             "current_lines": lines,
-            "has_custom_edits": bool(zones or lines),
-            "summary": f"Current geometry has {len(zones)} zone(s) with {len(zones[0].get('polygon', [])) if zones else 0} vertices and {len(lines)} line(s)."
+            "has_custom_edits": user_edit_count > 0,
+            "last_modified_by": last_actor,
+            "edit_counter": {
+                "total_revisions": len(history_events),
+                "user_edits": user_edit_count,
+                "ai_proposals": ai_proposal_count
+            },
+            "history_trail": history_events[-4:],
+            "summary": f"Geometry has had {len(history_events)} change(s). Last modified by {last_actor.upper()}. Current shape: {len(zones)} zone(s) with {len(zones[0].get('polygon', [])) if zones else 0} vertices."
         }
 
     elif tool_name == "run_pipeline":
@@ -293,6 +315,8 @@ def stream_react_agent(
     if not base_url or not auth_token:
         yield {"type": "error", "message": "ANTHROPIC_BASE_URL or ANTHROPIC_AUTH_TOKEN not configured."}
         return
+
+    workspace["session_id"] = session_id
 
     # Load recent conversation history from session store
     past_messages = SessionStore.get_messages(session_id)[-8:]

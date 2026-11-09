@@ -1293,6 +1293,10 @@ video {
   background-color: rgb(39 39 42 / 0.8);
 }
 
+.bg-emerald-500\/20 {
+  background-color: rgb(16 185 129 / 0.2);
+}
+
 .bg-gradient-to-tr {
   background-image: linear-gradient(to top right, var(--tw-gradient-stops));
 }

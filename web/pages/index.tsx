@@ -1235,7 +1235,12 @@ Capabilities:
                     <div className="flex items-center justify-between pb-1 border-b border-emerald-500/20">
                       <div className="flex items-center gap-2 font-semibold text-emerald-400">
                         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        <span>Geometry Adjusted by User</span>
+                        <span>Geometry Adjusted by {msg.geometryEditEvent.actor === "ai" ? "AI (VLM Grounding)" : "User"}</span>
+                        {msg.geometryEditEvent.revision !== undefined && (
+                          <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                            #{msg.geometryEditEvent.revision}
+                          </span>
+                        )}
                       </div>
                       <span className="text-[10px] text-emerald-400/60 uppercase">{msg.geometryEditEvent.geometry_type}</span>
                     </div>
@@ -1441,19 +1446,23 @@ Capabilities:
 
                                     // Append an explicit audit trail message in conversation history!
                                     const vertexCount = geometry_type === "polygon" ? (zones[0]?.polygon?.length || 4) : 2;
+                                    const prevCount = messages.filter(m => m.geometryEditEvent).length;
+                                    const revision = prevCount + 1;
                                     const historyEventMsg: Message = {
                                       id: `edit_event_${Date.now()}`,
                                       sender: "user",
-                                      text: `📐 Adjusted ${geometry_type} geometry: defined custom ${vertexCount}-${geometry_type === "polygon" ? "point" : "endpoint"} boundary.`,
+                                      text: `📐 Adjusted ${geometry_type} geometry (Rev #${revision}): defined custom ${vertexCount}-${geometry_type === "polygon" ? "point" : "endpoint"} boundary.`,
                                       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                                       geometryEditEvent: {
                                         action: "saved",
+                                        actor: "user",
+                                        revision,
                                         geometry_type,
                                         original_zones: normalizedZones,
                                         original_lines: extractedLines,
                                         zones,
                                         lines,
-                                        summary: `User adjusted ${geometry_type} to ${vertexCount} coordinates`
+                                        summary: `User adjusted ${geometry_type} to ${vertexCount} coordinates (Revision #${revision})`
                                       }
                                     };
                                     setMessages(prev => [...prev, historyEventMsg]);
