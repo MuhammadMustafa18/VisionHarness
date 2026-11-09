@@ -1603,7 +1603,7 @@ Capabilities:
             </div>
 
             {/* Right Drawer: AI Copilot Chat & NLP Workflow Prompt Bar */}
-            <div className="w-[420px] lg:w-[460px] flex flex-col bg-[#141518] border-l border-[#24262b] shrink-0 h-full overflow-hidden select-text">
+            <div className="w-[320px] lg:w-[350px] flex flex-col bg-[#141518] border-l border-[#24262b] shrink-0 h-full overflow-hidden select-text">
               
               {/* Copilot Header */}
               <div className="h-12 border-b border-[#24262b] px-4 flex items-center justify-between bg-[#18191d] shrink-0">
