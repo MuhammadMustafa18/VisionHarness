@@ -157,7 +157,10 @@ class SessionStore:
 
     @classmethod
     def get_scene_grounding(cls, session_id: str) -> Optional[Dict[str, Any]]:
-        """Retrieves previously saved scene grounding data for the session if it exists."""
+        """Retrieves previously saved scene grounding data for the session if it exists.
+        Falls back to extracting prior vlm_ground_scene output from existing messages if grounding.json
+        was not yet created for an older chat session.
+        """
         s_dir = cls._get_session_dir(session_id)
         grounding_path = os.path.join(s_dir, "grounding.json")
         if os.path.exists(grounding_path):
@@ -167,4 +170,17 @@ class SessionStore:
                     return data.get("grounding")
             except Exception as e:
                 print(f"[SessionStore] Failed to read scene grounding: {e}")
+
+        # Retroactive recovery: scan past messages in this session for prior vlm_ground_scene toolCall
+        messages = cls.get_messages(session_id)
+        for msg in reversed(messages):
+            tool_calls = msg.get("toolCalls") or []
+            for tc in tool_calls:
+                if tc.get("name") == "vlm_ground_scene" and tc.get("output") and isinstance(tc["output"], dict):
+                    output = tc["output"]
+                    if not output.get("error"):
+                        # Retroactively save it so subsequent calls are fast
+                        cls.save_scene_grounding(session_id, output)
+                        return output
+
         return None
