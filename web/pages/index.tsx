@@ -39,7 +39,12 @@ import {
   Maximize2,
   Minimize2,
   RefreshCw,
-  Send
+  Send,
+  Film,
+  Clapperboard,
+  User,
+  Trash,
+  PanelLeft
 } from "lucide-react";
 
 interface WorkflowSession {
@@ -145,6 +150,8 @@ export default function VisionHarnessApp() {
     unique_tracks?: number;
   } | null>(null);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [activeMediaFilter, setActiveMediaFilter] = useState<"all" | "live" | "videos" | "models">("all");
 
   // Live Mode State
   const isLiveWorkspace = activeSession?.domain === "live_cctv";
@@ -1264,228 +1271,178 @@ Capabilities:
         <meta name="description" content="Agentic Computer Vision Builder" />
       </Head>
 
-      {/* Deep Obsidian Sidebar (Matching Ember Design System) */}
-      <aside className="w-64 bg-[var(--bg-sidebar)] border-r border-[var(--border-app)] flex flex-col justify-between select-none shrink-0 h-full overflow-hidden">
-        <div className="flex flex-col min-h-0 flex-1">
-          
-          {/* Top Brand & Sidebar Switcher */}
-          <div className="px-5 pt-5 pb-4 flex items-center justify-between shrink-0">
-            <div className="flex flex-col">
-              <div className="flex items-center gap-1.5 leading-none">
-                <span className="text-[9px] font-mono tracking-wider uppercase font-semibold text-zinc-300 bg-zinc-800 border border-zinc-700 px-1 py-0.2 rounded">
-                  beta
-                </span>
-                <span title="VisionOps Beta v1.0 - Autonomous CV Studio">
-                  <Info className="w-2.5 h-2.5 text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer" />
-                </span>
-              </div>
-              <span className="font-semibold text-base tracking-tight text-[var(--fg)] mt-1">VisionOps</span>
-            </div>
+      {/* Google Flow Style Minimalist Dark Sidebar */}
+      <aside className={`bg-black border-r border-zinc-900 flex flex-col justify-between select-none shrink-0 h-full transition-all duration-300 z-20 ${
+        sidebarCollapsed ? "w-16" : "w-56"
+      }`}>
+        <div className="flex flex-col min-h-0 flex-1 pt-4">
+
+          {/* Flow Category Navigation Items */}
+          <div className="px-2.5 space-y-1">
+            {/* All media / Workspaces Item */}
             <button
-              onClick={handleNewChat}
-              title="New Vision Chat (⌘N)"
-              className="p-1.5 rounded-lg bg-[var(--bg-ghost)] hover:bg-[var(--bg-ghost-hover)] text-zinc-400 hover:text-[var(--fg)] border border-[var(--border-card)] transition-colors"
+              onClick={() => {
+                setActiveMediaFilter("all");
+                setSelectedComponent(null);
+              }}
+              className={`w-full flex items-center gap-3.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${
+                activeMediaFilter === "all" && !selectedComponent
+                  ? "bg-zinc-800/90 text-white shadow-sm"
+                  : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
+              }`}
+              title="All media"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <LayoutGrid className="w-4 h-4 shrink-0 text-zinc-300" />
+              {!sidebarCollapsed && <span className="truncate">All media</span>}
+            </button>
+
+            {/* Videos / Live Feeds Item */}
+            <button
+              onClick={() => {
+                setActiveMediaFilter("videos");
+                handleNewLiveChat();
+              }}
+              className={`w-full flex items-center gap-3.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${
+                isLiveWorkspace
+                  ? "bg-zinc-800/90 text-white shadow-sm"
+                  : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
+              }`}
+              title="Videos & Live Streams"
+            >
+              <Video className="w-4 h-4 shrink-0 text-zinc-300" />
+              {!sidebarCollapsed && <span className="truncate">Videos</span>}
+            </button>
+
+            {/* Characters / Classes Item */}
+            <button
+              onClick={() => {
+                setActiveMediaFilter("models");
+                if (components.length > 0) setSelectedComponent(components[0]);
+              }}
+              className={`w-full flex items-center gap-3.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${
+                selectedComponent
+                  ? "bg-zinc-800/90 text-white shadow-sm"
+                  : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
+              }`}
+              title="Models & Characters"
+            >
+              <User className="w-4 h-4 shrink-0 text-zinc-300" />
+              {!sidebarCollapsed && <span className="truncate">Characters</span>}
+            </button>
+
+            {/* Scenes Item */}
+            <button
+              onClick={() => {
+                handleNewChat();
+              }}
+              className="w-full flex items-center gap-3.5 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-900/60 transition-colors text-left"
+              title="Scenes & Workspaces"
+            >
+              <Clapperboard className="w-4 h-4 shrink-0 text-zinc-300" />
+              {!sidebarCollapsed && <span className="truncate">Scenes</span>}
             </button>
           </div>
 
-          {/* New Chat & Live Stream Quick Actions */}
-          <div className="px-4 pb-2 shrink-0 space-y-1.5">
-            <button
-              onClick={handleNewChat}
-              className="w-full py-2.5 px-3.5 rounded-xl bg-white hover:bg-zinc-200 text-black text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98]"
-            >
-              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>New Workspace</span>
-            </button>
+          {/* Divider */}
+          <div className="my-3 mx-4 border-t border-zinc-900/90" />
 
-            <button
-              onClick={handleNewLiveChat}
-              className="w-full py-2.5 px-3.5 rounded-xl bg-zinc-800/80 hover:bg-zinc-750 text-zinc-200 border border-zinc-700/80 text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-sm active:scale-[0.98] group"
-            >
-              <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-              <Radio className="w-3.5 h-3.5 text-zinc-300" />
-              <span>Live CCTV Stream</span>
-            </button>
-          </div>
-
-          {/* Search Box with Pill Shortcut */}
-          <div className="px-4 py-2 shrink-0">
-            <div className="w-full py-2 px-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-input)] flex items-center justify-between text-neutral-400 text-xs">
-              <div className="flex items-center gap-2 flex-1">
-                <Search className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Search chats..."
-                  className="bg-transparent border-none outline-none text-sm text-[var(--fg)] placeholder-neutral-500 w-full"
-                />
-              </div>
-              {searchQuery ? (
+          {/* Library Section */}
+          <div className="px-2.5 space-y-1">
+            <div className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-zinc-400">
+              <button
+                onClick={() => setChatsOpen(o => !o)}
+                className="flex items-center gap-3.5 hover:text-white transition-colors truncate"
+              >
+                <Folder className="w-4 h-4 shrink-0 text-zinc-300" />
+                {!sidebarCollapsed && <span>Library</span>}
+              </button>
+              {!sidebarCollapsed && (
                 <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="text-neutral-500 hover:text-neutral-300 text-xs ml-1"
+                  onClick={handleNewChat}
+                  title="New workspace"
+                  className="text-zinc-500 hover:text-white p-0.5 transition-colors"
                 >
-                  ✕
+                  <Plus className="w-3.5 h-3.5" />
                 </button>
-              ) : (
-                <div className="flex items-center gap-1 text-[10px] font-mono bg-[var(--bg-chip)] px-1.5 py-0.5 rounded text-neutral-400 border border-[var(--border-kbd)]">
-                  <span>⌘</span>
-                  <span>K</span>
-                </div>
               )}
             </div>
-          </div>
 
-          {/* Chat Workspaces Section Header — collapsible */}
-          <button
-            type="button"
-            onClick={() => setChatsOpen(o => !o)}
-            className="w-full px-5 pt-5 pb-2.5 flex items-center justify-between text-xs font-semibold tracking-wide text-neutral-300 shrink-0 hover:text-[var(--fg)] transition-colors"
-          >
-            <span className="flex items-center gap-2">
-              <ChevronRight
-                className={`w-3.5 h-3.5 transition-transform duration-200 ${chatsOpen ? "rotate-90" : ""}`}
-              />
-              Workspaces & Chats
-            </span>
-            <span className="font-mono text-[11px] text-neutral-500">{filteredSessions.length}</span>
-          </button>
-
-          {/* Dynamic Scrollable Chat Sessions List */}
-          {chatsOpen && (
-          <div className="px-3 space-y-1 overflow-y-auto flex-1 min-h-0 pr-1">
-            {filteredSessions.map(s => {
-              const isActive = activeSessionId === s.id;
-              return (
-                <button
-                  key={s.id}
-                  onClick={() => {
-                    setActiveSessionId(s.id);
-                    setVideoFile(null);
-                    setVideoPreviewUrl(null);
-                  }}
-                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium transition-all group text-left ${
-                    isActive
-                      ? "bg-[var(--bg-hover)] text-[var(--fg)] shadow-inner font-semibold border border-[var(--border-nav)]"
-                      : "text-neutral-200 hover:text-[var(--fg)] hover:bg-[var(--bg-surface)]"
-                  }`}
-                >
-                  <div className="flex items-center gap-3 truncate min-w-0 pr-2">
-                    {s.thumbnail_url ? (
-                      <div className="w-5 h-5 rounded-md overflow-hidden bg-neutral-900 border border-neutral-700/60 shrink-0 relative flex items-center justify-center">
-                        {s.thumbnail_url.endsWith(".mp4") ? (
-                          <video
-                            src={s.thumbnail_url}
-                            className="w-full h-full object-cover pointer-events-none"
-                            muted
-                            playsInline
-                            preload="metadata"
-                          />
-                        ) : (
-                          <img
-                            src={s.thumbnail_url}
-                            alt=""
-                            className="w-full h-full object-cover"
-                          />
-                        )}
-                      </div>
-                    ) : (
-                      <Folder className={`w-4 h-4 shrink-0 ${isActive ? "text-[var(--accent-glow)]" : "text-neutral-400 group-hover:text-neutral-300"}`} />
-                    )}
-                    <span className="truncate">{s.name || s.id}</span>
-                  </div>
-                  {s.count !== undefined && (
-                    <span className="text-[11px] text-neutral-500 font-mono shrink-0">{s.count}</span>
-                  )}
-                </button>
-              );
-            })}
-            {filteredSessions.length === 0 && (
-              <div className="px-3 py-4 text-center text-xs text-neutral-500">
-                No chats found
+            {/* Recent Chats in Library */}
+            {!sidebarCollapsed && chatsOpen && (
+              <div className="pl-6 pr-1 space-y-0.5 max-h-40 overflow-y-auto">
+                {filteredSessions.slice(0, 6).map(s => {
+                  const isActive = activeSessionId === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => {
+                        setActiveSessionId(s.id);
+                        setSelectedComponent(null);
+                      }}
+                      className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs truncate transition-colors text-left ${
+                        isActive
+                          ? "text-white font-medium bg-zinc-900/80"
+                          : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/40"
+                      }`}
+                    >
+                      <span className="truncate">{s.name || s.id}</span>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
-          )}
 
-          {/* Vision Engines — collapsible registry */}
-          <button
-            type="button"
-            onClick={() => setEnginesOpen(o => !o)}
-            className="w-full px-5 pt-5 pb-2.5 flex items-center justify-between text-xs font-semibold tracking-wide text-neutral-300 shrink-0 hover:text-[var(--fg)] transition-colors"
-          >
-            <span>Vision engines</span>
-            <ChevronRight
-              className={`w-3.5 h-3.5 transition-transform duration-200 ${enginesOpen ? "rotate-90" : ""}`}
-            />
-          </button>
+          {/* Divider */}
+          <div className="my-3 mx-4 border-t border-zinc-900/90" />
 
-          {enginesOpen && (
-            <div className="px-3 pb-3 space-y-1 shrink-0 max-h-48 overflow-y-auto pr-1">
-              {components.map(c => {
-                const isActive = selectedComponent?.id === c.id;
-                const dot =
-                  c.category === "detector" ? "bg-[#f59e0b]" :
-                  c.category === "tracker" ? "bg-[#10b981]" :
-                  "bg-[#3b82f6]";
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => setSelectedComponent(c)}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm transition-all text-left ${
-                      isActive
-                        ? "bg-[var(--bg-active)] text-[var(--fg)] font-medium"
-                        : "text-neutral-200 hover:text-[var(--fg)] hover:bg-[var(--bg-hover)]"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dot}`} />
-                      <span className="truncate">{c.name}</span>
-                    </div>
-                    <span className="text-neutral-500 font-mono text-[11px] shrink-0 ml-2">
-                      {c.category}
-                    </span>
-                  </button>
-                );
-              })}
-              {components.length === 0 && (
-                <div className="px-3 py-2 text-[11px] text-neutral-500">Loading…</div>
-              )}
-            </div>
-          )}
+          {/* Tools & Create Tool */}
+          <div className="px-2.5 space-y-1">
+            <button
+              onClick={() => {
+                if (components.length > 0) setSelectedComponent(components[0]);
+              }}
+              className="w-full flex items-center gap-3.5 px-3 py-2 rounded-xl text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-900/60 transition-colors text-left"
+              title="Tools"
+            >
+              <Sparkles className="w-4 h-4 shrink-0 text-zinc-300" />
+              {!sidebarCollapsed && <span>Tools</span>}
+            </button>
 
+            <button
+              onClick={handleNewChat}
+              className="w-full flex items-center gap-3.5 px-3 py-2 rounded-xl text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-900/60 transition-colors text-left"
+              title="Create tool"
+            >
+              <Plus className="w-4 h-4 shrink-0 text-zinc-400" />
+              {!sidebarCollapsed && <span>Create tool</span>}
+            </button>
+          </div>
         </div>
 
-        {/* User Footer Profile */}
-        <div className="p-4 border-t border-[var(--border-app)] flex items-center justify-between text-xs text-neutral-400 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-neutral-700 to-neutral-900 border border-neutral-700 flex items-center justify-center text-white font-semibold text-xs shadow">
-              M
-            </div>
-            <div className="flex flex-col">
-              <span className="font-semibold text-[var(--fg)] truncate max-w-[110px]">Mustafa</span>
-              <span className="text-[10px] text-zinc-400 flex items-center gap-1 font-mono">
-                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                Pro Connected
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setTheme(t => (t === "dark" ? "light" : "dark"))}
-              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-              className="p-1.5 rounded-lg hover:bg-[var(--bg-hover)] text-neutral-500 hover:text-[var(--fg)] transition-colors"
-            >
-              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
-            <Settings className="w-4 h-4 text-neutral-500 hover:text-[var(--fg)] cursor-pointer transition-colors" />
-          </div>
+        {/* Bottom Actions: Trash & Collapse (Flow Style) */}
+        <div className="p-3 border-t border-zinc-900/90 space-y-1 shrink-0">
+          <button
+            onClick={() => {
+              if (confirm("Clear local chat history?")) {
+                setMessages([]);
+              }
+            }}
+            className="w-full flex items-center gap-3.5 px-3 py-2 rounded-xl text-sm font-medium text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/60 transition-colors text-left"
+            title="Trash"
+          >
+            <Trash className="w-4 h-4 shrink-0 text-zinc-500" />
+            {!sidebarCollapsed && <span>Trash</span>}
+          </button>
+
+          <button
+            onClick={() => setSidebarCollapsed(c => !c)}
+            className="w-full flex items-center gap-3.5 px-3 py-2 rounded-xl text-sm font-medium text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/60 transition-colors text-left"
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <PanelLeftClose className={`w-4 h-4 shrink-0 text-zinc-500 transition-transform ${sidebarCollapsed ? "rotate-180" : ""}`} />
+            {!sidebarCollapsed && <span>Collapse</span>}
+          </button>
         </div>
       </aside>
 
