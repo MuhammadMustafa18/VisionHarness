@@ -31,7 +31,8 @@ import {
   Command,
   Sun,
   Moon,
-  StopCircle
+  StopCircle,
+  Info
 } from "lucide-react";
 
 interface WorkflowSession {
@@ -1087,7 +1088,7 @@ Capabilities:
   return (
     <div className="h-screen w-screen bg-[var(--bg-app)] text-[var(--fg)] flex overflow-hidden font-sans antialiased selection:bg-[var(--selection-bg)]">
       <Head>
-        <title>VisionHarness</title>
+        <title>VisionOps</title>
         <meta name="description" content="Agentic Computer Vision Builder" />
       </Head>
 
@@ -1097,8 +1098,16 @@ Capabilities:
           
           {/* Top Brand & Sidebar Switcher */}
           <div className="px-5 pt-5 pb-4 flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2.5">
-              <span className="font-semibold text-base tracking-tight text-[var(--fg)]">VisionHarness</span>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1.5 leading-none">
+                <span className="text-[9px] font-mono tracking-wider uppercase font-semibold text-amber-400/90 bg-amber-400/10 border border-amber-400/20 px-1 py-0.2 rounded">
+                  beta
+                </span>
+                <span title="VisionOps Beta v1.0 - Autonomous CV Studio">
+                  <Info className="w-2.5 h-2.5 text-neutral-500 hover:text-neutral-300 transition-colors cursor-pointer" />
+                </span>
+              </div>
+              <span className="font-semibold text-base tracking-tight text-[var(--fg)] mt-1">VisionOps</span>
             </div>
             <button
               onClick={handleNewChat}
@@ -1529,10 +1538,10 @@ Capabilities:
                   <div className="flex items-center gap-2.5">
                     <img
                       src="/mascot.png"
-                      alt="VisionHarness Mascot"
+                      alt="VisionOps Mascot"
                       className="w-5 h-5 object-contain"
                     />
-                    <span className="text-xs font-semibold tracking-wide text-neutral-300">VisionHarness</span>
+                    <span className="text-xs font-semibold tracking-wide text-neutral-300">VisionOps</span>
                   </div>
 
                   {/* Thoughts Accordion */}
@@ -1953,10 +1962,10 @@ Capabilities:
               <div className="flex items-center gap-2.5">
                 <img
                   src="/mascot.png"
-                  alt="VisionHarness Mascot"
+                  alt="VisionOps Mascot"
                   className="w-5 h-5 object-contain"
                 />
-                <span className="text-xs font-semibold tracking-wide text-neutral-300">VisionHarness</span>
+                <span className="text-xs font-semibold tracking-wide text-neutral-300">VisionOps</span>
               </div>
               <div className="flex items-center gap-2 text-xs text-neutral-300 bg-[var(--bg-subtle)] px-4 py-2.5 rounded-2xl border border-zinc-800/80 shadow-md">
                 <Activity className="w-3.5 h-3.5 text-blue-400 animate-spin" />
@@ -1971,10 +1980,10 @@ Capabilities:
               <div className="flex items-center gap-2.5">
                 <img
                   src="/mascot.png"
-                  alt="VisionHarness Mascot"
+                  alt="VisionOps Mascot"
                   className="w-5 h-5 object-contain"
                 />
-                <span className="text-xs font-semibold tracking-wide text-neutral-300">VisionHarness</span>
+                <span className="text-xs font-semibold tracking-wide text-neutral-300">VisionOps</span>
               </div>
               <div className="flex flex-col gap-2 bg-[var(--bg-subtle)] px-4 py-3 rounded-2xl border border-zinc-800/80 shadow-md w-full">
                 <div className="flex items-center gap-2 text-xs text-neutral-200">
