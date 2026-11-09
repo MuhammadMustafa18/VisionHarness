@@ -1463,11 +1463,6 @@ Capabilities:
                     </span>
                   </button>
                 </div>
-                    <span className="text-sm font-medium text-neutral-200 group-hover:text-white transition-colors">
-                      Build a visual moodboard / ground footage
-                    </span>
-                  </button>
-                </div>
               </div>
             )}
 
