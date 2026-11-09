@@ -1989,10 +1989,10 @@ Capabilities:
         )}
 
         {/* Minimalist Floating Prompt Box */}
-        <footer className="p-6 max-w-5xl mx-auto w-full">
+        <footer className="p-6">
           <form
             onSubmit={handleSendPrompt}
-            className="w-full bg-[var(--bg-surface)] border border-[var(--border-card)] rounded-2xl p-3 space-y-3 shadow-2xl focus-within:border-neutral-500 transition-colors"
+            className="max-w-3xl mx-auto bg-[var(--bg-surface)] border border-[var(--border-card)] rounded-2xl p-3 space-y-3 shadow-2xl focus-within:border-neutral-500 transition-colors"
           >
             <input
               type="file"
