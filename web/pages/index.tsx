@@ -128,6 +128,7 @@ export default function VisionHarnessApp() {
   // Vision engines registry
   const [components, setComponents] = useState<any[]>([]);
   const [enginesOpen, setEnginesOpen] = useState(true);
+  const [chatsOpen, setChatsOpen] = useState(true);
   const [selectedComponent, setSelectedComponent] = useState<any | null>(null);
 
   useEffect(() => {
@@ -1114,13 +1115,23 @@ Capabilities:
             </div>
           </div>
 
-          {/* Chat Workspaces Section Header */}
-          <div className="px-5 pt-4 pb-2 flex items-center justify-between text-[11px] font-medium tracking-normal text-neutral-500 shrink-0">
-            <span>Workspaces & Chats</span>
+          {/* Chat Workspaces Section Header — collapsible */}
+          <button
+            type="button"
+            onClick={() => setChatsOpen(o => !o)}
+            className="w-full px-5 pt-4 pb-2 flex items-center justify-between text-[11px] font-medium tracking-normal text-neutral-500 shrink-0 hover:text-neutral-300 transition-colors"
+          >
+            <span className="flex items-center gap-1.5">
+              <ChevronRight
+                className={`w-3 h-3 transition-transform duration-200 ${chatsOpen ? "rotate-90" : ""}`}
+              />
+              Workspaces & Chats
+            </span>
             <span className="font-mono text-[10px] text-neutral-500">{filteredSessions.length}</span>
-          </div>
+          </button>
 
           {/* Dynamic Scrollable Chat Sessions List */}
+          {chatsOpen && (
           <div className="px-3 space-y-1 overflow-y-auto flex-1 min-h-0 pr-1">
             {filteredSessions.map(s => {
               const isActive = activeSessionId === s.id;
@@ -1154,6 +1165,7 @@ Capabilities:
               </div>
             )}
           </div>
+          )}
 
           {/* Vision Engines — collapsible registry */}
           <button
