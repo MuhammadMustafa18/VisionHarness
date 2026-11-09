@@ -1812,7 +1812,21 @@ Capabilities:
                             );
                           })()}
                           {msg.stats.has_polygon_zones ? (
-                            <span>Zone Peak: <strong className="text-amber-400">{msg.stats.max_zone_occupancy ?? 0}</strong></span>
+                            <>
+                              {msg.stats.total_zone_entered !== undefined && msg.stats.total_zone_entered !== null && (
+                                <span>Zone Visitors: <strong className="text-emerald-400">{msg.stats.total_zone_entered}</strong></span>
+                              )}
+                              <span>Zone Peak: <strong className="text-amber-400">{msg.stats.max_zone_occupancy ?? 0}</strong></span>
+                              {msg.stats.zone_analytics && (() => {
+                                const firstZone = Object.values(msg.stats.zone_analytics)[0] as any;
+                                if (firstZone?.avg_dwell_seconds) {
+                                  return (
+                                    <span>Avg Dwell: <strong className="text-sky-400">{firstZone.avg_dwell_seconds}s</strong></span>
+                                  );
+                                }
+                                return null;
+                              })()}
+                            </>
                           ) : (
                             <>
                               <span>IN: <strong className="text-emerald-400">{msg.stats.in_count ?? 0}</strong></span>
