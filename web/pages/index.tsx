@@ -10,6 +10,7 @@ import {
   Layers,
   Sparkles,
   Search,
+  Sliders,
   SlidersHorizontal,
   FolderPlus,
   Folder,
@@ -68,7 +69,11 @@ interface Message {
   timestamp: string;
   geometryEditEvent?: {
     action: "saved";
+    actor?: "user" | "ai";
+    revision?: number;
     geometry_type: "polygon" | "line";
+    original_zones?: any[];
+    original_lines?: any[];
     zones?: any[];
     lines?: any[];
     summary: string;
@@ -130,6 +135,7 @@ export default function VisionHarnessApp() {
   const [enginesOpen, setEnginesOpen] = useState(true);
   const [chatsOpen, setChatsOpen] = useState(true);
   const [selectedComponent, setSelectedComponent] = useState<any | null>(null);
+  const [activeEditorMessageId, setActiveEditorMessageId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/components`)

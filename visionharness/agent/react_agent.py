@@ -58,12 +58,13 @@ AGENT_TOOLS = [
     },
     {
         "name": "open_geometry_editor",
-        "description": "Open the interactive visual geometry editor card in the user's chat interface. Call this whenever the user in natural language asks to edit, adjust, draw, reshape, crop, or customize the polygon zone or crossing line on the video.",
+        "description": "Open or display the interactive visual geometry editor directly on the video in the user's interface. Call this whenever the user asks to edit, adjust, draw, reshape, crop, or SHOW/DISPLAY the proposed polygon zone or crossing line on the footage.",
         "input_schema": {
             "type": "object",
             "properties": {
                 "video_path": {"type": "string", "description": "Path to the video footage being annotated"},
-                "geometry_type": {"type": "string", "enum": ["polygon", "line"], "description": "Whether to edit 'polygon' zone or 'line' crossing"}
+                "geometry_type": {"type": "string", "enum": ["polygon", "line"], "description": "Whether to edit/display 'polygon' zone or 'line' crossing"},
+                "proposed_zones": {"type": "array", "description": "Optional specific polygon zones to pre-populate and display on the video editor"}
             }
         }
     },
@@ -116,10 +117,10 @@ GUIDELINES:
    - When new video footage is first provided or referenced, call `vlm_ground_scene` once to inspect the scene, understand the camera perspective, and propose tracking zones.
    - Grounding is automatically saved for the session. Once the scene is grounded, NEVER call `vlm_ground_scene` again for the same video!
    - If the user asks questions about the proposed zone, what pedestrian area would be covered, or what objects are in the scene (e.g. "can u show what pedestrian area would u cover?", "what did you detect?", "explain the zone"), do NOT call `vlm_ground_scene`. Either answer directly using the session context or call `get_scene_grounding`. Only call `vlm_ground_scene` if the user explicitly asks to "re-ground" or "reset scene".
-2. When the user in natural language asks to edit, adjust, draw, customize, reshape, or crop the zone or line (e.g., "let me edit the polygon", "open geometry editor", "adjust line"):
+2. When the user in natural language asks to edit, adjust, draw, customize, reshape, or crop the zone or line, OR asks you to show / display what area/polygon you would cover (e.g., "let me edit the polygon", "open geometry editor", "adjust line", "can u show what pedestrian area would u cover?", "show me the zone"):
    - If there is NO video attached in ACTIVE WORKSPACE STATE, politely inform them that they need to upload or provide a video first. Do NOT call `open_geometry_editor` with hallucinated paths!
-   - If a video IS attached in the workspace, call `open_geometry_editor`.
-   - IMPORTANT: If the user is just asking a question about the geometry (e.g., "will you be using my polygon/line?", "do you have my line?"), DO NOT call `open_geometry_editor`. Answer their question directly in text affirming that you will use their exact custom coordinates!
+   - If a video IS attached in the workspace, call `open_geometry_editor` with `geometry_type="polygon"` (and provide `proposed_zones` if you are proposing or demonstrating a specific polygon) so the user immediately sees the polygon on the video and can edit it directly!
+   - IMPORTANT: If the user is merely asking a factual confirmation about whether you have their coordinates (e.g., "will you be using my polygon/line?", "do you have my line?"), answer directly in text. But whenever they ask to *show*, *draw*, or *edit*, call `open_geometry_editor`!
 3. When the user says they are done editing or asks what you think of their drawing (e.g. "i am done editing", "what do you think about what i drew?", "how does my zone look?"):
    - Inspect the `[GEOMETRY AUDIT DIFF: ...]` in conversation history and compare `ORIGINAL_PROPOSAL` vs `USER_EDITED`.
    - Provide a thoughtful CV commentary explaining what changed (e.g., how the user tightened the boundaries, excluded background/traffic, or refocused on the main pedestrian pathway).
@@ -210,8 +211,19 @@ def execute_tool(tool_name: str, tool_input: Dict[str, Any], workspace: Dict[str
                 "error": "No video footage attached to this workspace. Please upload or stage a video first before opening the geometry editor."
             }
         g_type = tool_input.get("geometry_type") or "polygon"
-        current_zones = workspace.get("spec", {}).get("zones") or []
+        
+        # Check if caller provided specific proposed zones or pull from workspace
+        proposed_zones = tool_input.get("proposed_zones")
+        current_zones = proposed_zones or workspace.get("spec", {}).get("zones") or []
         current_lines = workspace.get("spec", {}).get("lines") or []
+        
+        # If proposed zones provided, update workspace spec so it stays in sync
+        if proposed_zones:
+            if not workspace.get("spec"):
+                workspace["spec"] = {}
+            workspace["spec"]["zones"] = proposed_zones
+            workspace["spec"]["geometry_type"] = g_type
+
         video_url = workspace.get("video_url")
         if not video_url and video_path:
             fname = os.path.basename(video_path)
