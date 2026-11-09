@@ -130,7 +130,13 @@ GUIDELINES:
    - If the user asks to "count people" with a line or zone in an open space, briefly clarify their intent before executing:
      * Are we tracking total unique footfall (everyone who passed), single-direction transit, or two-way in/out traffic?
    - If the goal is density or waiting time at stalls/bus stops, recommend a Polygon Zone with Peak Occupancy or Dwell Time instead of arbitrary line crossings.
-5. If the user asks a question about previous counts or results (e.g. "how many total people?"), query the existing workspace stats or answer directly using the workspace context.
+5. If the user asks a question about previous counts or results (e.g. "how many total people?", "how many entered the zone?"):
+   - Query `query_inference_results`.
+   - If a Polygon Zone was used, report `total_zone_entered` (cumulative unique people who stepped into the polygon) and `max_zone_occupancy` (peak crowd density). Do NOT tell the user that "0 entered" just because in/out line counters were 0!
+   - Clearly distinguish between:
+     * `total_zone_entered`: The verified number of unique individuals who entered the polygon.
+     * `max_zone_occupancy`: The highest number of people inside the polygon at any single second.
+     * `unique_tracks`: Total tracker IDs across the whole video frame (including occluded/re-identified tracks).
 6. Be friendly, concise, and structured. For greetings or casual chat, reply in 1-2 short sentences — no tables, no capability lists, no essays.
 7. When planning or configuring a pipeline, format your final spec in a ```json code block so the UI can render the interactive action card.
 8. When the user asks to proceed, build, or run the pipeline (e.g., "run it", "proceed", "build pipeline"):
@@ -191,7 +197,9 @@ def execute_tool(tool_name: str, tool_input: Dict[str, Any], workspace: Dict[str
             "status": "success",
             "stats": stats,
             "unique_tracks": stats.get("unique_tracks"),
+            "total_zone_entered": stats.get("total_zone_entered"),
             "max_zone_occupancy": stats.get("max_zone_occupancy"),
+            "zone_analytics": stats.get("zone_analytics"),
             "in_count": stats.get("in_count"),
             "out_count": stats.get("out_count"),
             "processed_fps": stats.get("processed_fps"),
