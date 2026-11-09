@@ -34,6 +34,7 @@ from visionharness.core.spec import (
     WorkflowOutputConfig,
 )
 from visionharness.runtime.engine import VisionRuntime, VideoSource
+from visionharness.runtime.live_stream import LiveCameraWorker, LiveStreamRegistry
 from visionharness.core.session_store import SessionStore, ChatMessage, SessionMetadata
 from visionharness.core.diagram import generate_pipeline_svg
 
@@ -422,3 +423,103 @@ async def run_pipeline(
     stats["geometry_type"] = geometry_type
 
     return stats
+
+
+# ============================================================================
+# Live CCTV Stream Endpoints (Connect, Instant Grounding, Telemetry, MJPEG)
+# ============================================================================
+
+class LiveConnectRequest(BaseModel):
+    session_id: str
+    stream_url: str
+    goal: Optional[str] = "Track moving objects and people on live camera"
+
+
+@app.post("/api/live/connect")
+async def connect_live_stream(req: LiveConnectRequest):
+    """Verifies live camera stream, captures snapshot, and triggers instant VLM scene grounding."""
+    worker = LiveStreamRegistry.get_or_create(req.session_id, req.stream_url)
+    snapshot = worker.connect_and_capture_snapshot()
+    if snapshot is None:
+        raise HTTPException(status_code=400, detail=f"Could not connect to camera stream at '{req.stream_url}'. Ensure stream is active and reachable.")
+
+    # Save snapshot to uploads for VLM inspection and UI thumbnail
+    snapshot_rel = f"live_snap_{req.session_id}_{int(time.time())}.jpg"
+    snapshot_path = os.path.join(UPLOADS_DIR, snapshot_rel)
+    import cv2
+    cv2.imwrite(snapshot_path, snapshot, [cv2.IMWRITE_JPEG_QUALITY, 85])
+
+    # Run VLM scene grounding on the captured frame
+    grounding_data = {}
+    try:
+        grounding_data = ground_scene_with_vlm(snapshot_path, req.goal or "Track moving entities")
+    except Exception as e:
+        print(f"[LiveGrounding Error]: {e}")
+        grounding_data = {
+            "scene_analysis": "Live CCTV camera connected successfully. Stream is active.",
+            "geometry_type": "polygon",
+            "zones": [
+                {
+                    "name": "live_monitoring_zone",
+                    "polygon": [{"x": 0.1, "y": 0.2}, {"x": 0.9, "y": 0.2}, {"x": 0.9, "y": 0.9}, {"x": 0.1, "y": 0.9}]
+                }
+            ]
+        }
+
+    # Automatically start worker in background
+    worker.start()
+
+    return {
+        "status": "connected",
+        "session_id": req.session_id,
+        "stream_url": req.stream_url,
+        "snapshot_url": f"/uploads/{snapshot_rel}",
+        "snapshot_path": snapshot_path,
+        "grounding": grounding_data,
+        "telemetry": worker.get_telemetry()
+    }
+
+
+@app.get("/api/live/{session_id}/feed")
+def live_mjpeg_feed(session_id: str):
+    """Streams live MJPEG frames with real-time HUD and detections to browser."""
+    worker = LiveStreamRegistry.get(session_id)
+    if not worker:
+        raise HTTPException(status_code=404, detail="Live stream not found or not active.")
+
+    def frame_generator():
+        while worker.is_running:
+            jpeg = worker.get_latest_jpeg()
+            if jpeg:
+                yield (b"--frame\r\n"
+                       b"Content-Type: image/jpeg\r\n\r\n" + jpeg + b"\r\n")
+            time.sleep(0.04)
+
+    return StreamingResponse(frame_generator(), media_type="multipart/x-mixed-replace; boundary=frame")
+
+
+@app.get("/api/live/{session_id}/telemetry")
+def get_live_telemetry(session_id: str):
+    """Pollable endpoint for real-time stream telemetry (FPS, footfall, tracks, occupancy)."""
+    worker = LiveStreamRegistry.get(session_id)
+    if not worker:
+        return {"status": "offline", "fps": 0, "active_tracks": 0, "total_entered": 0, "current_inside": 0}
+    return worker.get_telemetry()
+
+
+@app.post("/api/live/{session_id}/update-spec")
+def update_live_spec(session_id: str, spec: WorkflowSpec):
+    """Updates live tracking zones/lines and parameters on the active stream."""
+    worker = LiveStreamRegistry.get(session_id)
+    if worker:
+        worker.update_spec(spec)
+        return {"status": "updated"}
+    return {"status": "not_found"}
+
+
+@app.post("/api/live/{session_id}/stop")
+def stop_live_stream(session_id: str):
+    """Stops the live camera ingestion worker."""
+    LiveStreamRegistry.stop(session_id)
+    return {"status": "stopped"}
+
