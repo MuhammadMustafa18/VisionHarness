@@ -255,6 +255,83 @@ class VisionRuntime:
                             scene=annotated_frame
                         )
 
+                # 4. Live Top-Left On-Screen HUD Overlay
+                if getattr(self.spec.output, "draw_hud", True):
+                    hud_lines = []
+
+                    # Zone visitor / footfall metrics
+                    if zone_analytics:
+                        primary_z_name = list(zone_analytics.keys())[0]
+                        primary_z = zone_analytics[primary_z_name]
+                        zone_visitors = len(primary_z["unique_visitors"])
+                        # Current instantaneous occupancy inside primary zone
+                        cur_in_zone = 0
+                        if self.polygon_zones:
+                            cur_p_check = self.polygon_zones[0].trigger(detections=detections)
+                            cur_in_zone = int(np.sum(cur_p_check)) if cur_p_check is not None else 0
+
+                        hud_lines.append((f"{primary_z_name.replace('_', ' ').title()} Entered", str(zone_visitors), (46, 213, 115)))
+                        hud_lines.append(("Current Inside", str(cur_in_zone), (56, 189, 248)))
+                        hud_lines.append(("Peak Inside", str(primary_z["peak_occupancy"]), (255, 177, 66)))
+
+                        # Average dwell time if visitors exist
+                        if primary_z["dwell_times"]:
+                            avg_dwell = round(sum(primary_z["dwell_times"].values()) / len(primary_z["dwell_times"]), 1)
+                            hud_lines.append(("Avg Dwell", f"{avg_dwell}s", (220, 220, 220)))
+
+                    # Line crossing metrics
+                    if self.line_zones:
+                        total_in = sum(lz.in_count for lz in self.line_zones)
+                        total_out = sum(lz.out_count for lz in self.line_zones)
+                        hud_lines.append(("Line Cross IN", str(total_in), (56, 189, 248)))
+                        hud_lines.append(("Line Cross OUT", str(total_out), (255, 107, 129)))
+
+                    # Global tracker tracks
+                    hud_lines.append(("Active Tracks", str(len(detections.tracker_id) if detections.tracker_id is not None else 0), (164, 176, 190)))
+
+                    if hud_lines:
+                        pad_x, pad_y = 14, 10
+                        line_h = 22
+                        num_lines = len(hud_lines)
+                        box_w = 260
+                        box_h = pad_y * 2 + num_lines * line_h
+
+                        x1, y1 = 18, 18
+                        x2, y2 = x1 + box_w, y1 + box_h
+
+                        # Draw semi-transparent dark HUD card
+                        overlay = annotated_frame.copy()
+                        cv2.rectangle(overlay, (x1, y1), (x2, y2), (20, 22, 26), -1)
+                        cv2.rectangle(overlay, (x1, y1), (x2, y2), (65, 72, 85), 1)
+                        alpha = 0.78
+                        cv2.addWeighted(overlay, alpha, annotated_frame, 1 - alpha, 0, annotated_frame)
+
+                        # Render stat lines
+                        cur_y = y1 + pad_y + 15
+                        for label, val_text, color in hud_lines:
+                            cv2.putText(
+                                annotated_frame,
+                                label,
+                                (x1 + pad_x, cur_y),
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                0.44,
+                                (200, 205, 215),
+                                1,
+                                cv2.LINE_AA,
+                            )
+                            (vw, _), _ = cv2.getTextSize(val_text, cv2.FONT_HERSHEY_SIMPLEX, 0.52, 2)
+                            cv2.putText(
+                                annotated_frame,
+                                val_text,
+                                (x2 - pad_x - vw, cur_y),
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                0.52,
+                                color,
+                                2,
+                                cv2.LINE_AA,
+                            )
+                            cur_y += line_h
+
                 if writer:
                     writer.write(annotated_frame)
 

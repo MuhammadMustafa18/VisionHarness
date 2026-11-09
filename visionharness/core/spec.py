@@ -40,6 +40,7 @@ class WorkflowOutputConfig(BaseModel):
     draw_tracking_ids: bool = True
     draw_trails: bool = True
     draw_counters: bool = True
+    draw_hud: bool = True
     save_annotated_video: bool = True
     emit_events_jsonl: bool = True
 
