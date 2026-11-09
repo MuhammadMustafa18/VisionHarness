@@ -78,6 +78,14 @@ AGENT_TOOLS = [
         }
     },
     {
+        "name": "get_scene_grounding",
+        "description": "Retrieve previously grounded scene analysis (detected objects, proposed tracking zones/lines, scene perspective, recommended setup) for the active session. Use this whenever the user asks about the scene, what pedestrian area was proposed, or what was detected, instead of calling vlm_ground_scene again.",
+        "input_schema": {
+            "type": "object",
+            "properties": {}
+        }
+    },
+    {
         "name": "run_pipeline",
         "description": "Execute YOLO detection + ByteTrack tracking on the full video footage using the confirmed workflow specification. Only call this when the user explicitly confirms or asks to run the pipeline.",
         "input_schema": {
@@ -95,7 +103,8 @@ SYSTEM_PROMPT = """You are VisionHarness, an autonomous AI Computer Vision Archi
 You design, ground, and run real-world computer vision workflows across video streams and edge devices.
 
 You operate inside an autonomous ReAct loop with access to tools:
-- `vlm_ground_scene`: Call this to visually inspect video footage, identify scene elements, and generate polygon zones or crossing lines.
+- `vlm_ground_scene`: Call this to visually inspect video footage, identify scene elements, and generate polygon zones or crossing lines. Call this AT MOST ONCE per video.
+- `get_scene_grounding`: Retrieve the already grounded scene analysis (proposed zones, objects, perspective) for this session. Use this if the user asks what area or objects were proposed/covered, or to recall prior scene understanding.
 - `get_geometry_history`: Query current polygon/line geometry state, vertices, and the history of user modifications.
 - `query_inference_results`: Call this if the user asks questions about prior pipeline execution (counts, stats, occupants).
 - `search_components`: Search available CV modules.
@@ -103,7 +112,10 @@ You operate inside an autonomous ReAct loop with access to tools:
 - `run_pipeline`: Execute the confirmed detection & tracking pipeline on the full video.
 
 GUIDELINES:
-1. When the user provides or references video footage, call `vlm_ground_scene` to inspect the scene, understand the camera perspective, and propose tracking zones. If the scene has already been grounded in this session and the user has custom-edited their polygon, do NOT re-call `vlm_ground_scene` unless they explicitly ask to reset or re-ground the footage.
+1. SCENE GROUNDING & PERSISTENCE:
+   - When new video footage is first provided or referenced, call `vlm_ground_scene` once to inspect the scene, understand the camera perspective, and propose tracking zones.
+   - Grounding is automatically saved for the session. Once the scene is grounded, NEVER call `vlm_ground_scene` again for the same video!
+   - If the user asks questions about the proposed zone, what pedestrian area would be covered, or what objects are in the scene (e.g. "can u show what pedestrian area would u cover?", "what did you detect?", "explain the zone"), do NOT call `vlm_ground_scene`. Either answer directly using the session context or call `get_scene_grounding`. Only call `vlm_ground_scene` if the user explicitly asks to "re-ground" or "reset scene".
 2. When the user in natural language asks to edit, adjust, draw, customize, reshape, or crop the zone or line (e.g., "let me edit the polygon", "open geometry editor", "adjust line"):
    - If there is NO video attached in ACTIVE WORKSPACE STATE, politely inform them that they need to upload or provide a video first. Do NOT call `open_geometry_editor` with hallucinated paths!
    - If a video IS attached in the workspace, call `open_geometry_editor`.
@@ -137,9 +149,38 @@ def execute_tool(tool_name: str, tool_input: Dict[str, Any], workspace: Dict[str
             return {"error": f"Video path '{video_path}' not found on server."}
         try:
             grounding = ground_scene_with_vlm(video_path, goal)
+            # Automatically persist scene grounding in SessionStore
+            session_id = workspace.get("session_id")
+            if session_id:
+                SessionStore.save_scene_grounding(session_id, grounding)
             return grounding
         except Exception as e:
             return {"error": str(e)}
+
+    elif tool_name == "get_scene_grounding":
+        session_id = workspace.get("session_id")
+        grounding = SessionStore.get_scene_grounding(session_id) if session_id else None
+        if grounding:
+            return {
+                "status": "success",
+                "grounding": grounding,
+                "summary": f"Scene already grounded: {grounding.get('scene_type', 'urban scene')}. Proposed {len(grounding.get('zones', []))} zone(s) and {len(grounding.get('lines', []))} line(s)."
+            }
+        # Fallback to checking workspace spec
+        spec = workspace.get("spec") or {}
+        if spec.get("zones") or spec.get("lines"):
+            return {
+                "status": "success",
+                "grounding": {
+                    "zones": spec.get("zones", []),
+                    "lines": spec.get("lines", []),
+                    "description": "Retrieved from active workspace specification."
+                }
+            }
+        return {
+            "status": "not_grounded",
+            "message": "No scene grounding has been recorded yet for this session."
+        }
 
     elif tool_name == "query_inference_results":
         stats = workspace.get("last_stats")
@@ -371,7 +412,19 @@ def stream_react_agent(
             f"{json.dumps(workspace['last_stats'])}"
         )
 
-    sys_prompt = SYSTEM_PROMPT + f"\n\nACTIVE WORKSPACE STATE:\n{json.dumps(workspace, indent=2)}{stats_note}{video_context_note}"
+    # Check if scene has already been grounded in this session
+    grounding_note = ""
+    saved_grounding = SessionStore.get_scene_grounding(session_id)
+    if saved_grounding:
+        scene_desc = saved_grounding.get("formatted_text") or saved_grounding.get("scene_type") or "Scene elements already identified"
+        grounding_note = (
+            f"\nPRIOR SCENE GROUNDING RECORDED: This footage has already been grounded for this session! "
+            f"Summary: {scene_desc}. "
+            f"Zones proposed: {len(saved_grounding.get('zones', []))}, Lines proposed: {len(saved_grounding.get('lines', []))}. "
+            f"DO NOT call vlm_ground_scene again! Use this existing grounding or call `get_scene_grounding`."
+        )
+
+    sys_prompt = SYSTEM_PROMPT + f"\n\nACTIVE WORKSPACE STATE:\n{json.dumps(workspace, indent=2)}{stats_note}{video_context_note}{grounding_note}"
 
     messages_payload: List[Dict[str, Any]] = []
 

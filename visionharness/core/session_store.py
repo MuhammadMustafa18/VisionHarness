@@ -140,3 +140,31 @@ class SessionStore:
                 pass
 
         return message.model_dump()
+
+    @classmethod
+    def save_scene_grounding(cls, session_id: str, grounding_data: Dict[str, Any]) -> None:
+        """Saves scene grounding results (scene objects, proposed zones/lines, commentary) for the session."""
+        s_dir = cls._get_session_dir(session_id)
+        grounding_path = os.path.join(s_dir, "grounding.json")
+        try:
+            with open(grounding_path, "w", encoding="utf-8") as f:
+                json.dump({
+                    "grounding": grounding_data,
+                    "saved_at": time.time()
+                }, f, indent=2)
+        except Exception as e:
+            print(f"[SessionStore] Failed to save scene grounding: {e}")
+
+    @classmethod
+    def get_scene_grounding(cls, session_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieves previously saved scene grounding data for the session if it exists."""
+        s_dir = cls._get_session_dir(session_id)
+        grounding_path = os.path.join(s_dir, "grounding.json")
+        if os.path.exists(grounding_path):
+            try:
+                with open(grounding_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    return data.get("grounding")
+            except Exception as e:
+                print(f"[SessionStore] Failed to read scene grounding: {e}")
+        return None
