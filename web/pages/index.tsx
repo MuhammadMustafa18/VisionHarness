@@ -1078,7 +1078,7 @@ Capabilities:
           <div className="px-4 pb-2 shrink-0">
             <button
               onClick={handleNewChat}
-              className="w-full py-2.5 px-3.5 rounded-xl bg-[var(--fg)] hover:bg-[var(--fg)] text-[var(--bg-app)] text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98]"
+              className="w-full py-3 px-3.5 rounded-xl bg-[var(--fg)] hover:bg-[var(--fg)] text-[var(--bg-app)] text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98]"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>New Workspace</span>
@@ -1095,7 +1095,7 @@ Capabilities:
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   placeholder="Search chats..."
-                  className="bg-transparent border-none outline-none text-xs text-[var(--fg)] placeholder-neutral-500 w-full"
+                  className="bg-transparent border-none outline-none text-sm text-[var(--fg)] placeholder-neutral-500 w-full"
                 />
               </div>
               {searchQuery ? (
@@ -1119,15 +1119,15 @@ Capabilities:
           <button
             type="button"
             onClick={() => setChatsOpen(o => !o)}
-            className="w-full px-5 pt-4 pb-2 flex items-center justify-between text-[11px] font-medium tracking-normal text-neutral-500 shrink-0 hover:text-neutral-300 transition-colors"
+            className="w-full px-5 pt-5 pb-2.5 flex items-center justify-between text-xs font-semibold tracking-wide text-neutral-300 shrink-0 hover:text-[var(--fg)] transition-colors"
           >
-            <span className="flex items-center gap-1.5">
+            <span className="flex items-center gap-2">
               <ChevronRight
-                className={`w-3 h-3 transition-transform duration-200 ${chatsOpen ? "rotate-90" : ""}`}
+                className={`w-3.5 h-3.5 transition-transform duration-200 ${chatsOpen ? "rotate-90" : ""}`}
               />
               Workspaces & Chats
             </span>
-            <span className="font-mono text-[10px] text-neutral-500">{filteredSessions.length}</span>
+            <span className="font-mono text-[11px] text-neutral-500">{filteredSessions.length}</span>
           </button>
 
           {/* Dynamic Scrollable Chat Sessions List */}
@@ -1143,18 +1143,18 @@ Capabilities:
                     setVideoFile(null);
                     setVideoPreviewUrl(null);
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all group text-left ${
+                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium transition-all group text-left ${
                     isActive
                       ? "bg-[var(--bg-hover)] text-[var(--fg)] shadow-inner font-semibold border border-[var(--border-nav)]"
-                      : "text-neutral-400 hover:text-[var(--fg)] hover:bg-[var(--bg-surface)]"
+                      : "text-neutral-200 hover:text-[var(--fg)] hover:bg-[var(--bg-surface)]"
                   }`}
                 >
-                  <div className="flex items-center gap-2.5 truncate min-w-0 pr-2">
-                    <Folder className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-[var(--accent-glow)]" : "text-neutral-500 group-hover:text-neutral-400"}`} />
+                  <div className="flex items-center gap-3 truncate min-w-0 pr-2">
+                    <Folder className={`w-4 h-4 shrink-0 ${isActive ? "text-[var(--accent-glow)]" : "text-neutral-400 group-hover:text-neutral-300"}`} />
                     <span className="truncate">{s.name || s.id}</span>
                   </div>
                   {s.count !== undefined && (
-                    <span className="text-[10px] text-neutral-500 font-mono shrink-0">{s.count}</span>
+                    <span className="text-[11px] text-neutral-500 font-mono shrink-0">{s.count}</span>
                   )}
                 </button>
               );
@@ -1171,11 +1171,11 @@ Capabilities:
           <button
             type="button"
             onClick={() => setEnginesOpen(o => !o)}
-            className="w-full px-5 pt-4 pb-2 flex items-center justify-between text-[11px] font-medium tracking-normal text-neutral-500 shrink-0 hover:text-neutral-300 transition-colors"
+            className="w-full px-5 pt-5 pb-2.5 flex items-center justify-between text-xs font-semibold tracking-wide text-neutral-300 shrink-0 hover:text-[var(--fg)] transition-colors"
           >
             <span>Vision engines</span>
             <ChevronRight
-              className={`w-3 h-3 transition-transform duration-200 ${enginesOpen ? "rotate-90" : ""}`}
+              className={`w-3.5 h-3.5 transition-transform duration-200 ${enginesOpen ? "rotate-90" : ""}`}
             />
           </button>
 
@@ -1192,17 +1192,17 @@ Capabilities:
                     key={c.id}
                     type="button"
                     onClick={() => setSelectedComponent(c)}
-                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs transition-all text-left ${
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm transition-all text-left ${
                       isActive
-                        ? "bg-[var(--bg-active)] text-[var(--fg)]"
-                        : "text-neutral-400 hover:text-[var(--fg)] hover:bg-[var(--bg-hover)]"
+                        ? "bg-[var(--bg-active)] text-[var(--fg)] font-medium"
+                        : "text-neutral-200 hover:text-[var(--fg)] hover:bg-[var(--bg-hover)]"
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dot}`} />
                       <span className="truncate">{c.name}</span>
                     </div>
-                    <span className="text-neutral-500 font-mono text-[10px] shrink-0 ml-2">
+                    <span className="text-neutral-500 font-mono text-[11px] shrink-0 ml-2">
                       {c.category}
                     </span>
                   </button>
