@@ -1,10 +1,10 @@
 {
-  "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/tooling/cli/schema.json",
+  "$schema": "https://schema.tauri.app/config/2",
   "productName": "VisionHarness",
   "version": "0.1.0",
   "identifier": "com.visionharness.desktop",
   "build": {
-    "beforeDevCommand": "",
+    "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:3000",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../out"
@@ -30,13 +30,16 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["msi", "nsis"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "externalBin": ["binaries/visionharness-server"],
+    "shortDescription": "Agentic computer vision builder",
+    "longDescription": "Design, ground and run computer vision tracking pipelines on video, with a bundled local inference backend."
   }
 }
