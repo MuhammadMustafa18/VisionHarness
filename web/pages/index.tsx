@@ -32,7 +32,14 @@ import {
   Sun,
   Moon,
   StopCircle,
-  Info
+  Info,
+  Radio,
+  Cctv,
+  Camera,
+  Maximize2,
+  Minimize2,
+  RefreshCw,
+  Send
 } from "lucide-react";
 
 interface WorkflowSession {
@@ -138,6 +145,18 @@ export default function VisionHarnessApp() {
     unique_tracks?: number;
   } | null>(null);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+
+  // Live Mode State
+  const isLiveWorkspace = activeSession?.domain === "live_cctv";
+  const [liveStreamUrl, setLiveStreamUrl] = useState("http://192.168.1.105:8080/video");
+  const [isLiveConnected, setIsLiveConnected] = useState(true);
+  const [isLiveFullscreen, setIsLiveFullscreen] = useState(false);
+  const [showLiveConnectModal, setShowLiveConnectModal] = useState(false);
+  const [liveCameraLabel, setLiveCameraLabel] = useState("CAM-01: Poultry Perimeter");
+  const [liveFps, setLiveFps] = useState(24.8);
+  const [liveActiveTracks, setLiveActiveTracks] = useState(14);
+  const [liveZoneFootfall, setLiveZoneFootfall] = useState(38);
+  const [liveCurrentInside, setLiveCurrentInside] = useState(5);
 
   // Vision engines registry
   const [components, setComponents] = useState<any[]>([]);
@@ -362,6 +381,40 @@ Capabilities:
       if (workspaceSaveTimerRef.current) clearTimeout(workspaceSaveTimerRef.current);
     };
   }, [workspaceState, activeSessionId]);
+
+  const handleNewLiveChat = () => {
+    const newId = `wf_live_${Date.now()}`;
+    const newSession: WorkflowSession = {
+      id: newId,
+      name: "Live CCTV Stream",
+      domain: "live_cctv",
+      folder: "Live Feeds"
+    };
+
+    setSessions(prev => [newSession, ...prev]);
+    setActiveSessionId(newId);
+    setVideoFile(null);
+    setVideoPreviewUrl(null);
+    setUploadDone(false);
+    setUploadProgress(null);
+    setWorkspaceState({});
+    setMessages([
+      {
+        id: Date.now().toString(),
+        sender: "bot",
+        text: "Connected to Live CCTV Camera Feed. Instant scene grounding active. Describe what you want your live camera to detect, track, or count.",
+        thoughts: "Live mode initialized. Stream pipeline ready for live inference and telemetry.",
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }
+    ]);
+    setIsLiveConnected(true);
+
+    fetch("http://localhost:8000/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newSession)
+    }).catch(() => {});
+  };
 
   const handleNewChat = () => {
     const newId = `wf_${Date.now()}`;
@@ -1143,14 +1196,23 @@ Capabilities:
             </button>
           </div>
 
-          {/* New Chat Quick Button */}
-          <div className="px-4 pb-2 shrink-0">
+          {/* New Chat & Live Stream Quick Actions */}
+          <div className="px-4 pb-2 shrink-0 space-y-1.5">
             <button
               onClick={handleNewChat}
-              className="w-full py-3 px-3.5 rounded-xl bg-[var(--fg)] hover:bg-[var(--fg)] text-[var(--bg-app)] text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98]"
+              className="w-full py-2.5 px-3.5 rounded-xl bg-[var(--fg)] hover:bg-[var(--fg)] text-[var(--bg-app)] text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98]"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>New Workspace</span>
+            </button>
+
+            <button
+              onClick={handleNewLiveChat}
+              className="w-full py-2.5 px-3.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-sm active:scale-[0.98] group"
+            >
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              <Radio className="w-3.5 h-3.5" />
+              <span>Live CCTV Stream</span>
             </button>
           </div>
 
@@ -1432,10 +1494,199 @@ Capabilities:
               </div>
             </div>
           </div>
+        ) : isLiveWorkspace ? (
+          /* =========================================================================
+             LIVE MODE WORKSPACE STUDIO (Center Video Stage + Right Copilot Chat Drawer)
+             ========================================================================= */
+          <div className="flex-1 flex overflow-hidden w-full h-full">
+            
+            {/* Center Stage: CCTV Live Video Feed & Overlays */}
+            <div className="flex-1 flex flex-col bg-[#0b0c0e] overflow-hidden relative border-r border-[#1e2025]">
+              
+              {/* CCTV Live Control Bar */}
+              <div className="h-12 border-b border-[#1e2025] px-5 flex items-center justify-between bg-[#111215]/80 backdrop-blur-md shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/30 text-red-400 font-mono text-[11px] font-semibold">
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                    <span>LIVE</span>
+                  </div>
+                  <span className="text-xs font-semibold text-white tracking-wide">{liveCameraLabel}</span>
+                  <span className="text-[11px] font-mono text-neutral-500">· {liveFps} FPS</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowLiveConnectModal(true)}
+                    className="px-2.5 py-1 rounded-lg bg-neutral-800/80 hover:bg-neutral-700/80 border border-neutral-700/60 text-neutral-300 text-xs font-medium flex items-center gap-1.5 transition-colors"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    <span>Change Stream</span>
+                  </button>
+                  <button
+                    onClick={() => setIsLiveFullscreen(f => !f)}
+                    className="p-1.5 rounded-lg bg-neutral-800/80 hover:bg-neutral-700/80 border border-neutral-700/60 text-neutral-300 text-xs transition-colors"
+                    title="Toggle Fullscreen"
+                  >
+                    <Maximize2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Main Video Viewport */}
+              <div className="flex-1 flex items-center justify-center p-6 bg-[#0a0a0c] overflow-hidden relative">
+                <div className="relative w-full max-w-4xl max-h-[75vh] aspect-[16/9] rounded-2xl overflow-hidden bg-black border border-neutral-800 shadow-2xl flex items-center justify-center group">
+                  
+                  {/* CCTV Feed Image */}
+                  <img
+                    src="/live_demo_cctv.jpg"
+                    alt="Live CCTV Feed"
+                    className="w-full h-full object-cover select-none pointer-events-none"
+                  />
+
+                  {/* Top-Right CCTV Camera Time Overlay */}
+                  <div className="absolute top-4 right-4 px-3 py-1.5 rounded-lg bg-black/80 backdrop-blur-md border border-white/10 font-mono text-xs text-white/90 font-medium tracking-wider select-none shadow">
+                    CAM-01 · {new Date().toLocaleTimeString()}
+                  </div>
+
+                  {/* Top-Left In-Video Live Telemetry HUD */}
+                  <div className="absolute top-4 left-4 p-3 rounded-xl bg-black/80 backdrop-blur-md border border-neutral-700/80 min-w-[210px] space-y-1.5 shadow-2xl pointer-events-none select-none">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 font-semibold flex items-center gap-1.5 pb-1 border-b border-neutral-800">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Live VisionOps HUD
+                    </div>
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-neutral-400">Footfall Entered</span>
+                      <span className="text-emerald-400 font-bold">{liveZoneFootfall}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-neutral-400">Current Inside</span>
+                      <span className="text-sky-400 font-bold">{liveCurrentInside}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-neutral-400">Active Tracks</span>
+                      <span className="text-amber-400 font-bold">{liveActiveTracks}</span>
+                    </div>
+                  </div>
+
+                  {/* Bottom Controls Overlay on Hover */}
+                  <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between opacity-90 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-1 rounded-md bg-black/75 backdrop-blur-md text-[11px] font-mono text-neutral-300 border border-white/10">
+                        Protocol: RTSP / HTTP-MJPEG
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const mId = messages[messages.length - 1]?.id;
+                        if (mId) setActiveEditorMessageId(mId);
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs flex items-center gap-1.5 shadow-lg transition-transform active:scale-95"
+                    >
+                      <Sliders className="w-3.5 h-3.5" />
+                      Edit Grounding Polygon
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Quick Status Strip */}
+              <div className="h-10 border-t border-[#1e2025] px-6 flex items-center justify-between text-xs text-neutral-400 bg-[#0d0e11] font-mono shrink-0">
+                <div className="flex items-center gap-4">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                    Stream Ingestion: Healthy
+                  </span>
+                  <span>Latency: ~65ms</span>
+                </div>
+                <span>Resolution: 1920x1080 @ 25fps</span>
+              </div>
+            </div>
+
+            {/* Right Drawer: AI Copilot Chat & NLP Workflow Prompt Bar */}
+            <div className="w-[420px] lg:w-[460px] flex flex-col bg-[#141518] border-l border-[#24262b] shrink-0 h-full overflow-hidden select-text">
+              
+              {/* Copilot Header */}
+              <div className="h-12 border-b border-[#24262b] px-4 flex items-center justify-between bg-[#18191d] shrink-0">
+                <div className="flex items-center gap-2">
+                  <Cctv className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs font-semibold text-neutral-200">VisionOps Live Copilot</span>
+                </div>
+                <div className="flex items-center gap-1 text-[11px] font-mono text-neutral-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  Grounding Synced
+                </div>
+              </div>
+
+              {/* Chat Messages Feed */}
+              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+                {messages.map(msg => (
+                  <div
+                    key={msg.id}
+                    className={`flex flex-col space-y-1.5 ${
+                      msg.sender === "user" ? "items-end" : "items-start"
+                    }`}
+                  >
+                    <div
+                      className={`rounded-2xl px-3.5 py-2.5 text-xs max-w-[92%] leading-relaxed ${
+                        msg.sender === "user"
+                          ? "bg-[var(--fg)] text-[var(--bg-app)] font-medium"
+                          : "bg-[#1c1e22] text-neutral-200 border border-[#2a2d33] shadow-sm"
+                      }`}
+                    >
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {msg.text}
+                      </ReactMarkdown>
+                    </div>
+                    <span className="text-[10px] font-mono text-neutral-500 px-1">
+                      {msg.timestamp}
+                    </span>
+                  </div>
+                ))}
+                <div ref={chatEndRef} />
+              </div>
+
+              {/* Right Drawer Dedicated Prompt Box */}
+              <div className="p-3 border-t border-[#24262b] bg-[#16171b] shrink-0">
+                <form
+                  onSubmit={handleSendPrompt}
+                  className="bg-[#1e2025] border border-[#2f3239] rounded-xl p-2.5 space-y-2 focus-within:border-emerald-500/70 transition-colors shadow-inner"
+                >
+                  <textarea
+                    value={prompt}
+                    onChange={e => setPrompt(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendPrompt();
+                      }
+                    }}
+                    rows={2}
+                    placeholder="Ask Copilot (e.g. 'Count chickens crossing the coop', 'alert if predator enters')..."
+                    className="w-full bg-transparent border-none outline-none text-xs text-neutral-200 placeholder-neutral-500 resize-none px-1"
+                  />
+                  <div className="flex items-center justify-between pt-1 border-t border-[#2a2d33]">
+                    <span className="text-[10px] font-mono text-neutral-500">{selectedModel}</span>
+                    <button
+                      type="submit"
+                      disabled={!prompt.trim() || isPlanning}
+                      className="px-3 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-40 shadow"
+                    >
+                      <span>Send</span>
+                      <Send className="w-3 h-3" />
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+          </div>
         ) : (
-          /* Chat / Reasoning Canvas */
-          <div className="flex-1 overflow-y-auto px-4 py-6 select-text w-full">
-            <div className="max-w-4xl mx-auto space-y-6">
+          /* =========================================================================
+             STANDARD BATCH VIDEO WORKSPACE (Centered Canvas + Minimal Bottom Prompt Bar)
+             ========================================================================= */
+          <div className="flex-1 flex flex-col h-full overflow-hidden">
+            <div className="flex-1 overflow-y-auto px-4 py-6 select-text w-full">
+              <div className="max-w-4xl mx-auto space-y-6">
             {/* Zero Messages Empty State (Claude/ChatGPT Style Greeting) */}
             {messages.length === 0 && !isBusy && (
               <div className="flex flex-col items-center justify-center min-h-[55vh] max-w-xl mx-auto text-center space-y-8 animate-in fade-in duration-500">
@@ -2030,124 +2281,125 @@ Capabilities:
             <div ref={chatEndRef} />
             </div>
           </div>
-        )}
 
-        {/* Minimalist Floating Prompt Box */}
-        <footer className="p-6">
-          <form
-            onSubmit={handleSendPrompt}
-            className="max-w-3xl mx-auto bg-[var(--bg-surface)] border border-[var(--border-card)] rounded-2xl p-3 space-y-3 shadow-2xl focus-within:border-neutral-500 transition-colors"
-          >
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept="video/*"
-              className="hidden"
-              onChange={e => {
-                if (e.target.files && e.target.files[0]) {
-                  handleFileUpload(e.target.files[0]);
-                }
-              }}
-            />
+          {/* Minimalist Floating Prompt Box */}
+          <footer className="p-6">
+            <form
+              onSubmit={handleSendPrompt}
+              className="max-w-3xl mx-auto bg-[var(--bg-surface)] border border-[var(--border-card)] rounded-2xl p-3 space-y-3 shadow-2xl focus-within:border-neutral-500 transition-colors"
+            >
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="video/*"
+                className="hidden"
+                onChange={e => {
+                  if (e.target.files && e.target.files[0]) {
+                    handleFileUpload(e.target.files[0]);
+                  }
+                }}
+              />
 
-            {/* Selected File Attached Pill Badge — with live video preview */}
-            {videoFile && (
-              <div className="flex items-center justify-between gap-3 bg-[var(--bg-badge)] border border-[var(--border-panel)] rounded-xl px-3 py-2 text-xs text-neutral-300">
-                <div className="flex items-center gap-3 truncate min-w-0">
-                  {videoPreviewUrl ? (
-                    <video
-                      src={videoPreviewUrl}
-                      muted
-                      playsInline
-                      preload="metadata"
-                      className="w-20 h-12 rounded-md object-cover bg-black border border-white/10 shrink-0"
-                    />
-                  ) : (
-                    <div className="w-20 h-12 rounded-md bg-black/60 border border-white/10 flex items-center justify-center shrink-0">
-                      <Video className="w-4 h-4 text-emerald-400" />
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <div className="font-mono truncate">{videoFile.name}</div>
-                    <div className="text-[10px] text-neutral-500 font-mono">
-                      {(videoFile.size / (1024 * 1024)).toFixed(1)} MB · ready to attach
+              {/* Selected File Attached Pill Badge — with live video preview */}
+              {videoFile && (
+                <div className="flex items-center justify-between gap-3 bg-[var(--bg-badge)] border border-[var(--border-panel)] rounded-xl px-3 py-2 text-xs text-neutral-300">
+                  <div className="flex items-center gap-3 truncate min-w-0">
+                    {videoPreviewUrl ? (
+                      <video
+                        src={videoPreviewUrl}
+                        muted
+                        playsInline
+                        preload="metadata"
+                        className="w-20 h-12 rounded-md object-cover bg-black border border-white/10 shrink-0"
+                      />
+                    ) : (
+                      <div className="w-20 h-12 rounded-md bg-black/60 border border-white/10 flex items-center justify-center shrink-0">
+                        <Video className="w-4 h-4 text-emerald-400" />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <div className="font-mono truncate">{videoFile.name}</div>
+                      <div className="text-[10px] text-neutral-500 font-mono">
+                        {(videoFile.size / (1024 * 1024)).toFixed(1)} MB · ready to attach
+                      </div>
                     </div>
                   </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
-                    setVideoFile(null);
-                    setVideoPreviewUrl(null);
-                  }}
-                  className="text-neutral-400 hover:text-rose-400 text-xs shrink-0 font-mono"
-                  title="Remove video"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-
-            <textarea
-              value={prompt}
-              onChange={e => setPrompt(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendPrompt();
-                }
-              }}
-              rows={2}
-              placeholder="Describe what you want your camera or footage to track..."
-              className="w-full bg-transparent border-none outline-none text-sm text-[var(--fg)] placeholder-neutral-500 resize-none px-2"
-            />
-
-            <div className="flex items-center justify-between pt-1 border-t border-[var(--border-row)]">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-7 h-7 rounded-lg hover:bg-[var(--bg-hover)] flex items-center justify-center text-neutral-400 hover:text-[var(--fg)] transition-colors"
-                  title="Attach video or component"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-
-                <div className="flex items-center gap-1.5 text-xs text-neutral-300 bg-[var(--bg-hover)] px-2.5 py-1 rounded-lg border border-[var(--border-chip)] cursor-pointer hover:text-[var(--fg)] font-medium">
-                  <Globe className="w-3.5 h-3.5 text-neutral-400" />
-                  <span>{selectedToolMode}</span>
-                  <ChevronRight className="w-3 h-3 rotate-90 text-neutral-500" />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-neutral-400 font-mono">
-                  {selectedModel}
-                </span>
-
-                {isBusy ? (
                   <button
                     type="button"
-                    onClick={handleStop}
-                    title="Stop"
-                    className="w-8 h-8 rounded-lg bg-rose-500 hover:bg-rose-400 text-white flex items-center justify-center transition-all shadow active:scale-[0.98]"
+                    onClick={() => {
+                      if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
+                      setVideoFile(null);
+                      setVideoPreviewUrl(null);
+                    }}
+                    className="text-neutral-400 hover:text-rose-400 text-xs shrink-0 font-mono"
+                    title="Remove video"
                   >
-                    <StopCircle className="w-4 h-4" />
+                    ✕
                   </button>
-                ) : (
+                </div>
+              )}
+
+              <textarea
+                value={prompt}
+                onChange={e => setPrompt(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendPrompt();
+                  }
+                }}
+                rows={2}
+                placeholder="Describe what you want your camera or footage to track..."
+                className="w-full bg-transparent border-none outline-none text-sm text-[var(--fg)] placeholder-neutral-500 resize-none px-2"
+              />
+
+              <div className="flex items-center justify-between pt-1 border-t border-[var(--border-row)]">
+                <div className="flex items-center gap-2">
                   <button
-                    type="submit"
-                    disabled={!prompt.trim() || isPlanning}
-                    className="w-8 h-8 rounded-lg bg-[var(--accent-send)] hover:bg-[var(--accent-send-hover)] text-[var(--fg-on-accent)] flex items-center justify-center transition-all disabled:opacity-40 shadow"
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-7 h-7 rounded-lg hover:bg-[var(--bg-hover)] flex items-center justify-center text-neutral-400 hover:text-[var(--fg)] transition-colors"
+                    title="Attach video or component"
                   >
-                    <ArrowUp className="w-4 h-4 text-[var(--fg-on-accent)] stroke-[2.5]" />
+                    <Plus className="w-4 h-4" />
                   </button>
-                )}
+
+                  <div className="flex items-center gap-1.5 text-xs text-neutral-300 bg-[var(--bg-hover)] px-2.5 py-1 rounded-lg border border-[var(--border-chip)] cursor-pointer hover:text-[var(--fg)] font-medium">
+                    <Globe className="w-3.5 h-3.5 text-neutral-400" />
+                    <span>{selectedToolMode}</span>
+                    <ChevronRight className="w-3 h-3 rotate-90 text-neutral-500" />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-neutral-400 font-mono">
+                    {selectedModel}
+                  </span>
+
+                  {isBusy ? (
+                    <button
+                      type="button"
+                      onClick={handleStop}
+                      title="Stop"
+                      className="w-8 h-8 rounded-lg bg-rose-500 hover:bg-rose-400 text-white flex items-center justify-center transition-all shadow active:scale-[0.98]"
+                    >
+                      <StopCircle className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={!prompt.trim() || isPlanning}
+                      className="w-8 h-8 rounded-lg bg-[var(--accent-send)] hover:bg-[var(--accent-send-hover)] text-[var(--fg-on-accent)] flex items-center justify-center transition-all disabled:opacity-40 shadow"
+                    >
+                      <ArrowUp className="w-4 h-4 text-[var(--fg-on-accent)] stroke-[2.5]" />
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          </form>
-        </footer>
+            </form>
+          </footer>
+        </div>
+      )}
       </main>
     </div>
   );
