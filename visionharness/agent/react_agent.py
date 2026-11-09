@@ -95,13 +95,15 @@ GUIDELINES:
 2. When the user in natural language asks to edit, adjust, draw, customize, reshape, or crop the zone or line (e.g., "let me edit the polygon", "open geometry editor", "adjust line"):
    - If there is NO video attached in ACTIVE WORKSPACE STATE, politely inform them that they need to upload or provide a video first. Do NOT call `open_geometry_editor` with hallucinated paths!
    - If a video IS attached in the workspace, call `open_geometry_editor`.
-3. If the user asks for your opinion on their custom polygon (e.g., "what do you think about what I drew?"), evaluate it directly based on the scene context and their tracking goal (e.g., sidewalk vs road coverage, excluding background foliage/buildings, occlusion considerations). Answer directly without calling unnecessary tools.
+3. When the user says they are done editing or asks what you think of their drawing (e.g. "i am done editing", "what do you think about what i drew?", "how does my zone look?"):
+   - Inspect the `[GEOMETRY AUDIT DIFF: ...]` in conversation history and compare `ORIGINAL_PROPOSAL` vs `USER_EDITED`.
+   - Provide a thoughtful CV commentary explaining what changed (e.g., how the user tightened the boundaries, excluded background/traffic, or refocused on the main pedestrian pathway).
+   - Do NOT call `vlm_ground_scene`. Answer directly from the audit diff and workspace context!
 4. If the user asks a question about previous counts or results (e.g. "how many total people?"), query the existing workspace stats or answer directly using the workspace context.
 5. Be friendly, concise, and structured. For greetings or casual chat, reply in 1-2 short sentences — no tables, no capability lists, no essays.
 6. When planning or configuring a pipeline, format your final spec in a ```json code block so the UI can render the interactive action card.
-7. When the user says they are done editing or asks to proceed/build/run (e.g., "i am done editing", "run it", "proceed"):
-   - Do NOT call `vlm_ground_scene`. The user already finished editing the geometry!
-   - Immediately read their saved custom coordinates from ACTIVE WORKSPACE STATE (`workspace.spec.zones` or `workspace.spec.lines`) or the conversation history.
+7. When the user asks to proceed, build, or run the pipeline (e.g., "run it", "proceed", "build pipeline"):
+   - Read their saved custom coordinates from ACTIVE WORKSPACE STATE (`workspace.spec.zones` or `workspace.spec.lines`) or the conversation history audit diff.
    - Present the finalized pipeline spec JSON with their exact coordinates and ask to confirm execution, or call `run_pipeline` if they explicitly asked to run.
 8. If the user has edited or drawn custom geometry (zones or lines in ACTIVE WORKSPACE STATE `workspace.spec.zones` or `workspace.spec.lines`), ALWAYS preserve and respect their exact edited coordinates when building or updating the pipeline spec! Do NOT regenerate or overwrite their polygon unless explicitly asked. In your text response, explicitly acknowledge their custom zone/line (e.g., "Using your adjusted active zone...").
 9. Only call tools when the task actually needs them. Never call tools for greetings or small talk.
@@ -320,16 +322,20 @@ def stream_react_agent(
         role = "user" if pm.get("sender") == "user" else "assistant"
         txt = pm.get("text", "")
 
-        # Replay user geometry edits explicitly so the model knows the exact user-defined coordinates
+        # Replay user geometry edits explicitly with before & after coordinates
         if role == "user" and pm.get("geometryEditEvent"):
             geo = pm["geometryEditEvent"]
-            coords_str = ""
+            diff_parts = [f"type={geo.get('geometry_type')}"]
+            if geo.get("original_zones") and len(geo["original_zones"]) > 0:
+                diff_parts.append(f"ORIGINAL_PROPOSAL={json.dumps(geo['original_zones'][0].get('polygon', []))}")
             if geo.get("zones") and len(geo["zones"]) > 0:
-                poly = geo["zones"][0].get("polygon", [])
-                coords_str = f" Zones: {json.dumps(poly)}"
-            elif geo.get("lines") and len(geo["lines"]) > 0:
-                coords_str = f" Lines: {json.dumps(geo['lines'])}"
-            txt = f"{txt}\n[USER CUSTOM GEOMETRY SAVED: type={geo.get('geometry_type')}{coords_str}]".strip()
+                diff_parts.append(f"USER_EDITED={json.dumps(geo['zones'][0].get('polygon', []))}")
+            if geo.get("original_lines") and len(geo["original_lines"]) > 0:
+                diff_parts.append(f"ORIGINAL_LINES={json.dumps(geo['original_lines'])}")
+            if geo.get("lines") and len(geo["lines"]) > 0:
+                diff_parts.append(f"USER_EDITED_LINES={json.dumps(geo['lines'])}")
+
+            txt = f"{txt}\n[GEOMETRY AUDIT DIFF: {' | '.join(diff_parts)}]".strip()
 
         # Replay prior tool calls so the model remembers what it already did
         tool_summary = _summarize_tool_calls(pm.get("toolCalls")) if role == "assistant" else ""

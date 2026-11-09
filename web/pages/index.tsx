@@ -1440,17 +1440,20 @@ Capabilities:
                                     );
 
                                     // Append an explicit audit trail message in conversation history!
+                                    const vertexCount = geometry_type === "polygon" ? (zones[0]?.polygon?.length || 4) : 2;
                                     const historyEventMsg: Message = {
                                       id: `edit_event_${Date.now()}`,
                                       sender: "user",
-                                      text: `📐 Adjusted zone geometry: defined ${zones[0]?.polygon?.length || 4}-point custom boundary.`,
+                                      text: `📐 Adjusted ${geometry_type} geometry: defined custom ${vertexCount}-${geometry_type === "polygon" ? "point" : "endpoint"} boundary.`,
                                       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                                       geometryEditEvent: {
                                         action: "saved",
                                         geometry_type,
+                                        original_zones: normalizedZones,
+                                        original_lines: extractedLines,
                                         zones,
                                         lines,
-                                        summary: `User adjusted ${geometry_type} with ${zones[0]?.polygon?.length || 4} points`
+                                        summary: `User adjusted ${geometry_type} to ${vertexCount} coordinates`
                                       }
                                     };
                                     setMessages(prev => [...prev, historyEventMsg]);

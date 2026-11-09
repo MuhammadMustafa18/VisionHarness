@@ -34,8 +34,8 @@ export const GeometryEditor: React.FC<GeometryEditorProps> = ({
   onSave,
   className = ""
 }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [mode, setMode] = useState<"polygon" | "line">("polygon");
+  const [isEditing, setIsEditing] = useState(true);
+  const [mode, setMode] = useState<"polygon" | "line">(() => (initialLines.length > 0 && initialZones.length === 0 ? "line" : "polygon"));
 
   // Normalized zones state (0.0 to 1.0)
   const [zones, setZones] = useState<Zone[]>(() => {
