@@ -44,7 +44,11 @@ import {
   Clapperboard,
   User,
   Trash,
-  PanelLeft
+  PanelLeft,
+  Bell,
+  Check,
+  LogOut,
+  QrCode
 } from "lucide-react";
 
 interface WorkflowSession {
@@ -167,6 +171,18 @@ export default function VisionHarnessApp() {
   const [liveZoneFootfall, setLiveZoneFootfall] = useState(0);
   const [liveCurrentInside, setLiveCurrentInside] = useState(0);
   const [liveSnapshotUrl, setLiveSnapshotUrl] = useState<string | null>(null);
+
+  // WhatsApp Alert Bridge State (Recluze Style)
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [waConnected, setWaConnected] = useState(false);
+  const [waPhone, setWaPhone] = useState<string | null>(null);
+  const [waName, setWaName] = useState<string | null>(null);
+  const [waQr, setWaQr] = useState<string | null>(null);
+  const [waAlertsEnabled, setWaAlertsEnabled] = useState(true);
+  const [waMessageSelf, setWaMessageSelf] = useState(true);
+  const [waCustomRecipient, setWaCustomRecipient] = useState("");
+  const [waSendingTest, setWaSendingTest] = useState(false);
+  const [waTestSuccess, setWaTestSuccess] = useState<string | null>(null);
 
   // Vision engines registry
   const [components, setComponents] = useState<any[]>([]);
@@ -454,6 +470,64 @@ Capabilities:
       alert("Error connecting to live stream: " + e.message);
     } finally {
       setIsLiveConnecting(false);
+    }
+  };
+
+  // Poll WhatsApp Bridge Status (Recluze Style)
+  useEffect(() => {
+    const checkWa = async () => {
+      try {
+        const res = await fetch("http://localhost:3005/api/whatsapp/status");
+        if (res.ok) {
+          const d = await res.json();
+          setWaConnected(!!d.connected);
+          setWaPhone(d.phone || null);
+          setWaName(d.name || null);
+          setWaQr(d.qr || null);
+        }
+      } catch (e) {}
+    };
+
+    checkWa();
+    const waInterval = setInterval(checkWa, showWhatsAppModal ? 2000 : 8000);
+    return () => clearInterval(waInterval);
+  }, [showWhatsAppModal]);
+
+  const handleWaLogout = async () => {
+    try {
+      await fetch("http://localhost:3005/api/whatsapp/logout", { method: "POST" });
+      setWaConnected(false);
+      setWaPhone(null);
+      setWaName(null);
+      setWaTestSuccess(null);
+    } catch (e) {
+      alert("Error logging out of WhatsApp");
+    }
+  };
+
+  const handleSendTestWaAlert = async () => {
+    setWaSendingTest(true);
+    setWaTestSuccess(null);
+    try {
+      const recipient = waMessageSelf ? "me" : waCustomRecipient;
+      const res = await fetch("http://localhost:3005/api/whatsapp/send-alert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipient,
+          text: `🚨 *VisionOps Live Alert Test*\n\nTimestamp: ${new Date().toLocaleTimeString()}\nCamera: ${liveCameraLabel}\nStatus: System operational. WhatsApp alert pipeline active!`
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setWaTestSuccess("Test alert sent to your WhatsApp successfully!");
+      } else {
+        alert("Failed to send WhatsApp alert: " + (data.error || "Unknown error"));
+      }
+    } catch (e: any) {
+      alert("Error sending test alert: " + e.message);
+    } finally {
+      setWaSendingTest(false);
     }
   };
 
@@ -1645,6 +1719,18 @@ Capabilities:
 
                 <div className="flex items-center gap-2">
                   <button
+                    onClick={() => setShowWhatsAppModal(true)}
+                    className={`px-2.5 py-1 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                      waConnected
+                        ? "bg-zinc-800 border-zinc-600 text-white hover:bg-zinc-700"
+                        : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700"
+                    }`}
+                    title="Configure WhatsApp Alerts (Baileys)"
+                  >
+                    <span className={`w-2 h-2 rounded-full ${waConnected ? "bg-white" : "bg-zinc-500"}`} />
+                    <span>WhatsApp</span>
+                  </button>
+                  <button
                     onClick={() => setShowLiveConnectModal(true)}
                     className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/80 text-zinc-200 text-xs font-medium flex items-center gap-1.5 transition-colors"
                   >
@@ -2554,6 +2640,128 @@ Capabilities:
         </div>
       )}
       </main>
+
+      {/* WhatsApp Recluze-Style Connection & Alerts Modal */}
+      {showWhatsAppModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#121316] border border-zinc-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center">
+                  <span className="text-base">💬</span>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-white">WhatsApp Alert Dispatcher</h3>
+                  <p className="text-[11px] text-zinc-400 font-mono">Baileys Multi-Device Protocol</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowWhatsAppModal(false)}
+                className="text-zinc-500 hover:text-white text-sm p-1 rounded-lg hover:bg-zinc-800"
+              >
+                ✕
+              </button>
+            </div>
+
+            {waConnected ? (
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2.5 h-2.5 rounded-full bg-white shadow" />
+                    <div>
+                      <p className="text-xs font-semibold text-white">{waName || "WhatsApp User"}</p>
+                      <p className="text-[11px] text-zinc-400 font-mono">+{waPhone}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleWaLogout}
+                    className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 text-xs font-medium flex items-center gap-1.5 transition-colors"
+                  >
+                    <LogOut className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Logout</span>
+                  </button>
+                </div>
+
+                <div className="space-y-3 bg-zinc-900/60 p-4 rounded-xl border border-zinc-800/80">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-medium text-white">Message Yourself</p>
+                      <p className="text-[11px] text-zinc-500">Send CCTV alerts directly to your own chat</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={waMessageSelf}
+                      onChange={e => setWaMessageSelf(e.target.checked)}
+                      className="accent-white w-4 h-4 cursor-pointer"
+                    />
+                  </div>
+
+                  {!waMessageSelf && (
+                    <div className="pt-2 border-t border-zinc-800 space-y-1.5">
+                      <label className="text-[11px] text-zinc-400">Recipient Phone Number (with country code):</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 923001234567"
+                        value={waCustomRecipient}
+                        onChange={e => setWaCustomRecipient(e.target.value)}
+                        className="w-full bg-black border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-zinc-600 outline-none font-mono"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {waTestSuccess && (
+                  <div className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-700 text-zinc-200 text-xs flex items-center gap-2">
+                    <Check className="w-4 h-4 text-white shrink-0" />
+                    <span>{waTestSuccess}</span>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    onClick={handleSendTestWaAlert}
+                    disabled={waSendingTest}
+                    className="flex-1 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black font-semibold text-xs flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                  >
+                    <Bell className="w-3.5 h-3.5" />
+                    <span>{waSendingTest ? "Sending Test..." : "Send Test WhatsApp Alert"}</span>
+                  </button>
+                  <button
+                    onClick={() => setShowWhatsAppModal(false)}
+                    className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium text-xs transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-4 space-y-4 text-center">
+                <div className="p-3 bg-white rounded-2xl shadow-xl flex items-center justify-center">
+                  {waQr ? (
+                    <img src={waQr} alt="WhatsApp Pairing QR" className="w-56 h-56 rounded-lg" />
+                  ) : (
+                    <div className="w-56 h-56 flex flex-col items-center justify-center bg-zinc-100 text-zinc-500 gap-2">
+                      <QrCode className="w-8 h-8 animate-pulse text-zinc-400" />
+                      <span className="text-xs font-mono">Generating QR...</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-zinc-200">Scan this QR Code with WhatsApp</p>
+                  <p className="text-[11px] text-zinc-500">
+                    Open WhatsApp → <strong>Settings</strong> → <strong>Linked Devices</strong> → <strong>Link a Device</strong>
+                  </p>
+                </div>
+
+                <p className="text-[10px] font-mono text-zinc-600">
+                  Authentication is saved locally on your device. You can log out anytime.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

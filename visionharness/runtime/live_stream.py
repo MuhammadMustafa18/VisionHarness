@@ -63,6 +63,7 @@ class LiveCameraWorker:
         self.label_annotator = None
         self.trace_annotator = None
         self.zone_visitor_frames = {}
+        self.last_wa_alert_time = 0.0
 
     def connect_and_capture_snapshot(self) -> Optional[np.ndarray]:
         """Attempts connection and captures a single sharp snapshot frame."""
@@ -245,6 +246,11 @@ class LiveCameraWorker:
             self.current_inside = cur_inside_count
             self.active_tracks = len(active_tids)
 
+            # WhatsApp Alert Trigger Hook (Throttle: at most 1 alert every 45 seconds)
+            if cur_inside_count > 0 and (time.time() - self.last_wa_alert_time) > 45:
+                self.last_wa_alert_time = time.time()
+                self._dispatch_whatsapp_alert(cur_inside_count, raw)
+
             for lz in self.line_zones:
                 lz.trigger(detections=detections)
 
@@ -329,6 +335,37 @@ class LiveCameraWorker:
                 "current_inside": self.current_inside,
                 "peak_occupancy": self.peak_occupancy,
             }
+
+    def _dispatch_whatsapp_alert(self, count: int, frame: np.ndarray):
+        """Dispatches an asynchronous WhatsApp alert to the local Baileys bridge."""
+        def _send():
+            try:
+                import urllib.request
+                import json
+                import os
+                
+                os.makedirs("output/alerts", exist_ok=True)
+                snapshot_file = f"output/alerts/alert_{self.session_id}_{int(time.time())}.jpg"
+                cv2.imwrite(snapshot_file, frame)
+
+                payload = {
+                    "recipient": "me",
+                    "text": f"🚨 *VisionOps CCTV Alert*\n\nTarget breach detected: {count} active object(s) inside monitored zone.\nTimestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}",
+                    "image_path": os.path.abspath(snapshot_file)
+                }
+                
+                req = urllib.request.Request(
+                    "http://localhost:3005/api/whatsapp/send-alert",
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json"}
+                )
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    pass
+            except Exception as e:
+                pass  # Silently skip if WhatsApp bridge is offline or unlinked
+
+        t = threading.Thread(target=_send, daemon=True)
+        t.start()
 
     def stop(self):
         self.is_running = False
