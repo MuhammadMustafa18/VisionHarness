@@ -49,9 +49,12 @@ app.add_middleware(
 )
 
 # Directories
-WORKFLOWS_DIR = os.getenv("VISIONHARNESS_WORKFLOWS_DIR", "./workflows")
-OUTPUTS_DIR = "./output"
-UPLOADS_DIR = "./uploads"
+# VISIONHARNESS_DATA_DIR lets the desktop build keep all writable state in the
+# user's app-data folder instead of next to the installed binary.
+DATA_DIR = os.getenv("VISIONHARNESS_DATA_DIR", ".")
+WORKFLOWS_DIR = os.getenv("VISIONHARNESS_WORKFLOWS_DIR", os.path.join(DATA_DIR, "workflows"))
+OUTPUTS_DIR = os.getenv("VISIONHARNESS_OUTPUTS_DIR", os.path.join(DATA_DIR, "output"))
+UPLOADS_DIR = os.getenv("VISIONHARNESS_UPLOADS_DIR", os.path.join(DATA_DIR, "uploads"))
 
 for d in [WORKFLOWS_DIR, OUTPUTS_DIR, UPLOADS_DIR]:
     os.makedirs(d, exist_ok=True)
