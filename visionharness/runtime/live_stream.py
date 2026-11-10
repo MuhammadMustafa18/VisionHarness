@@ -349,8 +349,8 @@ class LiveCameraWorker:
                 cv2.imwrite(snapshot_file, frame)
 
                 payload = {
-                    "recipient": "me",
-                    "text": f"🚨 *VisionOps CCTV Alert*\n\nTarget breach detected: {count} active object(s) inside monitored zone.\nTimestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}",
+                    "recipient": "923178761858",
+                    "text": f"🚨 *VisionOps CCTV Alert: Intrusion Detected*\n\nTarget breach detected: {count} active object(s) inside monitored zone.\nTimestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}\nCamera: CAM-01 (Live Stream)",
                     "image_path": os.path.abspath(snapshot_file)
                 }
                 

@@ -180,8 +180,8 @@ export default function VisionHarnessApp() {
   const [waName, setWaName] = useState<string | null>(null);
   const [waQr, setWaQr] = useState<string | null>(null);
   const [waAlertsEnabled, setWaAlertsEnabled] = useState(true);
-  const [waMessageSelf, setWaMessageSelf] = useState(true);
-  const [waCustomRecipient, setWaCustomRecipient] = useState("");
+  const [waMessageSelf, setWaMessageSelf] = useState(false);
+  const [waCustomRecipient, setWaCustomRecipient] = useState("923178761858");
   const [waSendingTest, setWaSendingTest] = useState(false);
   const [waTestSuccess, setWaTestSuccess] = useState<string | null>(null);
 
