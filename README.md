@@ -1,8 +1,6 @@
 <div align="center">
 
-<!-- Project Logo / Banner Image Placeholder -->
-<!-- ![VisionHarness Logo](./images/LOGO.png) -->
-<br />
+<img src="./images/LOGO.png" alt="VisionOps Logo" width="160" />
 
 # VisionOps (VisionHarness)
 
@@ -15,8 +13,10 @@ An open-source, self-hosted agentic platform that turns natural language into ve
 
 ---
 
-<!-- Hero Showcase Image Placeholder -->
-<!-- ![VisionOps Hero Studio Showcase](./images/hero_showcase.png) -->
+<br />
+
+<img src="./images/cctv%20window%202.png" alt="VisionOps Studio Hero Interface" width="100%" />
+
 *VisionOps Studio: Autonomous multi-model reasoning, interactive polygon editor, live CCTV telemetry HUD, and WhatsApp alert dispatcher.*
 
 </div>
@@ -37,6 +37,7 @@ VisionOps is free, open-source software. Language model inference uses standard 
 
 - **Live CCTV & IP Webcam Studio**: Connect any phone IP camera (`http://<ip>:8080/video`) or security camera RTSP feed. Features zero-lag thread buffering (`CAP_PROP_BUFFERSIZE=1`), live in-video HUD overlays, and real-time telemetry streaming (FPS, footfall, current inside, active tracks).
 - **Instant VLM Spatial Grounding**: When a video or stream connects, the vision agent snapshots the scene and automatically identifies perspective, key physical boundaries, and objects using multimodal VLM intelligence.
+- **Interactive Visual Geometry Editor**: Move vertices, reshape polygons, or set directional tripwires directly on the canvas with real-time audit diff logging before executing.
 - **WhatsApp Alert Dispatcher (Baileys Multi-Device)**: Real-time CCTV intrusion and breach notifications sent directly to your WhatsApp with snapshot pictures attached — no WhatsApp Business API fees or approvals needed. Built on `@whiskeysockets/baileys` with in-app QR code pairing.
 - **Google Flow-Inspired Minimalist Studio**: Clean monochrome zinc & obsidian interface, collapsible navigation, separate tabs for offline Workspaces, Live Camera Feeds, Models/Characters, and Notification Alerts.
 
@@ -44,16 +45,18 @@ VisionOps is free, open-source software. Language model inference uses standard 
 
 ## See It in Action
 
-<!-- Live Demo GIF / Image Placeholder -->
-<!-- ![VisionOps Live CCTV Stream & Intrusion Alert](./images/live_demo.gif) -->
-*Live phone CCTV stream connected to VisionOps with real-time HUD telemetry, polygon boundary tracking, and WhatsApp instant snapshot delivery.*
+<div align="center">
+  <img src="./images/cctv%20window.png" alt="Live CCTV Stream with In-Video HUD Telemetry" width="100%" />
+  <p><em>Live CCTV stream monitoring with active in-video HUD telemetry (Footfall, Occupancy, Tracks, FPS) and right-side Copilot drawer.</em></p>
+</div>
 
 ---
 
 ## Features & Capabilities
 
-<!-- Feature Showcase Grid Image Placeholder -->
-<!-- ![VisionOps Features Showcase](./images/features_showcase.png) -->
+<div align="center">
+  <img src="./images/main-window-1.png" alt="VisionOps Main Studio & Natural Language Chat" width="100%" />
+</div>
 
 ### Try a Prompt
 - *"Count how many people enter and exit through the front doorway."*
@@ -80,12 +83,36 @@ The vision agent decomposes requests, maps user concepts to detector classes, ch
 
 ---
 
+## Interactive Geometry & Spatial Grounding
+
+Before running automated tracking, VisionOps lets you inspect, confirm, or reshape the proposed spatial zones right on your video:
+
+<div align="center">
+  <img src="./images/edit-polygons.png" alt="Interactive Polygon Zone Editor on Video Stream" width="100%" />
+  <p><em>Interactive Geometry Editor: Drag vertices, define tripwire lines, and set entry/exit direction triggers with complete audit logging.</em></p>
+</div>
+
+---
+
+## Automated Workflow Execution & Metrics
+
+When you approve a workflow, the engine executes deterministic tracking and renders verified bounding boxes, persistent IDs, and aggregate operational metrics:
+
+<div align="center">
+  <img src="./images/main-window-2.png" alt="Workflow Analytics & Output Visualization" width="100%" />
+  <p><em>Processed video preview with live track histories, directional crossing counts, and summary statistics.</em></p>
+</div>
+
+---
+
 ## WhatsApp Alert Dispatcher (Baileys)
 
-<!-- WhatsApp QR Pairing & Alert Notification Image Placeholder -->
-<!-- ![WhatsApp QR Scan & Mobile Alert](./images/whatsapp_alerts.png) -->
-
 VisionOps includes a local Baileys microservice running on the WhatsApp Web Multi-Device protocol:
+
+<div align="center">
+  <img src="./images/image-1.png" alt="WhatsApp QR Code Pairing Dialog" width="90%" />
+  <p><em>In-App WhatsApp Pairing: Scan the QR code once with your phone to link your personal WhatsApp account in seconds.</em></p>
+</div>
 
 - **Scan & Go**: Open the **Alerts** tab in VisionOps, scan the pairing QR code with your phone (**Settings → Linked Devices → Link a Device**), and you're paired in seconds.
 - **Message Yourself**: Alerts can be sent directly to your own personal "You" chat — no second SIM or phone required.
@@ -94,12 +121,14 @@ VisionOps includes a local Baileys microservice running on the WhatsApp Web Mult
 - **Anti-Spam Throttling**: Built-in 45-second debounce window prevents notification flooding.
 - **1-Click Disconnect**: Log out and clear credentials from local storage at any time with a single click.
 
+<div align="center">
+  <img src="./images/sample_intrusion.png" alt="Sample Intrusion Snapshot Frame" width="90%" />
+  <p><em>Real-Time Intrusion Alert: Exact snapshot frame captured and transmitted directly to WhatsApp when a zone boundary is breached.</em></p>
+</div>
+
 ---
 
 ## How It Works
-
-<!-- Architecture Diagram Image Placeholder -->
-<!-- ![VisionOps Architecture Flow](./images/architecture.png) -->
 
 ```mermaid
 flowchart TD
@@ -229,9 +258,6 @@ output/demo_vlm_hud_video.mp4
 ---
 
 ## Comparison
-
-<!-- Comparison Table Banner Image Placeholder -->
-<!-- ![VisionOps vs Enterprise CCTV Platforms](./images/comparison.png) -->
 
 | Feature / Metric | VisionOps (VisionHarness) | Traditional Enterprise CCTV | Cloud Video AI SaaS |
 | :--- | :--- | :--- | :--- |
