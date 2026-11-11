@@ -9,7 +9,7 @@ An open-source, self-hosted agentic platform that turns natural language into ve
 
 *Free & Open Source · Zero Cloud Subscription · Bring Your Own Model · Real-Time Local Execution*
 
-[Website](#) · [See It in Action](#see-it-in-action) · [Try a Prompt](#try-a-prompt) · [Features & Capabilities](#features--capabilities) · [WhatsApp Alert Bridge](#whatsapp-alert-dispatcher-baileys) · [Get Started](#get-started) · [Architecture](#how-it-works) · [Build from Source](#build-from-source) · [Contact](#author--contact)
+[Website](#) · [See It in Action](#see-it-in-action) · [Try a Prompt](#try-a-prompt) · [Features & Capabilities](#features--capabilities) · [WhatsApp Alert Bridge](#whatsapp-alert-dispatcher-baileys) · [Get Started](#get-started) · [Architecture](#how-it-works) · [Build from Source](#build-from-source--verification) · [Contact](#author--contact)
 
 ---
 
@@ -308,7 +308,7 @@ pytest tests/
 
 ## License & Credits
 
-VisionOps (VisionHarness) is open-source software licensed under the **[MIT License](LICENSE)**.
+VisionOps (VisionHarness) is open-source software licensed under the **MIT License**.
 
 Built with:
 - **[Ultralytics YOLO](https://github.com/ultralytics/ultralytics)** — Object detection & segmentation.
