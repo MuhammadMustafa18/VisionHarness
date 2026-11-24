@@ -228,6 +228,7 @@ export default function VisionHarnessApp() {
   const [isLiveConnected, setIsLiveConnected] = useState(false);
   const [isLiveConnecting, setIsLiveConnecting] = useState(false);
   const [isLiveFullscreen, setIsLiveFullscreen] = useState(false);
+  const [showLiveGeometryEditor, setShowLiveGeometryEditor] = useState(false);
   const [showLiveConnectModal, setShowLiveConnectModal] = useState(false);
   const [liveCameraLabel, setLiveCameraLabel] = useState("CAM-01: Live Camera Feed");
   const [liveFps, setLiveFps] = useState(0.0);
@@ -881,6 +882,9 @@ Capabilities:
                 } else if (chunk.output.status === "stopped") {
                   setIsLiveConnected(false);
                 }
+              }
+              if (chunk.name === "open_geometry_editor" && isLiveConnected) {
+                setShowLiveGeometryEditor(true);
               }
 
               if (chunk.output && chunk.output.processed_frames) {
@@ -1914,6 +1918,17 @@ Capabilities:
 
                     <div className="flex items-center gap-2">
                       <button
+                        onClick={() => setShowLiveGeometryEditor(v => !v)}
+                        className={`px-2.5 py-1 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                          showLiveGeometryEditor
+                            ? "bg-white text-black border-white"
+                            : "bg-zinc-800 hover:bg-zinc-700 border-zinc-700/80 text-zinc-200"
+                        }`}
+                      >
+                        <Sliders className="w-3 h-3" />
+                        <span>{showLiveGeometryEditor ? "Close Zone Editor" : "Draw Zone"}</span>
+                      </button>
+                      <button
                         onClick={() => setShowLiveConnectModal(true)}
                         className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/80 text-zinc-200 text-xs font-medium flex items-center gap-1.5 transition-colors"
                       >
@@ -1923,8 +1938,38 @@ Capabilities:
                     </div>
                   </div>
 
-                  {/* Live Video Viewport */}
+                  {/* Live Video Viewport (or Interactive Zone/Line Editor) */}
                   <div className="flex-1 flex items-center justify-center p-6 bg-zinc-950 overflow-hidden relative">
+                    {showLiveGeometryEditor ? (
+                      <div className="w-full max-w-4xl">
+                        <GeometryEditor
+                          fullWidth
+                          videoUrl={`http://localhost:8000/api/live/${activeSessionId}/feed`}
+                          initialZones={workspaceState.spec?.zones || []}
+                          initialLines={workspaceState.spec?.lines || []}
+                          onSave={async (geom) => {
+                            const updatedSpec = {
+                              id: `live_${activeSessionId}`,
+                              name: liveCameraLabel,
+                              detector: workspaceState.spec?.detector || { model: "yolov8n.pt", classes: ["person"], confidence: 0.35 },
+                              tracker: workspaceState.spec?.tracker || { tracker_type: "bytetrack" },
+                              zones: geom.geometry_type === "polygon" ? geom.zones : [],
+                              lines: geom.geometry_type === "line" ? geom.lines : [],
+                            };
+                            setWorkspaceState(prev => ({
+                              ...prev,
+                              spec: { ...(prev.spec || {}), ...updatedSpec, geometry_type: geom.geometry_type },
+                            }));
+                            await fetch(`http://localhost:8000/api/live/${activeSessionId}/update-spec`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify(updatedSpec),
+                            });
+                            setShowLiveGeometryEditor(false);
+                          }}
+                        />
+                      </div>
+                    ) : (
                     <div className="relative w-full max-w-4xl max-h-[78vh] aspect-[16/9] rounded-2xl overflow-hidden bg-black border border-zinc-800 shadow-2xl flex items-center justify-center">
                       <img
                         src={`http://localhost:8000/api/live/${activeSessionId}/feed`}
@@ -1950,6 +1995,7 @@ Capabilities:
                         </div>
                       </div>
                     </div>
+                    )}
                   </div>
                 </>
               ) : workspaceState.video_url ? (
