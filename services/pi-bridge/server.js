@@ -345,6 +345,37 @@ function buildVisionTools(workspaceRef) {
     ),
     makeVisionTool(
       {
+        name: "set_alert_rule",
+        label: "Set Real-Time Alert Rule",
+        description:
+          "Arm or clear a real-time object detection alert rule on the active live CCTV stream. Whenever a matching COCO class (e.g. 'person', 'car', 'bottle', 'dog') appears, an annotated screenshot is automatically saved and logged to the Alerts tab.",
+        promptSnippet: "set_alert_rule: Arm/clear real-time object detection alerts with screenshots on the live stream",
+        parameters: Type.Object({
+          action: Type.Optional(Type.Union([Type.Literal("set"), Type.Literal("clear")])),
+          classes: Type.Optional(Type.Array(Type.String(), { description: "COCO class names to alert on, e.g. ['person']" })),
+          cooldown_sec: Type.Optional(Type.Number({ description: "Minimum seconds between alerts (default 10)" })),
+          label: Type.Optional(Type.String({ description: "Human-readable rule label" })),
+          session_id: Type.Optional(Type.String({ description: "Optional live stream session ID" })),
+        }),
+      },
+      workspaceRef
+    ),
+    makeVisionTool(
+      {
+        name: "list_alerts",
+        label: "List Logged Alerts",
+        description: "List recent real-time detection alerts (with timestamps, classes, counts, and screenshot URLs), optionally filtered by session_id or object_class.",
+        promptSnippet: "list_alerts: Query recent logged detection alerts",
+        parameters: Type.Object({
+          session_id: Type.Optional(Type.String({ description: "Filter by stream session ID" })),
+          object_class: Type.Optional(Type.String({ description: "Filter by detected class, e.g. 'person'" })),
+          limit: Type.Optional(Type.Number({ description: "Max alerts to return (default 20)" })),
+        }),
+      },
+      workspaceRef
+    ),
+    makeVisionTool(
+      {
         name: "send_whatsapp_alert",
         label: "Send WhatsApp Alert",
         description: "Send a WhatsApp security notification (with optional snapshot image) via the local Baileys bridge.",

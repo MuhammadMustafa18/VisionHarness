@@ -13,6 +13,7 @@ from typing import Any, Dict
 
 from visionharness.agent.react_agent import execute_tool as execute_legacy_tool
 from visionharness.core.spec import WorkflowSpec
+from visionharness.core.alert_store import list_alerts as store_list_alerts
 from visionharness.runtime.live_stream import LiveStreamRegistry
 from visionharness.runtime.camera_discovery import (
     discover_lan_cameras,
@@ -283,6 +284,40 @@ def _connect_camera_auto(tool_input: Dict[str, Any], workspace: Dict[str, Any]) 
     }
 
 
+def _set_alert_rule(tool_input: Dict[str, Any], workspace: Dict[str, Any]) -> Dict[str, Any]:
+    session_id = tool_input.get("session_id") or workspace.get("session_id") or "default_live"
+    worker = LiveStreamRegistry.get(session_id)
+    if not worker:
+        return {"error": f"No active live stream for session '{session_id}'. Connect a camera first."}
+
+    action = (tool_input.get("action") or "set").lower()
+    if action == "clear":
+        worker.clear_alert_rule()
+        return {"status": "cleared", "session_id": session_id}
+
+    classes = tool_input.get("classes") or ["person"]
+    if isinstance(classes, str):
+        classes = [c.strip() for c in classes.split(",") if c.strip()]
+    cooldown_sec = float(tool_input.get("cooldown_sec") or 10.0)
+    label = tool_input.get("label") or f"Alert on {', '.join(classes)}"
+
+    rule = worker.set_alert_rule(classes=classes, cooldown_sec=cooldown_sec, label=label)
+    return {
+        "status": "armed",
+        "session_id": session_id,
+        "rule": rule,
+        "message": f"Real-time alert armed for {rule['classes']} (cooldown {rule['cooldown_sec']}s). Alerts with screenshots will appear in the Alerts tab.",
+    }
+
+
+def _list_alerts(tool_input: Dict[str, Any], workspace: Dict[str, Any]) -> Dict[str, Any]:
+    session_id = tool_input.get("session_id")
+    object_class = tool_input.get("object_class")
+    limit = int(tool_input.get("limit") or 20)
+    alerts = store_list_alerts(session_id=session_id, object_class=object_class, limit=limit)
+    return {"status": "success", "count": len(alerts), "alerts": alerts}
+
+
 def execute_vision_tool(tool_name: str, tool_input: Dict[str, Any], workspace: Dict[str, Any]) -> Dict[str, Any]:
     """Dispatch any VisionOps tool and return a JSON-serializable result dict."""
     if tool_name in LEGACY_TOOLS:
@@ -297,6 +332,10 @@ def execute_vision_tool(tool_name: str, tool_input: Dict[str, Any], workspace: D
         return _discover_cameras(tool_input, workspace)
     if tool_name == "connect_camera_auto":
         return _connect_camera_auto(tool_input, workspace)
+    if tool_name == "set_alert_rule":
+        return _set_alert_rule(tool_input, workspace)
+    if tool_name == "list_alerts":
+        return _list_alerts(tool_input, workspace)
     if tool_name == "send_whatsapp_alert":
         return _send_whatsapp_alert(tool_input, workspace)
     if tool_name == "manage_workflows":
