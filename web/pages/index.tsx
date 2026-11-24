@@ -157,6 +157,26 @@ export default function VisionHarnessApp() {
   } | null>(null);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [chatSidebarWidth, setChatSidebarWidth] = useState(380);
+  const [isResizingChat, setIsResizingChat] = useState(false);
+
+  const handleStartChatResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingChat(true);
+    const startX = e.clientX;
+    const startWidth = chatSidebarWidth;
+    const onMouseMove = (ev: MouseEvent) => {
+      const next = Math.min(720, Math.max(280, startWidth + (startX - ev.clientX)));
+      setChatSidebarWidth(next);
+    };
+    const onMouseUp = () => {
+      setIsResizingChat(false);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
   const [activeMediaFilter, setActiveMediaFilter] = useState<"all" | "live" | "videos" | "models" | "alerts">("all");
   const [activeTab, setActiveTab] = useState<"workspace" | "alerts">("workspace");
 
@@ -1833,8 +1853,20 @@ Capabilities:
               )}
             </div>
 
+            {/* Resizable Drag Handle */}
+            <div
+              onMouseDown={handleStartChatResize}
+              title="Drag to resize chat"
+              className={`w-1.5 cursor-col-resize shrink-0 transition-colors hover:bg-zinc-600/80 ${
+                isResizingChat ? "bg-zinc-500" : "bg-transparent"
+              }`}
+            />
+
             {/* Right Sidebar: Dedicated Chat Window */}
-            <div className="w-[360px] lg:w-[400px] flex flex-col bg-zinc-900/90 border-l border-zinc-800 shrink-0 h-full overflow-hidden select-text">
+            <div
+              style={{ width: chatSidebarWidth }}
+              className="flex flex-col bg-zinc-900/90 border-l border-zinc-800 shrink-0 h-full overflow-hidden select-text"
+            >
               <div className="h-12 border-b border-zinc-800 px-4 flex items-center justify-between bg-zinc-900 shrink-0">
                 <div className="flex items-center gap-2">
                   <Activity className="w-4 h-4 text-zinc-300" />
