@@ -356,6 +356,8 @@ function buildVisionTools(workspaceRef) {
           action: Type.Optional(Type.Union([Type.Literal("set"), Type.Literal("clear")])),
           classes: Type.Optional(Type.Array(Type.String(), { description: "COCO class names to alert on, e.g. ['person']" })),
           cooldown_sec: Type.Optional(Type.Number({ description: "Minimum seconds between alerts (default 10)" })),
+          min_confidence: Type.Optional(Type.Number({ description: "Minimum detection confidence 0.1-0.99 (default 0.55)" })),
+          min_consecutive_frames: Type.Optional(Type.Number({ description: "Consecutive frames required before firing alert (default 3)" })),
           label: Type.Optional(Type.String({ description: "Human-readable rule label" })),
           session_id: Type.Optional(Type.String({ description: "Optional live stream session ID" })),
         }),

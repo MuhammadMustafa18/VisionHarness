@@ -300,8 +300,16 @@ def _set_alert_rule(tool_input: Dict[str, Any], workspace: Dict[str, Any]) -> Di
         classes = [c.strip() for c in classes.split(",") if c.strip()]
     cooldown_sec = float(tool_input.get("cooldown_sec") or 10.0)
     label = tool_input.get("label") or f"Alert on {', '.join(classes)}"
+    min_confidence = float(tool_input.get("min_confidence") or 0.55)
+    min_consecutive_frames = int(tool_input.get("min_consecutive_frames") or 3)
 
-    rule = worker.set_alert_rule(classes=classes, cooldown_sec=cooldown_sec, label=label)
+    rule = worker.set_alert_rule(
+        classes=classes,
+        cooldown_sec=cooldown_sec,
+        label=label,
+        min_confidence=min_confidence,
+        min_consecutive_frames=min_consecutive_frames,
+    )
     return {
         "status": "armed",
         "session_id": session_id,

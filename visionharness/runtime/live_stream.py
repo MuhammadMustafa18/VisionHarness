@@ -69,8 +69,16 @@ class LiveCameraWorker:
         # Real-time object alert rule (armed via chat / set_alert_rule)
         self.alert_rule: Optional[Dict[str, Any]] = None
         self.last_rule_alert_time = 0.0
+        self.rule_consecutive_hits = 0
 
-    def set_alert_rule(self, classes: list, cooldown_sec: float = 15.0, label: str = "") -> Dict[str, Any]:
+    def set_alert_rule(
+        self,
+        classes: list,
+        cooldown_sec: float = 15.0,
+        label: str = "",
+        min_confidence: float = 0.55,
+        min_consecutive_frames: int = 3,
+    ) -> Dict[str, Any]:
         """Arm a real-time object detection alert rule on this live stream."""
         norm_classes = [str(c).strip().lower() for c in classes if str(c).strip()]
         with self.lock:
@@ -78,13 +86,17 @@ class LiveCameraWorker:
                 "classes": norm_classes,
                 "cooldown_sec": max(2.0, float(cooldown_sec)),
                 "label": label or f"Alert on {', '.join(norm_classes)}",
+                "min_confidence": max(0.1, min(0.99, float(min_confidence))),
+                "min_consecutive_frames": max(1, int(min_consecutive_frames)),
             }
             self.last_rule_alert_time = 0.0
+            self.rule_consecutive_hits = 0
         return self.alert_rule
 
     def clear_alert_rule(self) -> None:
         with self.lock:
             self.alert_rule = None
+            self.rule_consecutive_hits = 0
 
     def connect_and_capture_snapshot(self) -> Optional[np.ndarray]:
         """Attempts connection and captures a single sharp snapshot frame."""
@@ -295,32 +307,45 @@ class LiveCameraWorker:
             # Render In-Video Telemetry HUD (Top-Left)
             self._render_hud(annotated)
 
-            # Real-time Object Alert Rule check (saves annotated screenshot to Alerts tab)
+            # Real-time Object Alert Rule check (confidence + multi-frame persistence)
             rule = self.alert_rule
             if rule and rule.get("classes") and detections.class_id is not None and self.model:
+                target_set = set(rule["classes"])
+                min_conf = float(rule.get("min_confidence", 0.55))
+                min_frames = int(rule.get("min_consecutive_frames", 3))
+                confs = detections.confidence if detections.confidence is not None else [1.0] * len(detections.class_id)
+                matched = []
+                for cid, conf in zip(detections.class_id, confs):
+                    cname = str(self.model.names.get(int(cid), "")).lower()
+                    if cname in target_set and float(conf) >= min_conf:
+                        matched.append(cname)
+
+                if matched:
+                    self.rule_consecutive_hits += 1
+                else:
+                    self.rule_consecutive_hits = 0
+
                 now_ts = time.time()
-                if (now_ts - self.last_rule_alert_time) >= rule.get("cooldown_sec", 15.0):
-                    target_set = set(rule["classes"])
-                    matched = []
-                    for cid in detections.class_id:
-                        cname = str(self.model.names.get(int(cid), "")).lower()
-                        if cname in target_set:
-                            matched.append(cname)
-                    if matched:
-                        self.last_rule_alert_time = now_ts
-                        os.makedirs(ALERTS_DIR, exist_ok=True)
-                        snap_name = f"alert_{self.session_id}_{int(now_ts * 1000)}.jpg"
-                        snap_path = os.path.join(ALERTS_DIR, snap_name)
-                        cv2.imwrite(snap_path, annotated, [cv2.IMWRITE_JPEG_QUALITY, 85])
-                        add_alert(
-                            session_id=self.session_id,
-                            camera_label=self.spec.name or self.stream_url,
-                            detected_classes=sorted(set(matched)),
-                            count=len(matched),
-                            rule_label=rule.get("label", ""),
-                            screenshot_url=f"/output/alerts/{snap_name}",
-                            screenshot_path=snap_path,
-                        )
+                if (
+                    matched
+                    and self.rule_consecutive_hits >= min_frames
+                    and (now_ts - self.last_rule_alert_time) >= rule.get("cooldown_sec", 15.0)
+                ):
+                    self.last_rule_alert_time = now_ts
+                    self.rule_consecutive_hits = 0
+                    os.makedirs(ALERTS_DIR, exist_ok=True)
+                    snap_name = f"alert_{self.session_id}_{int(now_ts * 1000)}.jpg"
+                    snap_path = os.path.join(ALERTS_DIR, snap_name)
+                    cv2.imwrite(snap_path, annotated, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                    add_alert(
+                        session_id=self.session_id,
+                        camera_label=self.spec.name or self.stream_url,
+                        detected_classes=sorted(set(matched)),
+                        count=len(matched),
+                        rule_label=rule.get("label", ""),
+                        screenshot_url=f"/output/alerts/{snap_name}",
+                        screenshot_path=snap_path,
+                    )
 
             # Calculate FPS
             now = time.time()
