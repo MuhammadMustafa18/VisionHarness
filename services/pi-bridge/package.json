@@ -1,0 +1,13 @@
+{
+  "name": "visionharness-pi-bridge",
+  "version": "0.1.0",
+  "description": "Pi agent bridge service for VisionOps",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "^1.5.2"
+  }
+}

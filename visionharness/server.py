@@ -153,6 +153,22 @@ def status():
 
 
 from visionharness.agent.react_agent import stream_react_agent
+from visionharness.agent.tools import execute_vision_tool
+
+PI_BRIDGE_URL = os.getenv("PI_BRIDGE_URL", "http://127.0.0.1:8787")
+
+
+class ToolExecRequest(BaseModel):
+    input: Dict[str, Any] = {}
+    workspace: Dict[str, Any] = {}
+
+
+@app.post("/api/tools/{tool_name}")
+def execute_tool_endpoint(tool_name: str, req: ToolExecRequest):
+    """Internal tool execution endpoint called by the Pi agent bridge."""
+    workspace = dict(req.workspace or {})
+    output = execute_vision_tool(tool_name, req.input or {}, workspace)
+    return {"output": output, "workspace": workspace}
 
 
 @app.post("/api/upload")
@@ -177,15 +193,50 @@ class AgentChatRequest(BaseModel):
     workspace: Optional[Dict[str, Any]] = None
 
 
+def _stream_from_pi_bridge(session_id: str, prompt: str, workspace: Dict[str, Any]):
+    """Proxy SSE events from the Node.js Pi agent bridge."""
+    import urllib.request
+
+    url = f"{PI_BRIDGE_URL.rstrip('/')}/agent/stream"
+    payload = json.dumps({
+        "session_id": session_id,
+        "prompt": prompt,
+        "workspace": workspace,
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        headers={"Content-Type": "application/json", "Accept": "text/event-stream"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=300) as resp:
+        for raw_line in resp:
+            line = raw_line.decode("utf-8", errors="replace").rstrip("\r\n")
+            if line.startswith("data: "):
+                yield f"{line}\n\n"
+
+
 @app.post("/api/agent")
 async def react_agent_endpoint(req: AgentChatRequest):
-    """Server-side autonomous ReAct agent streaming loop."""
+    """Autonomous agent streaming loop (Pi agent harness with legacy fallback)."""
     workspace = req.workspace or {}
+    workspace.setdefault("session_id", req.session_id)
 
-    # Sync generator → Starlette runs it in a threadpool so blocking
-    # LLM HTTP does not freeze the event loop (keeps SSE flushing live).
     def event_generator():
         yield f"data: {json.dumps({'type': 'start'})}\n\n"
+        use_pi = os.getenv("VISIONHARNESS_USE_PI", "1").lower() not in ("0", "false", "no")
+        if use_pi:
+            try:
+                for sse_chunk in _stream_from_pi_bridge(req.session_id, req.prompt, workspace):
+                    yield sse_chunk
+                return
+            except Exception as e:
+                if os.getenv("PI_BRIDGE_REQUIRED", "0") in ("1", "true"):
+                    yield f"data: {json.dumps({'type': 'error', 'message': f'Pi bridge error: {e}'})}\n\n"
+                    yield f"data: {json.dumps({'type': 'done', 'workspace': workspace})}\n\n"
+                    return
+                print(f"[Pi Bridge Fallback] {e} — falling back to legacy react_agent")
+
         for chunk in stream_react_agent(
             session_id=req.session_id,
             user_prompt=req.prompt,
