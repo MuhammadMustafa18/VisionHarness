@@ -1857,10 +1857,12 @@ Capabilities:
             <div
               onMouseDown={handleStartChatResize}
               title="Drag to resize chat"
-              className={`w-1.5 cursor-col-resize shrink-0 transition-colors hover:bg-zinc-600/80 ${
-                isResizingChat ? "bg-zinc-500" : "bg-transparent"
+              className={`w-2 cursor-col-resize shrink-0 z-20 flex items-center justify-center transition-colors group ${
+                isResizingChat ? "bg-zinc-500/80" : "bg-zinc-900 hover:bg-zinc-600/70"
               }`}
-            />
+            >
+              <div className="w-0.5 h-10 rounded-full bg-zinc-700 group-hover:bg-zinc-300 transition-colors" />
+            </div>
 
             {/* Right Sidebar: Dedicated Chat Window */}
             <div
