@@ -185,6 +185,22 @@ export default function VisionHarnessApp() {
   const [alertCameraFilter, setAlertCameraFilter] = useState<string>("all");
   const [alertClassFilter, setAlertClassFilter] = useState<string>("all");
 
+  // Auto-sync live stream preview if backend already has an active worker for this session
+  useEffect(() => {
+    let active = true;
+    fetch(`http://localhost:8000/api/live/${activeSessionId}/telemetry`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        if (active && data && data.status !== "offline") {
+          setIsLiveConnected(true);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [activeSessionId]);
+
   useEffect(() => {
     let active = true;
     const fetchAlerts = async () => {

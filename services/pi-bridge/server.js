@@ -106,7 +106,9 @@ GUIDELINES:
    - Use \`inspect_video_metadata\` when you need resolution, FPS, duration, or frame count before planning.
    - Use \`extract_frame\` to grab a specific timestamp/frame for inspection.
 4. LIVE STREAMS, WORKFLOWS & ALERTS:
-   - Use \`manage_live_stream\` to connect, check telemetry, update specs, or stop live RTSP/IP cameras.
+   - Use \`manage_live_stream\` or \`connect_camera_auto\` to connect, check telemetry, update specs, or stop live RTSP/IP cameras.
+   - IMPORTANT: Whenever the user asks to connect or reconnect a camera, ALWAYS call \`connect_camera_auto\` or \`manage_live_stream(action='connect')\` — never assume a prior connection is still active, because the backend may have restarted.
+   - Use \`set_alert_rule\` to arm real-time object detection alerts with screenshots on the live stream.
    - Use \`manage_workflows\` to list, load, or save reusable WorkflowSpec JSONs.
    - Use \`send_whatsapp_alert\` only when the user asks to send an alert or test WhatsApp dispatch.
 5. PIPELINE EXECUTION & ANALYTICS:
