@@ -48,7 +48,9 @@ import {
   Bell,
   Check,
   LogOut,
-  QrCode
+  QrCode,
+  Paperclip,
+  X
 } from "lucide-react";
 
 interface WorkflowSession {
@@ -809,14 +811,24 @@ Capabilities:
                 }));
               }
               let toolStats = null;
-              let toolVideoUrl = null;
+              let toolVideoUrl: string | null = null;
+
+              if (chunk.name === "manage_live_stream" && chunk.output) {
+                if (chunk.output.status === "connected") {
+                  setIsLiveConnected(true);
+                  if (chunk.output.stream_url) setLiveStreamUrl(chunk.output.stream_url);
+                } else if (chunk.output.status === "stopped") {
+                  setIsLiveConnected(false);
+                }
+              }
 
               if (chunk.output && chunk.output.processed_frames) {
                 toolStats = chunk.output;
                 toolVideoUrl = chunk.output.video_url ? `http://localhost:8000${chunk.output.video_url}` : null;
                 setWorkspaceState(prev => ({
                   ...prev,
-                  last_stats: chunk.output
+                  last_stats: chunk.output,
+                  ...(toolVideoUrl ? { video_url: toolVideoUrl } : {})
                 }));
               }
 
@@ -1370,76 +1382,26 @@ Capabilities:
             </div>
           </div>
 
-          {/* Flow Category Navigation Items */}
+          {/* Minimal Navigation (2 options) */}
           <div className="px-2.5 space-y-1">
-            {/* All media / Workspaces Item */}
+            {/* Workspace / Live Stage */}
             <button
               onClick={() => {
                 setActiveTab("workspace");
-                setActiveMediaFilter("all");
                 setSelectedComponent(null);
               }}
               className={`w-full flex items-center gap-3.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${
-                activeTab === "workspace" && activeMediaFilter === "all" && !selectedComponent
+                activeTab === "workspace"
                   ? "bg-zinc-800/90 text-white shadow-sm"
                   : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
               }`}
-              title="All media"
+              title="Workspace"
             >
-              <LayoutGrid className="w-4 h-4 shrink-0 text-zinc-300" />
-              {!sidebarCollapsed && <span className="truncate">All media</span>}
+              <Cctv className="w-4 h-4 shrink-0 text-zinc-300" />
+              {!sidebarCollapsed && <span className="truncate">Workspace</span>}
             </button>
 
-            {/* Videos / Live Feeds Item */}
-            <button
-              onClick={() => {
-                setActiveTab("workspace");
-                setActiveMediaFilter("videos");
-                handleNewLiveChat();
-              }}
-              className={`w-full flex items-center gap-3.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${
-                activeTab === "workspace" && isLiveWorkspace
-                  ? "bg-zinc-800/90 text-white shadow-sm"
-                  : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
-              }`}
-              title="Videos & Live Streams"
-            >
-              <Video className="w-4 h-4 shrink-0 text-zinc-300" />
-              {!sidebarCollapsed && <span className="truncate">Videos</span>}
-            </button>
-
-            {/* Characters / Classes Item */}
-            <button
-              onClick={() => {
-                setActiveTab("workspace");
-                setActiveMediaFilter("models");
-                if (components.length > 0) setSelectedComponent(components[0]);
-              }}
-              className={`w-full flex items-center gap-3.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${
-                activeTab === "workspace" && selectedComponent
-                  ? "bg-zinc-800/90 text-white shadow-sm"
-                  : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
-              }`}
-              title="Models & Characters"
-            >
-              <User className="w-4 h-4 shrink-0 text-zinc-300" />
-              {!sidebarCollapsed && <span className="truncate">Characters</span>}
-            </button>
-
-            {/* Scenes Item */}
-            <button
-              onClick={() => {
-                setActiveTab("workspace");
-                handleNewChat();
-              }}
-              className="w-full flex items-center gap-3.5 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-900/60 transition-colors text-left"
-              title="Scenes & Workspaces"
-            >
-              <Clapperboard className="w-4 h-4 shrink-0 text-zinc-300" />
-              {!sidebarCollapsed && <span className="truncate">Scenes</span>}
-            </button>
-
-            {/* Alerts & Integrations Tab (WhatsApp / Webhooks) */}
+            {/* Alerts & WhatsApp */}
             <button
               onClick={() => {
                 setActiveTab("alerts");
@@ -1464,142 +1426,6 @@ Capabilities:
                   </span>
                 </div>
               )}
-            </button>
-          </div>
-
-          {/* Divider */}
-          <div className="my-2.5 mx-4 border-t border-zinc-900/90" />
-
-          {/* Live Workspaces Section (Similar to Library) */}
-          <div className="px-2.5 space-y-1">
-            <div className="w-full flex items-center justify-between px-3 py-1.5 text-sm font-medium text-zinc-400">
-              <button
-                onClick={() => setLiveChatsOpen(o => !o)}
-                className="flex items-center gap-3.5 hover:text-white transition-colors truncate"
-              >
-                <Radio className="w-4 h-4 shrink-0 text-zinc-300" />
-                {!sidebarCollapsed && <span>Live Streams</span>}
-              </button>
-              {!sidebarCollapsed && (
-                <button
-                  onClick={handleNewLiveChat}
-                  title="New live camera stream"
-                  className="text-zinc-500 hover:text-white p-0.5 transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            {/* Recent Live Workspaces */}
-            {!sidebarCollapsed && liveChatsOpen && (
-              <div className="pl-6 pr-1 space-y-0.5 max-h-36 overflow-y-auto">
-                {filteredSessions.filter(s => s.domain === "live_cctv").length === 0 ? (
-                  <button
-                    onClick={handleNewLiveChat}
-                    className="w-full text-left px-2.5 py-1 text-xs text-zinc-600 hover:text-zinc-400 italic"
-                  >
-                    + Connect camera stream
-                  </button>
-                ) : (
-                  filteredSessions.filter(s => s.domain === "live_cctv").slice(0, 6).map(s => {
-                    const isActive = activeSessionId === s.id;
-                    return (
-                      <button
-                        key={s.id}
-                        onClick={() => {
-                          setActiveSessionId(s.id);
-                          setSelectedComponent(null);
-                        }}
-                        className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs truncate transition-colors text-left ${
-                          isActive
-                            ? "text-white font-medium bg-zinc-900/80"
-                            : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/40"
-                        }`}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 shrink-0" />
-                        <span className="truncate">{s.name || s.id}</span>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Divider */}
-          <div className="my-2.5 mx-4 border-t border-zinc-900/90" />
-
-          {/* Library Section (Saved Workspaces) */}
-          <div className="px-2.5 space-y-1">
-            <div className="w-full flex items-center justify-between px-3 py-1.5 text-sm font-medium text-zinc-400">
-              <button
-                onClick={() => setChatsOpen(o => !o)}
-                className="flex items-center gap-3.5 hover:text-white transition-colors truncate"
-              >
-                <Folder className="w-4 h-4 shrink-0 text-zinc-300" />
-                {!sidebarCollapsed && <span>Library</span>}
-              </button>
-              {!sidebarCollapsed && (
-                <button
-                  onClick={handleNewChat}
-                  title="New workspace"
-                  className="text-zinc-500 hover:text-white p-0.5 transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            {/* Recent Chats in Library (Non-Live / All) */}
-            {!sidebarCollapsed && chatsOpen && (
-              <div className="pl-6 pr-1 space-y-0.5 max-h-36 overflow-y-auto">
-                {filteredSessions.filter(s => s.domain !== "live_cctv").slice(0, 6).map(s => {
-                  const isActive = activeSessionId === s.id;
-                  return (
-                    <button
-                      key={s.id}
-                      onClick={() => {
-                        setActiveSessionId(s.id);
-                        setSelectedComponent(null);
-                      }}
-                      className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs truncate transition-colors text-left ${
-                        isActive
-                          ? "text-white font-medium bg-zinc-900/80"
-                          : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/40"
-                      }`}
-                    >
-                      <span className="truncate">{s.name || s.id}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Divider */}
-          <div className="my-2.5 mx-4 border-t border-zinc-900/90" />
-
-          {/* Tools & Create Tool */}
-          <div className="px-2.5 space-y-1">
-            <button
-              onClick={() => {
-                if (components.length > 0) setSelectedComponent(components[0]);
-              }}
-              className="w-full flex items-center gap-3.5 px-3 py-2 rounded-xl text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-900/60 transition-colors text-left"
-              title="Tools"
-            >
-              <Sparkles className="w-4 h-4 shrink-0 text-zinc-300" />
-              {!sidebarCollapsed && <span>Tools</span>}
-            </button>
-
-            <button
-              onClick={handleNewChat}
-              className="w-full flex items-center gap-3.5 px-3 py-2 rounded-xl text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-900/60 transition-colors text-left"
-              title="Create tool"
-            >
-              <Plus className="w-4 h-4 shrink-0 text-zinc-400" />
-              {!sidebarCollapsed && <span>Create tool</span>}
             </button>
           </div>
         </div>
@@ -1914,199 +1740,173 @@ Capabilities:
               </div>
             </div>
           </div>
-        ) : isLiveWorkspace ? (
+        ) : (
           /* =========================================================================
-             LIVE MODE WORKSPACE STUDIO (Center Video Stage + Right Copilot Chat Drawer)
+             UNIFIED 3-PANE WORKSPACE (Minimal Center Stage + Right Chat Sidebar)
              ========================================================================= */
           <div className="flex-1 flex overflow-hidden w-full h-full">
             
-            {/* Center Stage: CCTV Live Video Feed & Overlays */}
+            {/* Center Stage: Empty initially; displays Live CCTV Stream or Video when linked via chat */}
             <div className="flex-1 flex flex-col bg-[#0b0c0e] overflow-hidden relative border-r border-[#1e2025]">
-              
-              {/* CCTV Live Control Bar */}
-              <div className="h-12 border-b border-zinc-800/80 px-5 flex items-center justify-between bg-zinc-900/60 backdrop-blur-md shrink-0">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-200 border border-zinc-700/60 font-mono text-[11px] font-semibold">
-                    <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                    <span>LIVE</span>
-                  </div>
-                  <span className="text-xs font-semibold text-zinc-100 tracking-wide">{liveCameraLabel}</span>
-                  <span className="text-[11px] font-mono text-zinc-400">· {liveFps} FPS</span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setShowWhatsAppModal(true)}
-                    className={`px-2.5 py-1 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-colors ${
-                      waConnected
-                        ? "bg-zinc-800 border-zinc-600 text-white hover:bg-zinc-700"
-                        : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700"
-                    }`}
-                    title="Configure WhatsApp Alerts (Baileys)"
-                  >
-                    <span className={`w-2 h-2 rounded-full ${waConnected ? "bg-white" : "bg-zinc-500"}`} />
-                    <span>WhatsApp</span>
-                  </button>
-                  <button
-                    onClick={() => setShowLiveConnectModal(true)}
-                    className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/80 text-zinc-200 text-xs font-medium flex items-center gap-1.5 transition-colors"
-                  >
-                    <RefreshCw className="w-3 h-3 text-zinc-400" />
-                    <span>Change Stream</span>
-                  </button>
-                  <button
-                    onClick={() => setIsLiveFullscreen(f => !f)}
-                    className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/80 text-zinc-300 text-xs transition-colors"
-                    title="Toggle Fullscreen"
-                  >
-                    <Maximize2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Main Video Viewport */}
-              <div className="flex-1 flex items-center justify-center p-6 bg-zinc-950 overflow-hidden relative">
-                <div className="relative w-full max-w-4xl max-h-[75vh] aspect-[16/9] rounded-2xl overflow-hidden bg-black border border-zinc-800 shadow-2xl flex items-center justify-center group">
-                  
-                  {/* CCTV Feed Image */}
-                  {isLiveConnected ? (
-                    <img
-                      src={`http://localhost:8000/api/live/${activeSessionId}/feed`}
-                      alt="Live Stream Feed"
-                      className="w-full h-full object-cover select-none"
-                    />
-                  ) : liveSnapshotUrl ? (
-                    <img
-                      src={liveSnapshotUrl}
-                      alt="Camera Snapshot"
-                      className="w-full h-full object-cover select-none"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-950 text-zinc-500 gap-3">
-                      <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400">
-                        <Camera className="w-6 h-6" />
+              {isLiveConnected ? (
+                <>
+                  {/* CCTV Live Control Bar */}
+                  <div className="h-12 border-b border-zinc-800/80 px-5 flex items-center justify-between bg-zinc-900/60 backdrop-blur-md shrink-0">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-200 border border-zinc-700/60 font-mono text-[11px] font-semibold">
+                        <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                        <span>LIVE</span>
                       </div>
-                      <div className="text-center">
-                        <p className="text-sm font-medium text-zinc-300">Camera Not Connected</p>
-                        <p className="text-xs text-zinc-500 mt-0.5">Click "Change Stream" to connect an IP Webcam or RTSP feed</p>
-                      </div>
+                      <span className="text-xs font-semibold text-zinc-100 tracking-wide">{liveCameraLabel}</span>
+                      <span className="text-[11px] font-mono text-zinc-400">· {liveFps} FPS</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
                       <button
                         onClick={() => setShowLiveConnectModal(true)}
-                        className="mt-2 px-3.5 py-1.5 rounded-lg bg-white text-black font-semibold text-xs hover:bg-zinc-200 transition-colors"
+                        className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/80 text-zinc-200 text-xs font-medium flex items-center gap-1.5 transition-colors"
                       >
-                        Connect Camera
+                        <RefreshCw className="w-3 h-3 text-zinc-400" />
+                        <span>Change Stream</span>
                       </button>
                     </div>
-                  )}
-
-                  {/* Top-Right CCTV Camera Time Overlay */}
-                  <div className="absolute top-4 right-4 px-3 py-1.5 rounded-lg bg-black/80 backdrop-blur-md border border-white/10 font-mono text-xs text-white/90 font-medium tracking-wider select-none shadow">
-                    CAM-01 · {new Date().toLocaleTimeString()}
                   </div>
 
-                  {/* Top-Left In-Video Live Telemetry HUD (Minimal Zinc & White) */}
-                  <div className="absolute top-4 left-4 p-3 rounded-xl bg-black/80 backdrop-blur-md border border-zinc-700/80 min-w-[210px] space-y-1.5 shadow-2xl pointer-events-none select-none">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-300 font-semibold flex items-center gap-1.5 pb-1 border-b border-zinc-800">
-                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                      Live VisionOps HUD
-                    </div>
-                    <div className="flex items-center justify-between text-xs font-mono">
-                      <span className="text-zinc-400">Footfall Entered</span>
-                      <span className="text-white font-bold">{liveZoneFootfall}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs font-mono">
-                      <span className="text-zinc-400">Current Inside</span>
-                      <span className="text-zinc-100 font-bold">{liveCurrentInside}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs font-mono">
-                      <span className="text-zinc-400">Active Tracks</span>
-                      <span className="text-zinc-200 font-bold">{liveActiveTracks}</span>
+                  {/* Live Video Viewport */}
+                  <div className="flex-1 flex items-center justify-center p-6 bg-zinc-950 overflow-hidden relative">
+                    <div className="relative w-full max-w-4xl max-h-[78vh] aspect-[16/9] rounded-2xl overflow-hidden bg-black border border-zinc-800 shadow-2xl flex items-center justify-center">
+                      <img
+                        src={`http://localhost:8000/api/live/${activeSessionId}/feed`}
+                        alt="Live Stream Feed"
+                        className="w-full h-full object-cover select-none"
+                      />
+                      <div className="absolute top-4 left-4 p-3 rounded-xl bg-black/80 backdrop-blur-md border border-zinc-700/80 min-w-[200px] space-y-1.5 shadow-2xl pointer-events-none select-none">
+                        <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-300 font-semibold flex items-center gap-1.5 pb-1 border-b border-zinc-800">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                          Live Telemetry
+                        </div>
+                        <div className="flex items-center justify-between text-xs font-mono">
+                          <span className="text-zinc-400">Footfall</span>
+                          <span className="text-white font-bold">{liveZoneFootfall}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs font-mono">
+                          <span className="text-zinc-400">Inside</span>
+                          <span className="text-zinc-100 font-bold">{liveCurrentInside}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs font-mono">
+                          <span className="text-zinc-400">Tracks</span>
+                          <span className="text-zinc-200 font-bold">{liveActiveTracks}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-
-                  {/* Bottom Controls Overlay on Hover */}
-                  <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between opacity-90 group-hover:opacity-100 transition-opacity">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-1 rounded-md bg-black/75 backdrop-blur-md text-[11px] font-mono text-zinc-300 border border-white/10">
-                        Protocol: RTSP / HTTP-MJPEG
-                      </span>
+                </>
+              ) : workspaceState.video_url ? (
+                /* Uploaded or Processed Video Stage */
+                <div className="flex-1 flex flex-col bg-zinc-950 overflow-hidden">
+                  <div className="h-12 border-b border-zinc-800/80 px-5 flex items-center justify-between bg-zinc-900/60 shrink-0">
+                    <div className="flex items-center gap-2 text-xs text-zinc-200 font-medium truncate">
+                      <Video className="w-4 h-4 text-zinc-400 shrink-0" />
+                      <span className="truncate">{workspaceState.video_name || "Linked Video"}</span>
                     </div>
-                    <button
-                      onClick={() => {
-                        const mId = messages[messages.length - 1]?.id;
-                        if (mId) setActiveEditorMessageId(mId);
-                      }}
-                      className="px-3 py-1.5 rounded-lg bg-white hover:bg-zinc-200 text-black font-semibold text-xs flex items-center gap-1.5 shadow-lg transition-transform active:scale-95"
-                    >
-                      <Sliders className="w-3.5 h-3.5" />
-                      Edit Grounding Polygon
-                    </button>
+                  </div>
+                  <div className="flex-1 flex items-center justify-center p-6 overflow-hidden">
+                    <video
+                      key={workspaceState.video_url}
+                      src={workspaceState.video_url}
+                      controls
+                      className="w-full max-w-4xl max-h-[78vh] rounded-2xl bg-black border border-zinc-800 shadow-2xl"
+                    />
                   </div>
                 </div>
-              </div>
-
-              {/* Bottom Quick Status Strip */}
-              <div className="h-10 border-t border-zinc-800/80 px-6 flex items-center justify-between text-xs text-zinc-400 bg-zinc-900/60 font-mono shrink-0">
-                <div className="flex items-center gap-4">
-                  <span className="flex items-center gap-1.5 text-zinc-300">
-                    <span className="w-2 h-2 rounded-full bg-white" />
-                    Stream Ingestion: Healthy
-                  </span>
-                  <span>Latency: ~65ms</span>
+              ) : (
+                /* Clean Empty Center Stage */
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center select-none">
+                  <div className="w-12 h-12 rounded-2xl bg-zinc-900/90 border border-zinc-800 flex items-center justify-center text-zinc-500 mb-4">
+                    <Cctv className="w-5 h-5" />
+                  </div>
+                  <p className="text-sm font-medium text-zinc-300">No stream or video linked</p>
+                  <p className="text-xs text-zinc-500 mt-1 max-w-xs">
+                    Link a CCTV stream URL or upload a video in the chat on the right to view it here.
+                  </p>
                 </div>
-                <span>Resolution: 1920x1080 @ 25fps</span>
-              </div>
+              )}
             </div>
 
-            {/* Right Drawer: AI Copilot Chat & NLP Workflow Prompt Bar */}
-            <div className="w-[320px] lg:w-[350px] flex flex-col bg-zinc-900/90 border-l border-zinc-800 shrink-0 h-full overflow-hidden select-text">
-              
-              {/* Copilot Header */}
+            {/* Right Sidebar: Dedicated Chat Window */}
+            <div className="w-[360px] lg:w-[400px] flex flex-col bg-zinc-900/90 border-l border-zinc-800 shrink-0 h-full overflow-hidden select-text">
               <div className="h-12 border-b border-zinc-800 px-4 flex items-center justify-between bg-zinc-900 shrink-0">
                 <div className="flex items-center gap-2">
-                  <Cctv className="w-4 h-4 text-zinc-300" />
-                  <span className="text-xs font-semibold text-zinc-200">VisionOps Live Copilot</span>
+                  <Activity className="w-4 h-4 text-zinc-300" />
+                  <span className="text-xs font-semibold text-zinc-200">VisionOps Chat</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-[11px] font-mono text-zinc-400">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                  Grounding Synced
-                </div>
+                <span className="text-[10px] font-mono text-zinc-500">{selectedModel}</span>
               </div>
 
               {/* Chat Messages Feed */}
               <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-                {messages.map(msg => (
-                  <div
-                    key={msg.id}
-                    className={`flex flex-col space-y-1.5 ${
-                      msg.sender === "user" ? "items-end" : "items-start"
-                    }`}
-                  >
+                {messages.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center px-4 text-zinc-500 space-y-2">
+                    <p className="text-xs text-zinc-400">Ask Pi to connect a CCTV stream, inspect a video, or set up tracking.</p>
+                  </div>
+                ) : (
+                  messages.map(msg => (
                     <div
-                      className={`rounded-2xl px-3.5 py-2.5 text-xs max-w-[92%] leading-relaxed ${
-                        msg.sender === "user"
-                          ? "bg-white text-black font-medium shadow"
-                          : "bg-zinc-800/80 text-zinc-200 border border-zinc-700/60 shadow-sm"
+                      key={msg.id}
+                      className={`flex flex-col space-y-1.5 ${
+                        msg.sender === "user" ? "items-end" : "items-start"
                       }`}
                     >
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {msg.text}
-                      </ReactMarkdown>
+                      {msg.toolCalls && msg.toolCalls.length > 0 && (
+                        <div className="flex flex-wrap gap-1 max-w-[92%]">
+                          {msg.toolCalls.map((tc: any) => (
+                            <span
+                              key={tc.id}
+                              className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-zinc-800 border border-zinc-700/70 text-zinc-400"
+                            >
+                              {tc.name} · {tc.status}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div
+                        className={`rounded-2xl px-3.5 py-2.5 text-xs max-w-[92%] leading-relaxed ${
+                          msg.sender === "user"
+                            ? "bg-white text-black font-medium shadow"
+                            : "bg-zinc-800/80 text-zinc-200 border border-zinc-700/60 shadow-sm"
+                        }`}
+                      >
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {msg.text}
+                        </ReactMarkdown>
+                      </div>
+                      <span className="text-[10px] font-mono text-zinc-500 px-1">
+                        {msg.timestamp}
+                      </span>
                     </div>
-                    <span className="text-[10px] font-mono text-zinc-500 px-1">
-                      {msg.timestamp}
-                    </span>
-                  </div>
-                ))}
+                  ))
+                )}
                 <div ref={chatEndRef} />
               </div>
 
-              {/* Right Drawer Dedicated Prompt Box */}
+              {/* Right Sidebar Prompt Box + Video Upload */}
               <div className="p-3 border-t border-zinc-800 bg-zinc-900 shrink-0">
                 <form
                   onSubmit={handleSendPrompt}
                   className="bg-zinc-800/70 border border-zinc-700/80 rounded-xl p-2.5 space-y-2 focus-within:border-zinc-400 transition-colors shadow-inner"
                 >
+                  {videoFile && (
+                    <div className="flex items-center justify-between px-2 py-1 rounded-lg bg-zinc-900/90 border border-zinc-700/60 text-[11px] text-zinc-300">
+                      <span className="truncate">{videoFile.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setVideoFile(null)}
+                        className="text-zinc-500 hover:text-white ml-2"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
                   <textarea
                     value={prompt}
                     onChange={e => setPrompt(e.target.value)}
@@ -2117,14 +1917,25 @@ Capabilities:
                       }
                     }}
                     rows={2}
-                    placeholder="Ask Copilot (e.g. 'Count chickens crossing the coop', 'alert if predator enters')..."
+                    placeholder="Paste a CCTV URL, attach a video, or describe what to track..."
                     className="w-full bg-transparent border-none outline-none text-xs text-zinc-100 placeholder-zinc-500 resize-none px-1"
                   />
                   <div className="flex items-center justify-between pt-1 border-t border-zinc-700/50">
-                    <span className="text-[10px] font-mono text-zinc-500">{selectedModel}</span>
+                    <label className="cursor-pointer p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-700/60 transition-colors" title="Attach video">
+                      <Paperclip className="w-3.5 h-3.5" />
+                      <input
+                        type="file"
+                        accept="video/*"
+                        className="hidden"
+                        onChange={e => {
+                          const f = e.target.files?.[0];
+                          if (f) setVideoFile(f);
+                        }}
+                      />
+                    </label>
                     <button
                       type="submit"
-                      disabled={!prompt.trim() || isPlanning}
+                      disabled={(!prompt.trim() && !videoFile) || isPlanning}
                       className="px-3 py-1 rounded-lg bg-white hover:bg-zinc-200 text-black text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-40 shadow"
                     >
                       <span>Send</span>
@@ -2136,726 +1947,7 @@ Capabilities:
             </div>
 
           </div>
-        ) : (
-          /* =========================================================================
-             STANDARD BATCH VIDEO WORKSPACE (Centered Canvas + Minimal Bottom Prompt Bar)
-             ========================================================================= */
-          <div className="flex-1 flex flex-col h-full overflow-hidden">
-            <div className="flex-1 overflow-y-auto px-4 py-6 select-text w-full">
-              <div className="max-w-4xl mx-auto space-y-6">
-            {/* Zero Messages Empty State (Claude/ChatGPT Style Greeting) */}
-            {messages.length === 0 && !isBusy && (
-              <div className="flex flex-col items-center justify-center min-h-[55vh] max-w-xl mx-auto text-center space-y-8 animate-in fade-in duration-500">
-                <div className="space-y-2">
-                  <h1 className="text-2xl md:text-3xl font-medium tracking-tight text-neutral-400">
-                    Hi Muhammad
-                  </h1>
-                  <h2 className="text-3xl md:text-4xl font-semibold tracking-tight text-white/95">
-                    What would you like to create?
-                  </h2>
-                </div>
-
-                <div className="w-full space-y-3 pt-2">
-                  <button
-                    onClick={() => setPrompt("Show me the keyboard shortcuts and CV pipeline capabilities")}
-                    className="w-full flex items-center gap-4 p-3 rounded-2xl bg-[#28292b] hover:bg-[#323437] border border-[#383a3e] transition-all text-left group shadow-md active:scale-[0.99]"
-                  >
-                    <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0 group-hover:scale-105 transition-transform flex items-center justify-center">
-                      <img
-                        src="/icon-keyboard.png"
-                        alt="Keyboard Shortcuts"
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <span className="text-sm font-medium text-neutral-100 group-hover:text-white transition-colors">
-                      Show me the keyboard shortcuts
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => setPrompt("How do I get started with tracking objects and counting people?")}
-                    className="w-full flex items-center gap-4 p-3 rounded-2xl bg-[#28292b] hover:bg-[#323437] border border-[#383a3e] transition-all text-left group shadow-md active:scale-[0.99]"
-                  >
-                    <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0 group-hover:scale-105 transition-transform flex items-center justify-center">
-                      <img
-                        src="/icon-plant.png"
-                        alt="How do I get started"
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <span className="text-sm font-medium text-neutral-100 group-hover:text-white transition-colors">
-                      How do I get started?
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-full flex items-center gap-4 p-3 rounded-2xl bg-[#28292b] hover:bg-[#323437] border border-[#383a3e] transition-all text-left group shadow-md active:scale-[0.99]"
-                  >
-                    <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0 group-hover:scale-105 transition-transform flex items-center justify-center">
-                      <img
-                        src="/icon-moodboard.png"
-                        alt="Build a visual moodboard"
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <span className="text-sm font-medium text-neutral-100 group-hover:text-white transition-colors">
-                      Build a visual moodboard / ground footage
-                    </span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {messages.map(msg => (
-            <div
-              key={msg.id}
-              className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}
-            >
-              {/* User Bubble */}
-              {msg.sender === "user" ? (
-                msg.geometryEditEvent ? (
-                  /* Formatted Geometry Edit Audit Card */
-                  <div className="max-w-xl bg-zinc-900 border border-zinc-700/80 text-zinc-200 px-4 py-3 rounded-2xl text-xs font-mono space-y-2 shadow-lg">
-                    <div className="flex items-center justify-between pb-1 border-b border-zinc-800">
-                      <div className="flex items-center gap-2 font-semibold text-white">
-                        <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                        <span>Geometry Adjusted by {msg.geometryEditEvent.actor === "ai" ? "AI (VLM Grounding)" : "User"}</span>
-                        {msg.geometryEditEvent.revision !== undefined && (
-                          <span className="text-[10px] bg-zinc-800 text-zinc-300 px-1.5 py-0.5 rounded border border-zinc-700">
-                            #{msg.geometryEditEvent.revision}
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[10px] text-zinc-400 uppercase">{msg.geometryEditEvent.geometry_type}</span>
-                    </div>
-                    <div className="text-[11px] text-zinc-300">
-                      {msg.text}
-                    </div>
-                    {msg.geometryEditEvent.zones && msg.geometryEditEvent.zones[0]?.polygon && (
-                      <div className="bg-black/40 rounded-lg p-2 text-[10px] text-zinc-400 overflow-x-auto">
-                        <span className="text-zinc-500">// Saved coordinates:</span>
-                        <div className="text-zinc-200 mt-0.5 font-mono">
-                          {JSON.stringify(msg.geometryEditEvent.zones[0].polygon.map((p: any) => [p.x, p.y]))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="max-w-xl bg-[var(--bg-elevated)] border border-[var(--border-bubble)] text-[var(--fg-bubble)] px-5 py-3 rounded-2xl text-sm leading-relaxed space-y-2.5">
-                    <div>{msg.text}</div>
-                    {msg.uploadedVideoUrl && (
-                      <div className="rounded-xl overflow-hidden bg-black/60 border border-white/10 w-56 aspect-video relative group">
-                        <video
-                          src={msg.uploadedVideoUrl}
-                          controls
-                          playsInline
-                          preload="metadata"
-                          className="w-full h-full object-cover bg-black"
-                        />
-                        {msg.uploadedVideoName && (
-                          <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/80 text-[10px] text-neutral-300 font-mono truncate max-w-[200px]">
-                            {msg.uploadedVideoName}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )
-              ) : (
-                /* Assistant Seamless Response (No Outer Card) */
-                <div className="max-w-3xl w-full space-y-4">
-                  {/* Thoughts Accordion */}
-                  {msg.thoughts && (
-                    <div 
-                      onClick={() => setShowThoughts(!showThoughts)}
-                      className="text-xs text-neutral-400 flex items-center gap-1.5 cursor-pointer hover:text-neutral-200 select-none transition-colors"
-                    >
-                      <span className="font-medium">Thought for a while</span>
-                      <ChevronRight className={`w-3.5 h-3.5 transition-transform duration-200 ${showThoughts ? "rotate-90" : ""}`} />
-                    </div>
-                  )}
-
-                  {msg.thoughts && showThoughts && (
-                    <div className="border-l-2 border-[var(--border-badge)] pl-4 py-1 text-xs text-neutral-400 italic leading-relaxed my-2">
-                      {msg.thoughts}
-                    </div>
-                  )}
-
-                  {/* Markdown formatted conversational response */}
-                  {msg.text ? (
-                    <div className="text-sm text-neutral-200 leading-relaxed font-normal prose prose-invert max-w-none prose-p:my-1.5 prose-headings:my-2 prose-h2:text-base prose-h3:text-sm prose-table:my-2 prose-th:px-3 prose-th:py-1.5 prose-td:px-3 prose-td:py-1.5 prose-th:bg-neutral-900 prose-td:border-neutral-800 prose-th:border-neutral-700">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {msg.text}
-                      </ReactMarkdown>
-                    </div>
-                  ) : (
-                    isPlanning && (
-                      <div className="flex items-center gap-2 text-xs text-neutral-400 font-mono py-1">
-                        <Activity className="w-3.5 h-3.5 text-zinc-300 animate-spin" />
-                        <span>Generating response...</span>
-                      </div>
-                    )
-                  )}
-
-                  {/* Clean Single Pipeline Spec Card with Upload & Run Action */}
-                  {msg.spec && (
-                    <div 
-                      style={{ backgroundColor: "var(--bg-elevated)" }} 
-                      className="mt-3 rounded-2xl p-5 space-y-4 shadow-xl border border-zinc-800/60"
-                    >
-                      <div className="flex items-center justify-between pb-1">
-                        <div className="text-xs font-semibold text-zinc-300">
-                          <span>{msg.spec.name || "Planned Vision Workflow"}</span>
-                        </div>
-                        <div className="text-[11px] font-mono text-zinc-400">
-                          {msg.spec.detector?.model || "yolov8n.pt"} · {msg.spec.tracker?.tracker_type || "bytetrack"}
-                        </div>
-                      </div>
-
-                      {/* Execution Action Row */}
-                      <div className="flex flex-col gap-3 pt-1">
-                        <div className="flex items-center gap-3">
-                          {msg.uploadedVideoName ? (
-                            <button
-                              onClick={() => handleRunInference(msg.spec, msg.activeVideoFile)}
-                              disabled={isRunning}
-                              className="px-4 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-semibold text-xs flex items-center gap-2 transition-all shadow-md active:scale-[0.98] disabled:opacity-50"
-                            >
-                              <Play className="w-3.5 h-3.5 fill-current" />
-                              Confirm & Run Pipeline on {msg.uploadedVideoName.slice(0, 18)}
-                            </button>
-                          ) : null}
-
-                          <button
-                            onClick={() => fileInputRef.current?.click()}
-                            className="px-4 py-2.5 rounded-xl bg-[var(--bg-secondary)] hover:bg-[var(--bg-secondary-hover)] text-zinc-200 font-semibold text-xs flex items-center gap-2 transition-all shadow-md active:scale-[0.98]"
-                          >
-                            <Upload className="w-3.5 h-3.5" />
-                            {msg.uploadedVideoName ? `Replace Video` : "Upload Video to Ground Scene"}
-                          </button>
-                        </div>
-
-                        {/* Video Preview or Interactive Visual Geometry Editor */}
-                        {msg.uploadedVideoUrl && (() => {
-                          // Check if an active open_geometry_editor tool call was triggered on this message or workspace
-                          const isEditorRequested = msg.toolCalls?.some(tc => tc.name === "open_geometry_editor" && tc.status === "completed");
-
-                          // Extract initial zones from spec or toolCalls
-                          let extractedZones: any[] = [];
-                          if (msg.spec?.zones && Array.isArray(msg.spec.zones)) {
-                            extractedZones = msg.spec.zones;
-                          } else if (msg.spec?.workflow?.zones && Array.isArray(msg.spec.workflow.zones)) {
-                            extractedZones = msg.spec.workflow.zones;
-                          } else if (msg.spec?.steps && Array.isArray(msg.spec.steps)) {
-                            for (const st of msg.spec.steps) {
-                              if (st.config?.zones && Array.isArray(st.config.zones)) {
-                                extractedZones = st.config.zones;
-                                break;
-                              }
-                            }
-                          }
-                          if (extractedZones.length === 0 && msg.toolCalls) {
-                            for (const tc of msg.toolCalls) {
-                              if (tc.output?.zones && Array.isArray(tc.output.zones) && tc.output.zones.length > 0) {
-                                extractedZones = tc.output.zones;
-                                break;
-                              }
-                            }
-                          }
-
-                          // Normalize polygon points to {x, y} objects
-                          const normalizedZones = extractedZones.map((z: any) => ({
-                            name: z.name || "active_zone",
-                            polygon: (z.polygon || []).map((pt: any) => {
-                              if (Array.isArray(pt)) return { x: pt[0], y: pt[1] };
-                              return { x: pt.x ?? pt[0] ?? 0, y: pt.y ?? pt[1] ?? 0 };
-                            })
-                          }));
-
-                          const extractedLines = msg.spec?.lines || msg.spec?.workflow?.lines || (msg.toolCalls?.find(tc => tc.output?.lines)?.output?.lines) || [];
-
-                          // Check if this card has an active geometry editor open in state
-                          const isCardEditorOpen = isEditorRequested || (activeEditorMessageId === msg.id);
-
-                          // If the editor is activated (by tool or manual click), render GeometryEditor
-                          if (isCardEditorOpen) {
-                            return (
-                              <div className="mt-2 space-y-2">
-                                <div className="flex items-center justify-between text-xs font-mono text-white bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg">
-                                  <div className="flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                                    <span>Visual Geometry Editor Activated</span>
-                                  </div>
-                                  <button
-                                    onClick={() => setActiveEditorMessageId(null)}
-                                    className="text-[11px] text-zinc-400 hover:text-zinc-200 transition-colors"
-                                  >
-                                    Done Editing
-                                  </button>
-                                </div>
-                                <GeometryEditor
-                                  videoUrl={msg.uploadedVideoUrl}
-                                  initialZones={normalizedZones}
-                                  initialLines={extractedLines}
-                                  onSave={({ geometry_type, zones, lines }) => {
-                                    // Update spec and workspaceState immediately with the user's edited geometry!
-                                    setWorkspaceState(prev => {
-                                      const currentSpec = msg.spec || prev.spec || {};
-                                      const updatedSpec = {
-                                        ...currentSpec,
-                                        geometry_type,
-                                        zones: geometry_type === "polygon" ? zones : [],
-                                        lines: geometry_type === "line" ? lines : []
-                                      };
-                                      return {
-                                        ...prev,
-                                        spec: updatedSpec
-                                      };
-                                    });
-
-                                    setMessages(prev =>
-                                      prev.map(m => {
-                                        if (m.id !== msg.id) return m;
-                                        return {
-                                          ...m,
-                                          spec: {
-                                            ...(m.spec || {}),
-                                            geometry_type,
-                                            zones: geometry_type === "polygon" ? zones : [],
-                                            lines: geometry_type === "line" ? lines : []
-                                          }
-                                        };
-                                      })
-                                    );
-
-                                    // Append an explicit audit trail message in conversation history!
-                                    const vertexCount = geometry_type === "polygon" ? (zones[0]?.polygon?.length || 4) : 2;
-                                    const prevCount = messages.filter(m => m.geometryEditEvent).length;
-                                    const revision = prevCount + 1;
-                                    const historyEventMsg: Message = {
-                                      id: `edit_event_${Date.now()}`,
-                                      sender: "user",
-                                      text: `📐 Adjusted ${geometry_type} geometry (Rev #${revision}): defined custom ${vertexCount}-${geometry_type === "polygon" ? "point" : "endpoint"} boundary.`,
-                                      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                                      geometryEditEvent: {
-                                        action: "saved",
-                                        actor: "user",
-                                        revision,
-                                        geometry_type,
-                                        original_zones: normalizedZones,
-                                        original_lines: extractedLines,
-                                        zones,
-                                        lines,
-                                        summary: `User adjusted ${geometry_type} to ${vertexCount} coordinates (Revision #${revision})`
-                                      }
-                                    };
-                                    setMessages(prev => [...prev, historyEventMsg]);
-                                    fetch(`http://localhost:8000/api/sessions/${activeSessionId}/messages`, {
-                                      method: "POST",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify(historyEventMsg)
-                                    }).catch(() => {});
-                                  }}
-                                />
-                              </div>
-                            );
-                          }
-
-                          // Otherwise, render live video with SVG polygon/line overlay + "Edit Geometry" button
-                          const hasPolygon = normalizedZones.length > 0 && normalizedZones[0].polygon.length >= 3;
-                          const hasLine = extractedLines.length > 0 && extractedLines[0].start && extractedLines[0].end;
-
-                          return (
-                            <div className="relative w-full max-w-lg aspect-video rounded-xl overflow-hidden bg-black shadow-lg border border-white/10 group mt-1">
-                              <video
-                                src={msg.uploadedVideoUrl}
-                                autoPlay
-                                loop
-                                muted
-                                playsInline
-                                className="w-full h-full object-cover"
-                              />
-
-                              {/* SVG Overlay of Proposed Geometry */}
-                              <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
-                                {hasPolygon && normalizedZones.map((z, zi) => {
-                                  const pointsStr = z.polygon.map((p: any) => `${p.x * 100},${p.y * 100}`).join(" ");
-                                  return (
-                                    <g key={zi}>
-                                      <polygon
-                                        points={pointsStr}
-                                        fill="rgba(16, 185, 129, 0.22)"
-                                        stroke="#10b981"
-                                        strokeWidth="1.2"
-                                        strokeDasharray="2.5 1.5"
-                                      />
-                                      {z.polygon.map((p: any, pi: number) => (
-                                        <circle
-                                          key={pi}
-                                          cx={p.x * 100}
-                                          cy={p.y * 100}
-                                          r="1.4"
-                                          fill="#10b981"
-                                          stroke="#ffffff"
-                                          strokeWidth="0.5"
-                                        />
-                                      ))}
-                                    </g>
-                                  );
-                                })}
-
-                                {hasLine && extractedLines.map((l: any, li: number) => (
-                                  <g key={li}>
-                                    <line
-                                      x1={l.start.x * 100}
-                                      y1={l.start.y * 100}
-                                      x2={l.end.x * 100}
-                                      y2={l.end.y * 100}
-                                      stroke="#38bdf8"
-                                      strokeWidth="1.5"
-                                      strokeDasharray="3 2"
-                                    />
-                                    <circle cx={l.start.x * 100} cy={l.start.y * 100} r="1.5" fill="#38bdf8" stroke="#fff" strokeWidth="0.5" />
-                                    <circle cx={l.end.x * 100} cy={l.end.y * 100} r="1.5" fill="#f43f5e" stroke="#fff" strokeWidth="0.5" />
-                                  </g>
-                                ))}
-                              </svg>
-
-                              {/* Top Bar Indicator */}
-                              <div className="absolute top-2 left-2 px-2.5 py-1 rounded-md bg-black/80 backdrop-blur-md text-[10px] font-mono text-zinc-300 border border-white/10 flex items-center gap-2">
-                                <span className={`w-2 h-2 rounded-full ${hasPolygon || hasLine ? "bg-white" : "bg-blue-400"}`} />
-                                <span>{hasPolygon ? "Proposed Polygon Active" : hasLine ? "Proposed Crossing Line Active" : (msg.uploadedVideoName || "Footage Preview")}</span>
-                              </div>
-
-                              {/* Edit Geometry Overlay Action Button */}
-                              <button
-                                onClick={() => setActiveEditorMessageId(msg.id)}
-                                className="absolute bottom-2 right-2 px-3 py-1.5 rounded-lg bg-white hover:bg-zinc-200 text-black font-semibold text-xs flex items-center gap-1.5 shadow-lg backdrop-blur-sm transition-all transform active:scale-95"
-                              >
-                                <Sliders className="w-3.5 h-3.5" />
-                                Edit Geometry
-                              </button>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Tool Calls Expandable Accordion */}
-                  {msg.toolCalls && msg.toolCalls.length > 0 && (
-                    <div className="mt-2">
-                      <div 
-                        onClick={() => {
-                          setExpandedToolCalls(prev => ({
-                            ...prev,
-                            [msg.id]: !prev[msg.id]
-                          }));
-                        }}
-                        className="inline-flex items-center gap-1.5 text-xs text-neutral-400 hover:text-neutral-200 cursor-pointer select-none py-1 transition-colors"
-                      >
-                        <ChevronRight className={`w-3.5 h-3.5 transition-transform duration-200 ${expandedToolCalls[msg.id] ? "rotate-90" : ""}`} />
-                        <span className="font-medium font-mono">Tool calls</span>
-                        <span className="text-[10px] text-neutral-500 font-mono">({msg.toolCalls.length})</span>
-                      </div>
-
-                      {expandedToolCalls[msg.id] && (
-                        <div className="space-y-1.5 mt-2">
-                          {msg.toolCalls.map((tc, idx) => (
-                            <div 
-                              key={idx}
-                              className="bg-[var(--bg-inset)] border border-[var(--border-tool)] rounded-xl p-3 text-xs font-mono space-y-1.5"
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className="text-zinc-200 font-semibold flex items-center gap-1.5">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-300" />
-                                  {tc.name}
-                                </span>
-                                <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                                  tc.status === "completed" ? "bg-emerald-500/10 text-white" : "bg-rose-500/10 text-zinc-400"
-                                }`}>
-                                  {tc.status}
-                                </span>
-                              </div>
-                              <div className="text-[11px] text-neutral-400 bg-[var(--bg-app)] p-2 rounded-lg overflow-x-auto">
-                                <div className="text-neutral-500">// Arguments:</div>
-                                <div className="text-neutral-300">{JSON.stringify(tc.args, null, 2)}</div>
-                                {tc.output && (
-                                  <>
-                                    <div className="text-neutral-500 mt-1">// Result:</div>
-                                    <div className="text-white">{JSON.stringify(tc.output, null, 2)}</div>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Video Inference Results & Visualizer */}
-                  {msg.stats && (
-                    <div className="mt-4 bg-[var(--bg-elevated)] border border-[var(--border-card)] rounded-2xl p-5 space-y-4 shadow-md">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>Video Inference Output</span>
-                        </div>
-                        <div className="flex items-center gap-4 text-xs text-neutral-300 font-mono">
-                          {msg.stats.unique_tracks !== undefined && msg.stats.unique_tracks !== null && (() => {
-                            // Derive a human-readable label from the pipeline's target classes
-                            const classes: string[] = msg.spec?.detector?.classes || msg.spec?.workflow?.detector?.classes || msg.spec?.classes || [];
-                            const singleClass = classes.length === 1 ? classes[0] : null;
-                            const label = singleClass === "person" ? "Unique People" : singleClass ? `Unique ${singleClass.charAt(0).toUpperCase() + singleClass.slice(1)}s` : "Unique Tracks";
-                            return (
-                              <span>{label}: <strong className="text-white">{msg.stats.unique_tracks}</strong></span>
-                            );
-                          })()}
-                          {msg.stats.has_polygon_zones ? (
-                            <>
-                              {msg.stats.total_zone_entered !== undefined && msg.stats.total_zone_entered !== null && (
-                                <span>Zone Visitors: <strong className="text-white">{msg.stats.total_zone_entered}</strong></span>
-                              )}
-                              <span>Zone Peak: <strong className="text-zinc-200">{msg.stats.max_zone_occupancy ?? 0}</strong></span>
-                              {msg.stats.zone_analytics && (() => {
-                                const firstZone = Object.values(msg.stats.zone_analytics)[0] as any;
-                                if (firstZone?.avg_dwell_seconds) {
-                                  return (
-                                    <span>Avg Dwell: <strong className="text-sky-400">{firstZone.avg_dwell_seconds}s</strong></span>
-                                  );
-                                }
-                                return null;
-                              })()}
-                            </>
-                          ) : (
-                            <>
-                              <span>IN: <strong className="text-white">{msg.stats.in_count ?? 0}</strong></span>
-                              <span>OUT: <strong className="text-zinc-400">{msg.stats.out_count ?? 0}</strong></span>
-                            </>
-                          )}
-                          <span>FPS: {msg.stats.processed_fps}</span>
-                        </div>
-                      </div>
-
-                      {/* VLM Scene Grounding Feedback */}
-                      {msg.stats.scene_analysis && (
-                        <div className="bg-[var(--bg-inset)] border border-neutral-800 rounded-xl px-4 py-2.5 text-xs text-neutral-300 flex items-start gap-2.5">
-                          <Sparkles className="w-4 h-4 text-zinc-200 shrink-0 mt-0.5" />
-                          <div className="leading-relaxed">
-                            <span className="text-neutral-400 font-medium">VLM Scene Analysis: </span>
-                            <span className="text-neutral-200">{msg.stats.scene_analysis}</span>
-                            <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-mono uppercase bg-neutral-800 text-neutral-300">
-                              {msg.stats.geometry_type === "polygon" ? "Polygon Zone" : "Directional Line"}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="rounded-xl overflow-hidden bg-black aspect-video flex items-center justify-center border border-[var(--border-card)]">
-                        {msg.videoUrl ? (
-                          <video
-                            src={msg.videoUrl}
-                            controls
-                            autoPlay
-                            loop
-                            className="w-full h-full object-contain"
-                          />
-                        ) : (
-                          <div className="text-neutral-500 text-xs flex flex-col items-center gap-2">
-                            <Video className="w-8 h-8" />
-                            <span>Annotated video rendered</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                </div>
-              )}
-            </div>
-          ))}
-
-          {/* Thinking / Working Indicator */}
-          {isPlanning && !messages.some(m => m.sender === "bot" && (m.text || m.thoughts)) && (
-            <div className="flex flex-col items-start space-y-3 max-w-xl">
-              <div className="flex items-center gap-2 text-xs text-neutral-300 bg-[var(--bg-subtle)] px-4 py-2.5 rounded-2xl border border-zinc-800/80 shadow-md">
-                <Activity className="w-3.5 h-3.5 text-zinc-300 animate-spin" />
-                <span className="font-mono">Processing with mimo-v2.6-flash...</span>
-              </div>
-            </div>
-          )}
-
-          {/* Running Inference or Grounding Dynamic Progress Indicator */}
-          {(isRunning || isGrounding) && (
-            <div className="flex flex-col items-start space-y-3 max-w-xl">
-              <div className="flex flex-col gap-2.5 bg-[var(--bg-subtle)] px-4 py-3 rounded-2xl border border-zinc-800/80 shadow-md w-full">
-                <div className="flex items-center justify-between text-xs text-neutral-200">
-                  <div className="flex items-center gap-2">
-                    <Activity className="w-3.5 h-3.5 text-white animate-spin" />
-                    <span className="font-mono font-medium">
-                      {livePipelineProgress?.progress_pct !== undefined
-                        ? `Tracking: Frame ${livePipelineProgress.frame} / ${livePipelineProgress.total_frames}`
-                        : runningSteps[runningStepIndex]}
-                    </span>
-                  </div>
-                  {livePipelineProgress?.progress_pct !== undefined && (
-                    <span className="font-mono text-zinc-100 font-semibold">{livePipelineProgress.progress_pct}%</span>
-                  )}
-                </div>
-
-                {/* Smooth Animated Progress Bar */}
-                {livePipelineProgress?.progress_pct !== undefined && (
-                  <div className="w-full bg-neutral-800/80 rounded-full h-1.5 overflow-hidden">
-                    <div
-                      className="bg-white h-full rounded-full transition-all duration-300 ease-out"
-                      style={{ width: `${Math.min(100, Math.max(2, livePipelineProgress.progress_pct))}%` }}
-                    />
-                  </div>
-                )}
-
-                {isRunning && (
-                  <div className="flex items-center justify-between text-[11px] font-mono text-neutral-400 pt-1 border-t border-neutral-800/60">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                      <span>{livePipelineProgress?.fps ? `${livePipelineProgress.fps} FPS` : `Elapsed: ${pipelineElapsed}s`}</span>
-                      {livePipelineProgress?.unique_tracks !== undefined && (
-                        <span className="text-neutral-500 ml-1">· {livePipelineProgress.unique_tracks} tracks active</span>
-                      )}
-                    </span>
-                    <span className="text-neutral-300">
-                      Est. time: <strong className="text-zinc-200">{estimatedSeconds ? `${Math.max(0, estimatedSeconds - pipelineElapsed)}s left` : "Calculating..."}</strong>
-                      <span className="text-neutral-500 ml-1">({systemHardware?.device ? systemHardware.device.toUpperCase() : "CPU"} mode)</span>
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-            <div ref={chatEndRef} />
-            </div>
-          </div>
-
-          {/* Minimalist Floating Prompt Box */}
-          <footer className="p-6">
-            <form
-              onSubmit={handleSendPrompt}
-              className="max-w-3xl mx-auto bg-[var(--bg-surface)] border border-[var(--border-card)] rounded-2xl p-3 space-y-3 shadow-2xl focus-within:border-neutral-500 transition-colors"
-            >
-              <input
-                type="file"
-                ref={fileInputRef}
-                accept="video/*"
-                className="hidden"
-                onChange={e => {
-                  if (e.target.files && e.target.files[0]) {
-                    handleFileUpload(e.target.files[0]);
-                  }
-                }}
-              />
-
-              {/* Selected File Attached Pill Badge — with live video preview */}
-              {videoFile && (
-                <div className="flex items-center justify-between gap-3 bg-[var(--bg-badge)] border border-[var(--border-panel)] rounded-xl px-3 py-2 text-xs text-neutral-300">
-                  <div className="flex items-center gap-3 truncate min-w-0">
-                    {videoPreviewUrl ? (
-                      <video
-                        src={videoPreviewUrl}
-                        muted
-                        playsInline
-                        preload="metadata"
-                        className="w-20 h-12 rounded-md object-cover bg-black border border-white/10 shrink-0"
-                      />
-                    ) : (
-                      <div className="w-20 h-12 rounded-md bg-black/60 border border-white/10 flex items-center justify-center shrink-0">
-                        <Video className="w-4 h-4 text-white" />
-                      </div>
-                    )}
-                    <div className="min-w-0">
-                      <div className="font-mono truncate">{videoFile.name}</div>
-                      <div className="text-[10px] text-neutral-500 font-mono">
-                        {(videoFile.size / (1024 * 1024)).toFixed(1)} MB · ready to attach
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
-                      setVideoFile(null);
-                      setVideoPreviewUrl(null);
-                    }}
-                    className="text-neutral-400 hover:text-zinc-400 text-xs shrink-0 font-mono"
-                    title="Remove video"
-                  >
-                    ✕
-                  </button>
-                </div>
-              )}
-
-              <textarea
-                value={prompt}
-                onChange={e => setPrompt(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendPrompt();
-                  }
-                }}
-                rows={2}
-                placeholder="Describe what you want your camera or footage to track..."
-                className="w-full bg-transparent border-none outline-none text-sm text-[var(--fg)] placeholder-neutral-500 resize-none px-2"
-              />
-
-              <div className="flex items-center justify-between pt-1 border-t border-[var(--border-row)]">
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-7 h-7 rounded-lg hover:bg-[var(--bg-hover)] flex items-center justify-center text-neutral-400 hover:text-[var(--fg)] transition-colors"
-                    title="Attach video or component"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-
-                  <div className="flex items-center gap-1.5 text-xs text-neutral-300 bg-[var(--bg-hover)] px-2.5 py-1 rounded-lg border border-[var(--border-chip)] cursor-pointer hover:text-[var(--fg)] font-medium">
-                    <Globe className="w-3.5 h-3.5 text-neutral-400" />
-                    <span>{selectedToolMode}</span>
-                    <ChevronRight className="w-3 h-3 rotate-90 text-neutral-500" />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-neutral-400 font-mono">
-                    {selectedModel}
-                  </span>
-
-                  {isBusy ? (
-                    <button
-                      type="button"
-                      onClick={handleStop}
-                      title="Stop"
-                      className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 flex items-center justify-center transition-all shadow active:scale-[0.98]"
-                    >
-                      <StopCircle className="w-4 h-4" />
-                    </button>
-                  ) : (
-                    <button
-                      type="submit"
-                      disabled={!prompt.trim() || isPlanning}
-                      className="w-8 h-8 rounded-lg bg-[var(--accent-send)] hover:bg-[var(--accent-send-hover)] text-[var(--fg-on-accent)] flex items-center justify-center transition-all disabled:opacity-40 shadow"
-                    >
-                      <ArrowUp className="w-4 h-4 text-[var(--fg-on-accent)] stroke-[2.5]" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </form>
-          </footer>
-        </div>
-      )}
+        )}
       </main>
 
       {/* WhatsApp Recluze-Style Connection & Alerts Modal */}
