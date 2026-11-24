@@ -283,6 +283,47 @@ function buildVisionTools(workspaceRef) {
     ),
     makeVisionTool(
       {
+        name: "discover_cameras",
+        label: "Discover LAN Cameras",
+        description:
+          "Auto-discover IP/CCTV cameras on the local Wi-Fi/LAN using ONVIF WS-Discovery and port scanning (554, 8080, 8554). Call this when the user asks to find or scan for cameras.",
+        promptSnippet: "discover_cameras: Auto-discover IP/CCTV cameras on the local network",
+        parameters: Type.Object({
+          timeout_sec: Type.Optional(Type.Number({ description: "ONVIF discovery timeout in seconds (default 1.8)" })),
+          scan_subnet: Type.Optional(Type.Boolean({ description: "Also scan local /24 subnet for camera ports (default true)" })),
+        }),
+      },
+      workspaceRef
+    ),
+    makeVisionTool(
+      {
+        name: "connect_camera_auto",
+        label: "Auto-Connect Camera by IP & Brand",
+        description:
+          "Automatically probe common RTSP/HTTP paths for a camera IP (with optional brand, username, password) and connect the live stream on the first working URL.",
+        promptSnippet: "connect_camera_auto: Probe brand RTSP/HTTP paths and connect a camera by IP",
+        parameters: Type.Object({
+          ip: Type.String({ description: "Camera IP address on the local network (e.g. 192.168.1.42)" }),
+          username: Type.Optional(Type.String({ description: "Camera username (e.g. admin)" })),
+          password: Type.Optional(Type.String({ description: "Camera password" })),
+          brand: Type.Optional(
+            Type.Union([
+              Type.Literal("auto"),
+              Type.Literal("hikvision"),
+              Type.Literal("dahua"),
+              Type.Literal("tapo"),
+              Type.Literal("reolink"),
+              Type.Literal("ipwebcam"),
+              Type.Literal("generic"),
+            ])
+          ),
+          session_id: Type.Optional(Type.String({ description: "Optional session ID" })),
+        }),
+      },
+      workspaceRef
+    ),
+    makeVisionTool(
+      {
         name: "manage_live_stream",
         label: "Manage Live CCTV Stream",
         description: "Connect, fetch real-time telemetry, update WorkflowSpec, or stop a live RTSP/IP camera stream.",

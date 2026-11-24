@@ -14,6 +14,11 @@ from typing import Any, Dict
 from visionharness.agent.react_agent import execute_tool as execute_legacy_tool
 from visionharness.core.spec import WorkflowSpec
 from visionharness.runtime.live_stream import LiveStreamRegistry
+from visionharness.runtime.camera_discovery import (
+    discover_lan_cameras,
+    build_candidate_urls,
+    probe_camera_url,
+)
 
 DATA_DIR = os.getenv("VISIONHARNESS_DATA_DIR", ".")
 WORKFLOWS_DIR = os.getenv("VISIONHARNESS_WORKFLOWS_DIR", os.path.join(DATA_DIR, "workflows"))
@@ -238,6 +243,46 @@ def _manage_workflows(tool_input: Dict[str, Any], workspace: Dict[str, Any]) -> 
     return {"error": f"Unsupported workflow action '{action}'. Use: list, get, save."}
 
 
+def _discover_cameras(tool_input: Dict[str, Any], workspace: Dict[str, Any]) -> Dict[str, Any]:
+    timeout_sec = float(tool_input.get("timeout_sec") or 1.8)
+    scan_subnet = tool_input.get("scan_subnet", True)
+    return discover_lan_cameras(timeout_sec=timeout_sec, scan_subnet=bool(scan_subnet))
+
+
+def _connect_camera_auto(tool_input: Dict[str, Any], workspace: Dict[str, Any]) -> Dict[str, Any]:
+    ip = (tool_input.get("ip") or "").strip()
+    if not ip:
+        return {"error": "ip is required (or use '0' with manage_live_stream for local webcam)."}
+    username = tool_input.get("username") or ""
+    password = tool_input.get("password") or ""
+    brand = tool_input.get("brand") or "auto"
+    session_id = tool_input.get("session_id") or workspace.get("session_id") or "default_live"
+
+    candidates = build_candidate_urls(ip, username=username, password=password, brand=brand)
+    tried = []
+    for url in candidates:
+        tried.append(url)
+        if probe_camera_url(url):
+            worker = LiveStreamRegistry.get_or_create(session_id, url)
+            snap = worker.connect_and_capture_snapshot()
+            if snap is not None:
+                worker.start()
+                workspace["stream_url"] = url
+                return {
+                    "status": "connected",
+                    "session_id": session_id,
+                    "stream_url": url,
+                    "brand": brand,
+                    "telemetry": worker.get_telemetry(),
+                }
+
+    return {
+        "status": "failed",
+        "error": f"Could not connect to camera at {ip} after trying {len(tried)} common RTSP/HTTP paths. Verify credentials and ensure RTSP is enabled on the camera.",
+        "tried_count": len(tried),
+    }
+
+
 def execute_vision_tool(tool_name: str, tool_input: Dict[str, Any], workspace: Dict[str, Any]) -> Dict[str, Any]:
     """Dispatch any VisionOps tool and return a JSON-serializable result dict."""
     if tool_name in LEGACY_TOOLS:
@@ -248,6 +293,10 @@ def execute_vision_tool(tool_name: str, tool_input: Dict[str, Any], workspace: D
         return _extract_frame(tool_input, workspace)
     if tool_name == "manage_live_stream":
         return _manage_live_stream(tool_input, workspace)
+    if tool_name == "discover_cameras":
+        return _discover_cameras(tool_input, workspace)
+    if tool_name == "connect_camera_auto":
+        return _connect_camera_auto(tool_input, workspace)
     if tool_name == "send_whatsapp_alert":
         return _send_whatsapp_alert(tool_input, workspace)
     if tool_name == "manage_workflows":

@@ -833,7 +833,7 @@ Capabilities:
               let toolStats = null;
               let toolVideoUrl: string | null = null;
 
-              if (chunk.name === "manage_live_stream" && chunk.output) {
+              if ((chunk.name === "manage_live_stream" || chunk.name === "connect_camera_auto") && chunk.output) {
                 if (chunk.output.status === "connected") {
                   setIsLiveConnected(true);
                   if (chunk.output.stream_url) setLiveStreamUrl(chunk.output.stream_url);
