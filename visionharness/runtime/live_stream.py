@@ -21,6 +21,7 @@ import supervision as sv
 from ultralytics import YOLO
 
 from visionharness.core.spec import WorkflowSpec, Point2D
+from visionharness.core.alert_store import add_alert, ALERTS_DIR
 from visionharness.agent.grounding import ground_scene_with_vlm
 
 
@@ -64,6 +65,26 @@ class LiveCameraWorker:
         self.trace_annotator = None
         self.zone_visitor_frames = {}
         self.last_wa_alert_time = 0.0
+
+        # Real-time object alert rule (armed via chat / set_alert_rule)
+        self.alert_rule: Optional[Dict[str, Any]] = None
+        self.last_rule_alert_time = 0.0
+
+    def set_alert_rule(self, classes: list, cooldown_sec: float = 15.0, label: str = "") -> Dict[str, Any]:
+        """Arm a real-time object detection alert rule on this live stream."""
+        norm_classes = [str(c).strip().lower() for c in classes if str(c).strip()]
+        with self.lock:
+            self.alert_rule = {
+                "classes": norm_classes,
+                "cooldown_sec": max(2.0, float(cooldown_sec)),
+                "label": label or f"Alert on {', '.join(norm_classes)}",
+            }
+            self.last_rule_alert_time = 0.0
+        return self.alert_rule
+
+    def clear_alert_rule(self) -> None:
+        with self.lock:
+            self.alert_rule = None
 
     def connect_and_capture_snapshot(self) -> Optional[np.ndarray]:
         """Attempts connection and captures a single sharp snapshot frame."""
@@ -273,6 +294,33 @@ class LiveCameraWorker:
 
             # Render In-Video Telemetry HUD (Top-Left)
             self._render_hud(annotated)
+
+            # Real-time Object Alert Rule check (saves annotated screenshot to Alerts tab)
+            rule = self.alert_rule
+            if rule and rule.get("classes") and detections.class_id is not None and self.model:
+                now_ts = time.time()
+                if (now_ts - self.last_rule_alert_time) >= rule.get("cooldown_sec", 15.0):
+                    target_set = set(rule["classes"])
+                    matched = []
+                    for cid in detections.class_id:
+                        cname = str(self.model.names.get(int(cid), "")).lower()
+                        if cname in target_set:
+                            matched.append(cname)
+                    if matched:
+                        self.last_rule_alert_time = now_ts
+                        os.makedirs(ALERTS_DIR, exist_ok=True)
+                        snap_name = f"alert_{self.session_id}_{int(now_ts * 1000)}.jpg"
+                        snap_path = os.path.join(ALERTS_DIR, snap_name)
+                        cv2.imwrite(snap_path, annotated, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                        add_alert(
+                            session_id=self.session_id,
+                            camera_label=self.spec.name or self.stream_url,
+                            detected_classes=sorted(set(matched)),
+                            count=len(matched),
+                            rule_label=rule.get("label", ""),
+                            screenshot_url=f"/output/alerts/{snap_name}",
+                            screenshot_path=snap_path,
+                        )
 
             # Calculate FPS
             now = time.time()
