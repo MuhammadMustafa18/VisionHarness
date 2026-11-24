@@ -25,6 +25,7 @@ interface GeometryEditorProps {
   initialLines?: LineCrossing[];
   onSave?: (geometry: { geometry_type: "polygon" | "line"; zones: Zone[]; lines: LineCrossing[] }) => void;
   className?: string;
+  fullWidth?: boolean;
 }
 
 export const GeometryEditor: React.FC<GeometryEditorProps> = ({
@@ -32,8 +33,10 @@ export const GeometryEditor: React.FC<GeometryEditorProps> = ({
   initialZones = [],
   initialLines = [],
   onSave,
-  className = ""
+  className = "",
+  fullWidth = false
 }) => {
+  const isImageFeed = /\/(feed|snapshot)(\?|$)|\.(jpg|jpeg|png|webp)(\?|$)/i.test(videoUrl);
   const [isEditing, setIsEditing] = useState(true);
   const [mode, setMode] = useState<"polygon" | "line">(() => (initialLines.length > 0 && initialZones.length === 0 ? "line" : "polygon"));
 
@@ -407,21 +410,29 @@ export const GeometryEditor: React.FC<GeometryEditorProps> = ({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         className={`relative rounded-xl overflow-hidden bg-black shadow-xl select-none group border touch-none transition-all ${
-          isFullscreen ? "w-full h-full max-h-screen" : "w-80 h-48"
+          isFullscreen ? "w-full h-full max-h-screen" : fullWidth ? "w-full aspect-[16/9]" : "w-80 h-48"
         } ${isEditing ? "border-emerald-500/60 ring-2 ring-emerald-500/20 cursor-crosshair" : "border-white/10"}`}
       >
-        <video
-          ref={videoRef}
-          src={videoUrl}
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="auto"
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          className="w-full h-full object-cover select-none pointer-events-none"
-        />
+        {isImageFeed ? (
+          <img
+            src={videoUrl}
+            alt="Live Geometry Canvas"
+            className="w-full h-full object-cover select-none pointer-events-none"
+          />
+        ) : (
+          <video
+            ref={videoRef}
+            src={videoUrl}
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+            className="w-full h-full object-cover select-none pointer-events-none"
+          />
+        )}
 
         {/* SVG Drawing Canvas Layer */}
         <svg
