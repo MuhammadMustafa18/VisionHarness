@@ -36,6 +36,7 @@ from visionharness.core.spec import (
 from visionharness.runtime.engine import VisionRuntime, VideoSource
 from visionharness.runtime.live_stream import LiveCameraWorker, LiveStreamRegistry
 from visionharness.core.session_store import SessionStore, ChatMessage, SessionMetadata
+from visionharness.core.alert_store import list_alerts, clear_alerts
 from visionharness.core.diagram import generate_pipeline_svg
 
 app = FastAPI(title="VisionHarness API", version="0.1.0")
@@ -573,4 +574,21 @@ def stop_live_stream(session_id: str):
     """Stops the live camera ingestion worker."""
     LiveStreamRegistry.stop(session_id)
     return {"status": "stopped"}
+
+
+# ============================================================================
+# Real-Time Detection Alerts Endpoints
+# ============================================================================
+
+@app.get("/api/alerts")
+def get_alerts(session_id: Optional[str] = None, object_class: Optional[str] = None, limit: int = 100):
+    """List logged real-time detection alerts (newest first) with optional filters."""
+    return {"alerts": list_alerts(session_id=session_id, object_class=object_class, limit=limit)}
+
+
+@app.delete("/api/alerts")
+def delete_alerts(session_id: Optional[str] = None):
+    """Clear logged alerts (all or for a specific stream session)."""
+    removed = clear_alerts(session_id=session_id)
+    return {"status": "cleared", "removed": removed}
 
