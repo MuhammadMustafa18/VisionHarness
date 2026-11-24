@@ -33,13 +33,13 @@ BRAND_PATHS: Dict[str, List[str]] = {
         "http://{auth}{ip}:8080/videofeed",
     ],
     "generic": [
+        "http://{auth}{ip}:8080/video",
         "rtsp://{auth}{ip}:554/stream1",
         "rtsp://{auth}{ip}:554/live",
         "rtsp://{auth}{ip}:554/Streaming/Channels/101",
         "rtsp://{auth}{ip}:554/cam/realmonitor?channel=1&subtype=0",
         "rtsp://{auth}{ip}:554/h264Preview_01_main",
         "rtsp://{auth}{ip}:8554/live",
-        "http://{auth}{ip}:8080/video",
     ],
 }
 
@@ -169,9 +169,11 @@ def build_candidate_urls(ip: str, username: str = "", password: str = "", brand:
 
 
 def probe_camera_url(url: str) -> bool:
-    """Test if a candidate RTSP/HTTP URL yields a readable video frame."""
-    os.environ.setdefault("OPENCV_FFMPEG_CAPTURE_OPTIONS", "rtsp_transport;tcp")
-    cap = cv2.VideoCapture(url)
+    """Test if a candidate RTSP/HTTP URL yields a readable video frame (fast 3s timeout)."""
+    os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp|stimeout;3000000"
+    cap = cv2.VideoCapture(url, cv2.CAP_FFMPEG)
+    cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 3000)
+    cap.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, 3000)
     if not cap.isOpened():
         cap.release()
         return False
