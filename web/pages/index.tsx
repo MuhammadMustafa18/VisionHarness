@@ -180,6 +180,31 @@ export default function VisionHarnessApp() {
   const [activeMediaFilter, setActiveMediaFilter] = useState<"all" | "live" | "videos" | "models" | "alerts">("all");
   const [activeTab, setActiveTab] = useState<"workspace" | "alerts">("workspace");
 
+  // Unified Detection Alerts State
+  const [detectionAlerts, setDetectionAlerts] = useState<any[]>([]);
+  const [alertCameraFilter, setAlertCameraFilter] = useState<string>("all");
+  const [alertClassFilter, setAlertClassFilter] = useState<string>("all");
+
+  useEffect(() => {
+    let active = true;
+    const fetchAlerts = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/api/alerts?limit=100");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (active && Array.isArray(data.alerts)) {
+          setDetectionAlerts(data.alerts);
+        }
+      } catch {}
+    };
+    fetchAlerts();
+    const timer = setInterval(fetchAlerts, 3000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, []);
+
   // Live Mode State
   const isLiveWorkspace = activeSession?.domain === "live_cctv";
   const [liveStreamUrl, setLiveStreamUrl] = useState("output/demo_vlm_hud_video.mp4");
@@ -1441,8 +1466,8 @@ Capabilities:
               {!sidebarCollapsed && (
                 <div className="flex items-center justify-between flex-1 min-w-0">
                   <span className="truncate">Alerts</span>
-                  <span className="text-[10px] font-mono text-zinc-400 uppercase bg-zinc-800/70 px-1 rounded">
-                    {waConnected ? "Active" : "WA"}
+                  <span className="text-[10px] font-mono text-zinc-400 uppercase bg-zinc-800/70 px-1.5 py-0.5 rounded">
+                    {detectionAlerts.length > 0 ? detectionAlerts.length : waConnected ? "Active" : "WA"}
                   </span>
                 </div>
               )}
@@ -1527,8 +1552,98 @@ Capabilities:
           <div className="flex-1 overflow-y-auto px-8 py-10 select-text bg-[var(--bg-app)]">
             <div className="max-w-3xl mx-auto space-y-8">
               
+              {/* Unified Real-Time Detection Alerts Feed */}
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 text-xs font-mono text-zinc-500 uppercase tracking-wider mb-1">
+                      <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                      Live Detection Alerts
+                    </div>
+                    <h2 className="text-2xl font-semibold text-white tracking-tight">Captured Alerts & Screenshots</h2>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={alertCameraFilter}
+                      onChange={e => setAlertCameraFilter(e.target.value)}
+                      className="bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 outline-none"
+                    >
+                      <option value="all">All Cameras</option>
+                      {Array.from(new Set(detectionAlerts.map(a => a.session_id))).map(sid => (
+                        <option key={sid} value={sid}>{sid}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={alertClassFilter}
+                      onChange={e => setAlertClassFilter(e.target.value)}
+                      className="bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 outline-none"
+                    >
+                      <option value="all">All Objects</option>
+                      {Array.from(new Set(detectionAlerts.flatMap(a => a.detected_classes || []))).map(cls => (
+                        <option key={cls} value={cls}>{cls}</option>
+                      ))}
+                    </select>
+                    {detectionAlerts.length > 0 && (
+                      <button
+                        onClick={async () => {
+                          await fetch("http://localhost:8000/api/alerts", { method: "DELETE" });
+                          setDetectionAlerts([]);
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs text-zinc-400 hover:text-white transition-colors"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {(() => {
+                  const filtered = detectionAlerts.filter(a => {
+                    if (alertCameraFilter !== "all" && a.session_id !== alertCameraFilter) return false;
+                    if (alertClassFilter !== "all" && !(a.detected_classes || []).includes(alertClassFilter)) return false;
+                    return true;
+                  });
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="rounded-2xl border border-zinc-800 bg-[#121316] p-8 text-center text-xs text-zinc-500">
+                        No alerts logged yet. Ask Pi in chat: <span className="text-zinc-300 font-mono">&quot;alert me whenever a person appears with a screenshot&quot;</span>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {filtered.map(a => (
+                        <div key={a.id} className="rounded-2xl border border-zinc-800 bg-[#121316] overflow-hidden shadow-lg">
+                          {a.screenshot_url && (
+                            <a href={`http://localhost:8000${a.screenshot_url}`} target="_blank" rel="noreferrer">
+                              <img
+                                src={`http://localhost:8000${a.screenshot_url}`}
+                                alt={a.rule_label}
+                                className="w-full h-44 object-cover bg-black"
+                              />
+                            </a>
+                          )}
+                          <div className="p-3.5 space-y-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-semibold text-white truncate">{a.rule_label}</span>
+                              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-200 shrink-0">
+                                {a.count} detected
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-[11px] font-mono text-zinc-500">
+                              <span className="truncate">{a.camera_label || a.session_id}</span>
+                              <span className="shrink-0">{a.timestamp}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+
               {/* Header Title */}
-              <div>
+              <div className="pt-4 border-t border-zinc-900">
                 <div className="flex items-center gap-2 text-xs font-mono text-zinc-500 uppercase tracking-wider mb-1">
                   <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
                   Real-Time Notification Gateways
