@@ -22,6 +22,7 @@ from ultralytics import YOLO
 
 from visionharness.core.spec import WorkflowSpec, Point2D
 from visionharness.core.alert_store import add_alert, ALERTS_DIR
+from visionharness.core.live_state import save_live_stream_state, update_live_alert_rule, remove_live_stream_state
 from visionharness.agent.grounding import ground_scene_with_vlm
 
 
@@ -94,12 +95,14 @@ class LiveCameraWorker:
             # Focus YOLO detector strictly on the alerted classes (no distracting extra boxes)
             if self.spec and self.spec.detector:
                 self.spec.detector.classes = list(norm_classes)
+        update_live_alert_rule(self.session_id, self.alert_rule)
         return self.alert_rule
 
     def clear_alert_rule(self) -> None:
         with self.lock:
             self.alert_rule = None
             self.rule_consecutive_hits = 0
+        update_live_alert_rule(self.session_id, None)
 
     def connect_and_capture_snapshot(self) -> Optional[np.ndarray]:
         """Attempts connection and captures a single sharp snapshot frame."""
@@ -141,6 +144,7 @@ class LiveCameraWorker:
 
         # Start continuous frame grabber thread (unless frames are pushed via HTTP/tab share)
         if self.stream_url != "push":
+            save_live_stream_state(self.session_id, self.stream_url, self.alert_rule)
             self.grabber_thread = threading.Thread(target=self._frame_grabber_loop, daemon=True)
             self.grabber_thread.start()
 

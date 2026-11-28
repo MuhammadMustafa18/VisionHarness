@@ -38,6 +38,7 @@ from visionharness.runtime.engine import VisionRuntime, VideoSource
 from visionharness.runtime.live_stream import LiveCameraWorker, LiveStreamRegistry
 from visionharness.core.session_store import SessionStore, ChatMessage, SessionMetadata
 from visionharness.core.alert_store import list_alerts, clear_alerts
+from visionharness.core.live_state import remove_live_stream_state, load_all_live_states
 from visionharness.core.diagram import generate_pipeline_svg
 
 app = FastAPI(title="VisionHarness API", version="0.1.0")
@@ -599,10 +600,35 @@ def _shutdown_live_streams():
         LiveStreamRegistry.stop(sid)
 
 
+@app.on_event("startup")
+def _resume_saved_live_streams():
+    """Auto-resume persisted CCTV streams and alert rules on server boot."""
+    saved = load_all_live_states()
+    for sid, cfg in saved.items():
+        url = cfg.get("stream_url")
+        if not url or url == "push":
+            continue
+        try:
+            worker = LiveStreamRegistry.get_or_create(sid, url)
+            rule = cfg.get("alert_rule")
+            if rule and rule.get("classes"):
+                worker.set_alert_rule(
+                    classes=rule["classes"],
+                    cooldown_sec=rule.get("cooldown_sec", 10.0),
+                    label=rule.get("label", ""),
+                    min_confidence=rule.get("min_confidence", 0.55),
+                    min_consecutive_frames=rule.get("min_consecutive_frames", 3),
+                )
+            worker.start()
+        except Exception as e:
+            print(f"[AutoResume] Failed to resume {sid}: {e}")
+
+
 @app.post("/api/live/{session_id}/stop")
 def stop_live_stream(session_id: str):
-    """Stops the live camera ingestion worker."""
+    """Stops the live camera ingestion worker and clears persisted auto-resume state."""
     LiveStreamRegistry.stop(session_id)
+    remove_live_stream_state(session_id)
     return {"status": "stopped"}
 
 
