@@ -1606,9 +1606,12 @@ Capabilities:
         {/* Bottom Actions: Trash & Collapse (Flow Style) */}
         <div className="p-3 border-t border-zinc-900/90 space-y-1 shrink-0">
           <button
-            onClick={() => {
-              if (confirm("Clear local chat history?")) {
+            onClick={async () => {
+              if (confirm("Clear local chat history and reset Pi memory?")) {
                 setMessages([]);
+                try {
+                  await fetch(`http://localhost:8000/api/sessions/${activeSessionId}/reset`, { method: "POST" });
+                } catch {}
               }
             }}
             className="w-full flex items-center gap-3.5 px-3 py-2 rounded-xl text-sm font-medium text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/60 transition-colors text-left"
@@ -2185,7 +2188,17 @@ Capabilities:
                   <Activity className="w-4 h-4 text-zinc-300" />
                   <span className="text-xs font-semibold text-zinc-200">VisionOps Chat</span>
                 </div>
-                <span className="text-[10px] font-mono text-zinc-500">{selectedModel}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono text-zinc-500">{selectedModel}</span>
+                  <button
+                    onClick={handleNewLiveChat}
+                    title="Start a new chat session"
+                    className="px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/80 text-[11px] font-medium text-zinc-200 flex items-center gap-1 transition-colors"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>New</span>
+                  </button>
+                </div>
               </div>
 
               {/* Chat Messages Feed */}

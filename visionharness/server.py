@@ -126,6 +126,23 @@ def save_workspace(session_id: str, body: Dict[str, Any]):
     return {"status": "saved"}
 
 
+@app.post("/api/sessions/{session_id}/reset")
+def reset_session(session_id: str):
+    """Reset Pi agent context for a session so it starts fresh."""
+    import urllib.request
+    try:
+        req = urllib.request.Request(
+            f"{PI_BRIDGE_URL.rstrip('/')}/session/reset",
+            data=json.dumps({"session_id": session_id}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        urllib.request.urlopen(req, timeout=5).read()
+    except Exception:
+        pass
+    return {"status": "reset", "session_id": session_id}
+
+
 @app.get("/api/status")
 def status():
     """Return backend status and active auth mode."""
