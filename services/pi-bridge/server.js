@@ -554,6 +554,11 @@ const server = http.createServer(async (req, res) => {
         }
       });
 
+      if (session.isStreaming) {
+        try {
+          await session.abort();
+        } catch {}
+      }
       await session.prompt(fullPrompt);
       writeSse(res, { type: "done", workspace: workspaceRef.current });
     } catch (err) {
