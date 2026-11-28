@@ -91,13 +91,9 @@ class LiveCameraWorker:
             }
             self.last_rule_alert_time = 0.0
             self.rule_consecutive_hits = 0
-            # Ensure YOLO detector actually detects the alerted classes
+            # Focus YOLO detector strictly on the alerted classes (no distracting extra boxes)
             if self.spec and self.spec.detector:
-                existing = [c.lower() for c in (self.spec.detector.classes or [])]
-                for c in norm_classes:
-                    if c not in existing:
-                        existing.append(c)
-                self.spec.detector.classes = existing
+                self.spec.detector.classes = list(norm_classes)
         return self.alert_rule
 
     def clear_alert_rule(self) -> None:
