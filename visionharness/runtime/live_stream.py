@@ -50,6 +50,8 @@ class LiveCameraWorker:
         self.total_entered = 0
         self.current_inside = 0
         self.peak_occupancy = 0
+        self.in_count = 0
+        self.out_count = 0
         self.unique_track_ids = set()
         
         # Thread control
@@ -318,8 +320,14 @@ class LiveCameraWorker:
                 self.last_wa_alert_time = time.time()
                 self._dispatch_whatsapp_alert(cur_inside_count, raw)
 
+            total_in = 0
+            total_out = 0
             for lz in self.line_zones:
                 lz.trigger(detections=detections)
+                total_in += int(getattr(lz, "in_count", 0))
+                total_out += int(getattr(lz, "out_count", 0))
+            self.in_count = total_in
+            self.out_count = total_out
 
             # Annotate Frame
             annotated = raw.copy()
@@ -447,6 +455,8 @@ class LiveCameraWorker:
                 "total_entered": self.total_entered,
                 "current_inside": self.current_inside,
                 "peak_occupancy": self.peak_occupancy,
+                "in_count": self.in_count,
+                "out_count": self.out_count,
             }
 
     def _dispatch_whatsapp_alert(self, count: int, frame: np.ndarray):
