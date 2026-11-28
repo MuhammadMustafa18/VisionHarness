@@ -585,6 +585,13 @@ async def push_live_frame(session_id: str, request: Request):
     return {"status": "ok"}
 
 
+@app.on_event("shutdown")
+def _shutdown_live_streams():
+    """Stop all live camera workers cleanly so uvicorn --reload never hangs on open MJPEG feeds."""
+    for sid in list(LiveStreamRegistry._workers.keys()):
+        LiveStreamRegistry.stop(sid)
+
+
 @app.post("/api/live/{session_id}/stop")
 def stop_live_stream(session_id: str):
     """Stops the live camera ingestion worker."""
