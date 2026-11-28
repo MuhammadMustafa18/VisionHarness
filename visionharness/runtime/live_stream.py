@@ -423,6 +423,8 @@ class LiveCameraWorker:
                 "fps": self.fps,
                 "total_frames": self.total_frames,
                 "active_tracks": self.active_tracks,
+                "unique_tracks": len(self.unique_track_ids),
+                "detector_classes": list(self.spec.detector.classes or []) if self.spec and self.spec.detector else [],
                 "total_entered": self.total_entered,
                 "current_inside": self.current_inside,
                 "peak_occupancy": self.peak_occupancy,
