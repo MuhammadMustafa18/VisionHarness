@@ -230,6 +230,7 @@ export default function VisionHarnessApp() {
   const [isLiveFullscreen, setIsLiveFullscreen] = useState(false);
   const [showLiveGeometryEditor, setShowLiveGeometryEditor] = useState(false);
   const [isTabSharing, setIsTabSharing] = useState(false);
+  const [liveFeedNonce, setLiveFeedNonce] = useState(0);
   const tabShareRef = useRef<{ stream: MediaStream | null; timer: number | null; video: HTMLVideoElement | null }>({
     stream: null,
     timer: null,
@@ -271,39 +272,52 @@ export default function VisionHarnessApp() {
       tabShareRef.current = { stream, video, timer: null };
       setIsTabSharing(true);
       setLiveCameraLabel("Shared Tab (Live)");
-      setIsLiveConnected(true);
 
       stream.getVideoTracks()[0].addEventListener("ended", () => {
         handleStopTabShare();
       });
 
-      const timer = window.setInterval(() => {
-        if (inFlight || !ctx || video.readyState < 2) return;
+      const sendFrame = async () => {
+        if (inFlight || !ctx || video.readyState < 2 || !video.videoWidth) return false;
         const maxW = 960;
         const scale = video.videoWidth > maxW ? maxW / video.videoWidth : 1;
         canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
         canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         inFlight = true;
-        canvas.toBlob(
-          async (blob) => {
-            try {
-              if (blob) {
-                await fetch(`http://localhost:8000/api/live/${activeSessionId}/push-frame`, {
-                  method: "POST",
-                  headers: { "Content-Type": "image/jpeg" },
-                  body: blob,
-                });
+        return new Promise<boolean>((resolve) => {
+          canvas.toBlob(
+            async (blob) => {
+              let ok = false;
+              try {
+                if (blob) {
+                  const r = await fetch(`http://localhost:8000/api/live/${activeSessionId}/push-frame`, {
+                    method: "POST",
+                    headers: { "Content-Type": "image/jpeg" },
+                    body: blob,
+                  });
+                  ok = r.ok;
+                }
+              } catch {
+                // ignore transient frame push errors
+              } finally {
+                inFlight = false;
+                resolve(ok);
               }
-            } catch {
-              // ignore transient frame push errors
-            } finally {
-              inFlight = false;
-            }
-          },
-          "image/jpeg",
-          0.72
-        );
+            },
+            "image/jpeg",
+            0.72
+          );
+        });
+      };
+
+      // Push first frame before mounting <img> so /api/live/{id}/feed never 404s
+      await sendFrame();
+      setLiveFeedNonce(Date.now());
+      setIsLiveConnected(true);
+
+      const timer = window.setInterval(() => {
+        sendFrame();
       }, 150);
 
       tabShareRef.current.timer = timer;
@@ -2065,7 +2079,7 @@ Capabilities:
                     ) : (
                     <div className="relative w-full max-w-4xl max-h-[78vh] aspect-[16/9] rounded-2xl overflow-hidden bg-black border border-zinc-800 shadow-2xl flex items-center justify-center">
                       <img
-                        src={`http://localhost:8000/api/live/${activeSessionId}/feed`}
+                        src={`http://localhost:8000/api/live/${activeSessionId}/feed?t=${liveFeedNonce}`}
                         alt="Live Stream Feed"
                         className="w-full h-full object-cover select-none"
                       />
