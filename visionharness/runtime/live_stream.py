@@ -189,7 +189,10 @@ class LiveCameraWorker:
                       int(pt.y * h) if pt.y <= 1.0 else int(pt.y)] for pt in z.polygon],
                     dtype=np.int32
                 )
-                pz = sv.PolygonZone(polygon=pts, frame_resolution_wh=(w, h))
+                pz = sv.PolygonZone(
+                    polygon=pts,
+                    triggering_anchors=[sv.Position.CENTER],
+                )
                 pza = sv.PolygonZoneAnnotator(zone=pz, color=sv.Color.from_hex("#10b981"), thickness=2)
                 self.polygon_zones.append(pz)
                 self.polygon_annotators.append(pza)
