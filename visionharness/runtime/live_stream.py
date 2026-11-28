@@ -136,13 +136,25 @@ class LiveCameraWorker:
 
         self._setup_geometry()
 
-        # Start continuous frame grabber thread
-        self.grabber_thread = threading.Thread(target=self._frame_grabber_loop, daemon=True)
-        self.grabber_thread.start()
+        # Start continuous frame grabber thread (unless frames are pushed via HTTP/tab share)
+        if self.stream_url != "push":
+            self.grabber_thread = threading.Thread(target=self._frame_grabber_loop, daemon=True)
+            self.grabber_thread.start()
 
         # Start inference processing thread
         self.inference_thread = threading.Thread(target=self._inference_loop, daemon=True)
         self.inference_thread.start()
+
+    def push_frame_bytes(self, jpeg_bytes: bytes) -> bool:
+        """Accept a JPEG-encoded frame pushed from the browser (e.g. Share Tab)."""
+        arr = np.frombuffer(jpeg_bytes, dtype=np.uint8)
+        frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        if frame is None:
+            return False
+        with self.lock:
+            self.last_raw_frame = frame
+            self.is_connected = True
+        return True
 
     def update_spec(self, new_spec: WorkflowSpec):
         """Updates active tracking geometry and parameters on the fly."""

@@ -14,7 +14,7 @@ import json
 import time
 import shutil
 from typing import Dict, Any, Optional
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
@@ -567,6 +567,22 @@ def update_live_spec(session_id: str, spec: WorkflowSpec):
         worker.update_spec(spec)
         return {"status": "updated"}
     return {"status": "not_found"}
+
+
+@app.post("/api/live/{session_id}/push-frame")
+async def push_live_frame(session_id: str, request: Request):
+    """Ingests a JPEG frame pushed from browser tab/screen capture."""
+    body = await request.body()
+    if not body:
+        raise HTTPException(status_code=400, detail="Empty frame payload")
+    worker = LiveStreamRegistry.get(session_id)
+    if not worker or not worker.is_running:
+        worker = LiveStreamRegistry.get_or_create(session_id, "push")
+        worker.start()
+    ok = worker.push_frame_bytes(body)
+    if not ok:
+        raise HTTPException(status_code=400, detail="Invalid JPEG frame")
+    return {"status": "ok"}
 
 
 @app.post("/api/live/{session_id}/stop")
