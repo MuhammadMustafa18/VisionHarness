@@ -13,6 +13,7 @@ import os
 import json
 import time
 import shutil
+import asyncio
 from typing import Dict, Any, Optional
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -532,20 +533,25 @@ async def connect_live_stream(req: LiveConnectRequest):
     }
 
 
+SHUTDOWN_EVENT = asyncio.Event()
+
+
 @app.get("/api/live/{session_id}/feed")
-def live_mjpeg_feed(session_id: str):
-    """Streams live MJPEG frames with real-time HUD and detections to browser."""
+async def live_mjpeg_feed(session_id: str, request: Request):
+    """Streams live MJPEG frames with graceful disconnect and shutdown handling."""
     worker = LiveStreamRegistry.get(session_id)
     if not worker:
         raise HTTPException(status_code=404, detail="Live stream not found or not active.")
 
-    def frame_generator():
-        while worker.is_running:
+    async def frame_generator():
+        while worker.is_running and not SHUTDOWN_EVENT.is_set():
+            if await request.is_disconnected():
+                break
             jpeg = worker.get_latest_jpeg()
             if jpeg:
                 yield (b"--frame\r\n"
                        b"Content-Type: image/jpeg\r\n\r\n" + jpeg + b"\r\n")
-            time.sleep(0.04)
+            await asyncio.sleep(0.04)
 
     return StreamingResponse(frame_generator(), media_type="multipart/x-mixed-replace; boundary=frame")
 
@@ -587,7 +593,8 @@ async def push_live_frame(session_id: str, request: Request):
 
 @app.on_event("shutdown")
 def _shutdown_live_streams():
-    """Stop all live camera workers cleanly so uvicorn --reload never hangs on open MJPEG feeds."""
+    """Signal MJPEG generators to exit and stop all live camera workers cleanly."""
+    SHUTDOWN_EVENT.set()
     for sid in list(LiveStreamRegistry._workers.keys()):
         LiveStreamRegistry.stop(sid)
 
