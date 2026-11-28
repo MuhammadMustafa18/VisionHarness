@@ -50,7 +50,8 @@ import {
   LogOut,
   QrCode,
   Paperclip,
-  X
+  X,
+  Square
 } from "lucide-react";
 
 interface WorkflowSession {
@@ -184,6 +185,17 @@ export default function VisionHarnessApp() {
   const [detectionAlerts, setDetectionAlerts] = useState<any[]>([]);
   const [alertCameraFilter, setAlertCameraFilter] = useState<string>("all");
   const [alertClassFilter, setAlertClassFilter] = useState<string>("all");
+
+  // Stop push-frame tab-share worker cleanly if user refreshes/closes browser tab
+  useEffect(() => {
+    const onUnload = () => {
+      if (tabShareRef.current.stream) {
+        navigator.sendBeacon(`http://localhost:8000/api/live/${activeSessionId}/stop`);
+      }
+    };
+    window.addEventListener("beforeunload", onUnload);
+    return () => window.removeEventListener("beforeunload", onUnload);
+  }, [activeSessionId]);
 
   // Auto-sync live stream preview if backend already has an active worker for this session
   useEffect(() => {
@@ -2034,6 +2046,14 @@ Capabilities:
                       >
                         <Video className="w-3 h-3" />
                         <span>{isTabSharing ? "Stop Share" : "Share Tab"}</span>
+                      </button>
+                      <button
+                        onClick={handleStopTabShare}
+                        className="px-2.5 py-1 rounded-lg bg-red-500/15 hover:bg-red-500/25 border border-red-500/40 text-red-300 text-xs font-medium flex items-center gap-1.5 transition-colors"
+                        title="Stop monitoring and disconnect live stream"
+                      >
+                        <Square className="w-3 h-3" />
+                        <span>Stop</span>
                       </button>
                       <button
                         onClick={() => setShowLiveConnectModal(true)}
