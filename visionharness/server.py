@@ -232,8 +232,8 @@ async def react_agent_endpoint(req: AgentChatRequest):
                     yield sse_chunk
                 return
             except Exception as e:
-                if os.getenv("PI_BRIDGE_REQUIRED", "0") in ("1", "true"):
-                    yield f"data: {json.dumps({'type': 'error', 'message': f'Pi bridge error: {e}'})}\n\n"
+                if os.getenv("PI_BRIDGE_REQUIRED", "1") in ("1", "true"):
+                    yield f"data: {json.dumps({'type': 'error', 'message': f'Pi bridge unreachable ({PI_BRIDGE_URL}): {e}'})}\n\n"
                     yield f"data: {json.dumps({'type': 'done', 'workspace': workspace})}\n\n"
                     return
                 print(f"[Pi Bridge Fallback] {e} — falling back to legacy react_agent")
