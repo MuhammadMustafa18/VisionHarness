@@ -2194,10 +2194,11 @@ Capabilities:
                       setSelectedComponent(null);
                     }}
                     title="Switch chat session"
-                    className="bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 rounded-lg px-2 py-1 text-xs font-medium text-zinc-200 outline-none truncate max-w-[170px] cursor-pointer"
+                    style={{ colorScheme: "dark" }}
+                    className="bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded-lg px-2 py-1 text-xs font-medium text-zinc-100 outline-none truncate max-w-[170px] cursor-pointer"
                   >
                     {sessions.map(s => (
-                      <option key={s.id} value={s.id}>
+                      <option key={s.id} value={s.id} className="bg-zinc-900 text-zinc-100">
                         {s.name || s.id}
                       </option>
                     ))}
