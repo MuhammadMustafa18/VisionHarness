@@ -331,7 +331,7 @@ export default function VisionHarnessApp() {
 
       const timer = window.setInterval(() => {
         sendFrame();
-      }, 150);
+      }, 60);
 
       tabShareRef.current.timer = timer;
     } catch {
@@ -1015,6 +1015,13 @@ Capabilities:
                         ...(toolStats ? { stats: toolStats, videoUrl: toolVideoUrl } : {})
                       }
                     : m
+                )
+              );
+            } else if (chunk.type === "error" && chunk.message) {
+              accumulatedText += (accumulatedText ? "\n\n" : "") + `⚠️ ${chunk.message}`;
+              setMessages(prev =>
+                prev.map(m =>
+                  m.id === assistantMsgId ? { ...m, text: accumulatedText } : m
                 )
               );
             } else if (chunk.type === "done" && chunk.workspace) {
