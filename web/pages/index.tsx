@@ -2091,12 +2091,15 @@ Capabilities:
                               ...prev,
                               spec: { ...(prev.spec || {}), ...updatedSpec, geometry_type: geom.geometry_type },
                             }));
-                            await fetch(`http://localhost:8000/api/live/${activeSessionId}/update-spec`, {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify(updatedSpec),
-                            });
-                            setShowLiveGeometryEditor(false);
+                            try {
+                              await fetch(`http://localhost:8000/api/live/${activeSessionId}/update-spec`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(updatedSpec),
+                              });
+                            } catch (err) {
+                              console.warn("Failed to sync live zone spec:", err);
+                            }
                           }}
                         />
                       </div>
