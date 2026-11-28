@@ -302,6 +302,7 @@ def _set_alert_rule(tool_input: Dict[str, Any], workspace: Dict[str, Any]) -> Di
     label = tool_input.get("label") or f"Alert on {', '.join(classes)}"
     min_confidence = float(tool_input.get("min_confidence") or 0.55)
     min_consecutive_frames = int(tool_input.get("min_consecutive_frames") or 3)
+    max_alerts = tool_input.get("max_alerts")
 
     rule = worker.set_alert_rule(
         classes=classes,
@@ -309,6 +310,7 @@ def _set_alert_rule(tool_input: Dict[str, Any], workspace: Dict[str, Any]) -> Di
         label=label,
         min_confidence=min_confidence,
         min_consecutive_frames=min_consecutive_frames,
+        max_alerts=int(max_alerts) if max_alerts else None,
     )
     return {
         "status": "armed",

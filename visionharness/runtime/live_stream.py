@@ -71,6 +71,7 @@ class LiveCameraWorker:
         self.alert_rule: Optional[Dict[str, Any]] = None
         self.last_rule_alert_time = 0.0
         self.rule_consecutive_hits = 0
+        self.rule_alerts_fired = 0
 
     def set_alert_rule(
         self,
@@ -79,6 +80,7 @@ class LiveCameraWorker:
         label: str = "",
         min_confidence: float = 0.55,
         min_consecutive_frames: int = 3,
+        max_alerts: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Arm a real-time object detection alert rule on this live stream."""
         norm_classes = [str(c).strip().lower() for c in classes if str(c).strip()]
@@ -89,9 +91,11 @@ class LiveCameraWorker:
                 "label": label or f"Alert on {', '.join(norm_classes)}",
                 "min_confidence": max(0.1, min(0.99, float(min_confidence))),
                 "min_consecutive_frames": max(1, int(min_consecutive_frames)),
+                "max_alerts": int(max_alerts) if max_alerts and int(max_alerts) > 0 else None,
             }
             self.last_rule_alert_time = 0.0
             self.rule_consecutive_hits = 0
+            self.rule_alerts_fired = 0
             # Focus YOLO detector strictly on the alerted classes (no distracting extra boxes)
             if self.spec and self.spec.detector:
                 self.spec.detector.classes = list(norm_classes)
@@ -370,6 +374,10 @@ class LiveCameraWorker:
                         screenshot_url=f"/output/alerts/{snap_name}",
                         screenshot_path=snap_path,
                     )
+                    self.rule_alerts_fired += 1
+                    max_a = rule.get("max_alerts")
+                    if max_a and self.rule_alerts_fired >= max_a:
+                        self.clear_alert_rule()
 
             # Calculate FPS
             now = time.time()

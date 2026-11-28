@@ -358,6 +358,7 @@ function buildVisionTools(workspaceRef) {
           cooldown_sec: Type.Optional(Type.Number({ description: "Minimum seconds between alerts (default 10)" })),
           min_confidence: Type.Optional(Type.Number({ description: "Minimum detection confidence 0.1-0.99 (default 0.55)" })),
           min_consecutive_frames: Type.Optional(Type.Number({ description: "Consecutive frames required before firing alert (default 3)" })),
+          max_alerts: Type.Optional(Type.Number({ description: "Optional max number of alerts to fire before auto-disarming (e.g. 5 for 'first 5 people')" })),
           label: Type.Optional(Type.String({ description: "Human-readable rule label" })),
           session_id: Type.Optional(Type.String({ description: "Optional live stream session ID" })),
         }),
