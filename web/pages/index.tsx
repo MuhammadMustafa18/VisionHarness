@@ -229,6 +229,88 @@ export default function VisionHarnessApp() {
   const [isLiveConnecting, setIsLiveConnecting] = useState(false);
   const [isLiveFullscreen, setIsLiveFullscreen] = useState(false);
   const [showLiveGeometryEditor, setShowLiveGeometryEditor] = useState(false);
+  const [isTabSharing, setIsTabSharing] = useState(false);
+  const tabShareRef = useRef<{ stream: MediaStream | null; timer: number | null; video: HTMLVideoElement | null }>({
+    stream: null,
+    timer: null,
+    video: null,
+  });
+
+  const handleStopTabShare = async () => {
+    if (tabShareRef.current.timer) {
+      window.clearInterval(tabShareRef.current.timer);
+      tabShareRef.current.timer = null;
+    }
+    if (tabShareRef.current.stream) {
+      tabShareRef.current.stream.getTracks().forEach(t => t.stop());
+      tabShareRef.current.stream = null;
+    }
+    tabShareRef.current.video = null;
+    setIsTabSharing(false);
+    try {
+      await fetch(`http://localhost:8000/api/live/${activeSessionId}/stop`, { method: "POST" });
+    } catch {}
+    setIsLiveConnected(false);
+  };
+
+  const handleStartTabShare = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: { ideal: 10, max: 15 } },
+        audio: false,
+      });
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      video.muted = true;
+      await video.play();
+
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      let inFlight = false;
+
+      tabShareRef.current = { stream, video, timer: null };
+      setIsTabSharing(true);
+      setLiveCameraLabel("Shared Tab (Live)");
+      setIsLiveConnected(true);
+
+      stream.getVideoTracks()[0].addEventListener("ended", () => {
+        handleStopTabShare();
+      });
+
+      const timer = window.setInterval(() => {
+        if (inFlight || !ctx || video.readyState < 2) return;
+        const maxW = 960;
+        const scale = video.videoWidth > maxW ? maxW / video.videoWidth : 1;
+        canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+        canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        inFlight = true;
+        canvas.toBlob(
+          async (blob) => {
+            try {
+              if (blob) {
+                await fetch(`http://localhost:8000/api/live/${activeSessionId}/push-frame`, {
+                  method: "POST",
+                  headers: { "Content-Type": "image/jpeg" },
+                  body: blob,
+                });
+              }
+            } catch {
+              // ignore transient frame push errors
+            } finally {
+              inFlight = false;
+            }
+          },
+          "image/jpeg",
+          0.72
+        );
+      }, 150);
+
+      tabShareRef.current.timer = timer;
+    } catch {
+      // user cancelled picker
+    }
+  };
   const [showLiveConnectModal, setShowLiveConnectModal] = useState(false);
   const [liveCameraLabel, setLiveCameraLabel] = useState("CAM-01: Live Camera Feed");
   const [liveFps, setLiveFps] = useState(0.0);
@@ -1929,6 +2011,17 @@ Capabilities:
                         <span>{showLiveGeometryEditor ? "Close Zone Editor" : "Draw Zone"}</span>
                       </button>
                       <button
+                        onClick={isTabSharing ? handleStopTabShare : handleStartTabShare}
+                        className={`px-2.5 py-1 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                          isTabSharing
+                            ? "bg-red-500/20 border-red-500/50 text-red-300 hover:bg-red-500/30"
+                            : "bg-zinc-800 hover:bg-zinc-700 border-zinc-700/80 text-zinc-200"
+                        }`}
+                      >
+                        <Video className="w-3 h-3" />
+                        <span>{isTabSharing ? "Stop Share" : "Share Tab"}</span>
+                      </button>
+                      <button
                         onClick={() => setShowLiveConnectModal(true)}
                         className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/80 text-zinc-200 text-xs font-medium flex items-center gap-1.5 transition-colors"
                       >
@@ -2024,8 +2117,15 @@ Capabilities:
                   </div>
                   <p className="text-sm font-medium text-zinc-300">No stream or video linked</p>
                   <p className="text-xs text-zinc-500 mt-1 max-w-xs">
-                    Link a CCTV stream URL or upload a video in the chat on the right to view it here.
+                    Link a CCTV stream URL or upload a video in the chat on the right, or share any browser tab (like a YouTube live cam).
                   </p>
+                  <button
+                    onClick={handleStartTabShare}
+                    className="mt-4 px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-semibold flex items-center gap-2 shadow transition-colors"
+                  >
+                    <Video className="w-3.5 h-3.5" />
+                    <span>Share Tab as Live Stream</span>
+                  </button>
                 </div>
               )}
             </div>
