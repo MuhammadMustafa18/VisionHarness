@@ -39,6 +39,9 @@ class LiveCameraWorker:
         self.last_raw_frame: Optional[np.ndarray] = None
         self.last_annotated_frame: Optional[np.ndarray] = None
         self.last_jpeg_bytes: Optional[bytes] = None
+        self._frame_seq = 0
+        self._last_processed_seq = -1
+        self.live_imgsz = int(os.getenv("VISIONHARNESS_LIVE_IMGSZ", "320"))
         
         # Telemetry metrics
         self.fps = 0.0
@@ -164,6 +167,7 @@ class LiveCameraWorker:
             return False
         with self.lock:
             self.last_raw_frame = frame
+            self._frame_seq += 1
             self.is_connected = True
         return True
 
@@ -251,11 +255,12 @@ class LiveCameraWorker:
         while self.is_running:
             raw = None
             with self.lock:
-                if self.last_raw_frame is not None:
+                if self.last_raw_frame is not None and self._frame_seq != self._last_processed_seq:
                     raw = self.last_raw_frame.copy()
+                    self._last_processed_seq = self._frame_seq
 
             if raw is None:
-                time.sleep(0.04)
+                time.sleep(0.02)
                 continue
 
             # Class mapping
@@ -266,11 +271,12 @@ class LiveCameraWorker:
                 if c_ids:
                     class_ids = c_ids
 
-            # YOLO inference + ByteTrack
+            # YOLO inference + ByteTrack (imgsz=320 default for fast CPU real-time FPS)
             results = self.model.track(
                 raw,
                 persist=True,
                 tracker="bytetrack.yaml",
+                imgsz=self.live_imgsz,
                 conf=self.spec.detector.confidence,
                 classes=class_ids,
                 verbose=False
@@ -387,7 +393,7 @@ class LiveCameraWorker:
             self.total_frames += 1
 
             # Encode to JPEG for MJPEG stream
-            _, jpeg = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 80])
+            _, jpeg = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 68])
             with self.lock:
                 self.last_annotated_frame = annotated
                 self.last_jpeg_bytes = jpeg.tobytes()
