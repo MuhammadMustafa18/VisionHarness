@@ -292,11 +292,13 @@ class LiveCameraWorker:
                                     self.zone_visitor_frames[tid] = cur_f
                                     if cur_f >= 5:
                                         self.total_entered = len([k for k, v in self.zone_visitor_frames.items() if v >= 5])
+                        elif cur_inside_count > self.total_entered:
+                            self.total_entered = cur_inside_count
 
             if cur_inside_count > self.peak_occupancy:
                 self.peak_occupancy = cur_inside_count
             self.current_inside = cur_inside_count
-            self.active_tracks = len(active_tids)
+            self.active_tracks = len(active_tids) if active_tids else len(detections)
 
             # WhatsApp Alert Trigger Hook (Throttle: at most 1 alert every 45 seconds)
             if cur_inside_count > 0 and (time.time() - self.last_wa_alert_time) > 45:
