@@ -344,6 +344,8 @@ export default function VisionHarnessApp() {
   const [liveActiveTracks, setLiveActiveTracks] = useState(0);
   const [liveZoneFootfall, setLiveZoneFootfall] = useState(0);
   const [liveCurrentInside, setLiveCurrentInside] = useState(0);
+  const [liveInCount, setLiveInCount] = useState(0);
+  const [liveOutCount, setLiveOutCount] = useState(0);
   const [liveSnapshotUrl, setLiveSnapshotUrl] = useState<string | null>(null);
 
   // WhatsApp Alert Bridge State (Recluze Style)
@@ -719,6 +721,8 @@ Capabilities:
             setLiveActiveTracks(t.active_tracks || 0);
             setLiveZoneFootfall(t.total_entered || 0);
             setLiveCurrentInside(t.current_inside || 0);
+            setLiveInCount(t.in_count || 0);
+            setLiveOutCount(t.out_count || 0);
           }
         }
       } catch (e) {}
@@ -2134,6 +2138,12 @@ Capabilities:
                           <span className="text-zinc-400">Tracks</span>
                           <span className="text-zinc-200 font-bold">{liveActiveTracks}</span>
                         </div>
+                        {(liveInCount > 0 || liveOutCount > 0 || (workspaceState.spec?.lines?.length ?? 0) > 0) && (
+                          <div className="flex items-center justify-between text-xs font-mono pt-1 border-t border-zinc-800">
+                            <span className="text-zinc-400">Line In / Out</span>
+                            <span className="text-emerald-400 font-bold">{liveInCount} / {liveOutCount}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     )}
