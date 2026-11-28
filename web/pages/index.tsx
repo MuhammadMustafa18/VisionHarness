@@ -2184,13 +2184,26 @@ Capabilities:
               style={{ width: chatSidebarWidth }}
               className="flex flex-col bg-zinc-900/90 border-l border-zinc-800 shrink-0 h-full overflow-hidden select-text"
             >
-              <div className="h-12 border-b border-zinc-800 px-4 flex items-center justify-between bg-zinc-900 shrink-0">
-                <div className="flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-zinc-300" />
-                  <span className="text-xs font-semibold text-zinc-200">VisionOps Chat</span>
+              <div className="h-12 border-b border-zinc-800 px-3 flex items-center justify-between gap-2 bg-zinc-900 shrink-0">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <Activity className="w-4 h-4 text-zinc-300 shrink-0" />
+                  <select
+                    value={activeSessionId}
+                    onChange={e => {
+                      setActiveSessionId(e.target.value);
+                      setSelectedComponent(null);
+                    }}
+                    title="Switch chat session"
+                    className="bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 rounded-lg px-2 py-1 text-xs font-medium text-zinc-200 outline-none truncate max-w-[170px] cursor-pointer"
+                  >
+                    {sessions.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.name || s.id}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono text-zinc-500">{selectedModel}</span>
+                <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={() => {
                       if (isLiveConnected || isTabSharing) {
